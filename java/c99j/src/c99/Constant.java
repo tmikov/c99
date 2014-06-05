@@ -9,9 +9,14 @@ public abstract static class ArithC
 {
   public final Types.TypeSpec spec;
 
-  protected ArithC ( Types.TypeSpec spec_ ) { spec = spec_; }
+  protected ArithC ( Types.TypeSpec spec_ )
+  {
+    assert spec_.arithmetic;
+    this.spec = spec_;
+  }
 
   public abstract void assign ( ArithC a );
+  public abstract void castFrom ( ArithC a );
 
   public abstract boolean isZero ();
   public final boolean isTrue ()
@@ -92,6 +97,15 @@ public static final class IntC extends ArithC
   {
     assert this.spec == a.spec;
     m_value = ((IntC)a).m_value;
+  }
+
+  @Override
+  public final void castFrom ( ArithC a )
+  {
+    if (!a.spec.floating)
+      setValue( ((IntC)a).m_value );
+    else
+      setValue( (long)((RealC)a).m_value );
   }
 
   @Override
@@ -253,6 +267,15 @@ public static final class RealC extends ArithC
     assert this.spec == a.spec;
     m_value = ((RealC)a).m_value;
   }
+  @Override
+  public final void castFrom ( ArithC a )
+  {
+    if (a.spec.floating)
+      setValue( ((RealC)a).m_value );
+    else
+      setValue( ((IntC)a).m_value );
+  }
+
   @Override
   public final boolean isZero ()
   {
