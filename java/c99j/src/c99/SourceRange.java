@@ -40,9 +40,10 @@ public final SourceRange setRange ( int line1, int col1, int line2, int col2 )
   return this;
 }
 
-public final void setFileName ( String fileName )
+public final SourceRange setFileName ( String fileName )
 {
   this.fileName1 = this.fileName2 = fileName;
+  return this;
 }
 
 public final SourceRange setLocation ( String fileName, int line, int col )

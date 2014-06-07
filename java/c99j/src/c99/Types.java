@@ -5,21 +5,27 @@ import java.util.HashMap;
 public interface Types
 {
 
+public static final int CHAR_BITS = 8;
+public static final int SHORT_BITS = 16;
+public static final int INT_BITS = 32;
+public static final int LONG_BITS = 32;
+public static final int LONGLONG_BITS = 64;
+
 public static enum TypeSpec
 {
   VOID(),
 
   BOOL(false,1),
-  SCHAR(true,8),
-  UCHAR(false,8),
-  SSHORT(true,16),
-  USHORT(false,16),
-  SINT(true,32),
-  UINT(false,32),
-  SLONG(true,32),
-  ULONG(false,32),
-  SLLONG(true,64),
-  ULLONG(false,64),
+  SCHAR(true,CHAR_BITS),
+  UCHAR(false,CHAR_BITS),
+  SSHORT(true,SHORT_BITS),
+  USHORT(false,SHORT_BITS),
+  SINT(true,INT_BITS),
+  UINT(false,INT_BITS),
+  SLONG(true,LONG_BITS),
+  ULONG(false,LONG_BITS),
+  SLLONG(true,LONGLONG_BITS),
+  ULLONG(false,LONGLONG_BITS),
   FLOAT(32),
   DOUBLE(64),
   LDOUBLE(64),
@@ -33,6 +39,10 @@ public static enum TypeSpec
   POINTER(),
 
   ERROR();
+
+  public static final TypeSpec WCHAR_T = UINT;
+  public static final TypeSpec CHAR16_T = USHORT;
+  public static final TypeSpec CHAR32_T = ULONG;
 
   public final boolean arithmetic;
   public final boolean floating;

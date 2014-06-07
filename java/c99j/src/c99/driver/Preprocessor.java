@@ -1,7 +1,8 @@
-package c99;
+package c99.driver;
 
 import java.io.FileInputStream;
 
+import c99.DummyErrorReporter;
 import c99.parser.PP;
 
 public class Preprocessor

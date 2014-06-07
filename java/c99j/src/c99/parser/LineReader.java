@@ -206,26 +206,35 @@ public int getCurLineNumber ()
 
 private final Location m_tmpLoc = new Location();
 
-public void calcRange ( int from, int to, SourceRange rng )
+public final void calcRangeStart ( int from, SourceRange rng )
 {
   calcLocation( from, m_tmpLoc );
   rng.line1 = m_tmpLoc.line;
   rng.col1 = m_tmpLoc.col;
-
-  if (to > from)
-  {
-    calcLocation( to - 1, m_tmpLoc );
-    rng.line2 = m_tmpLoc.line;
-    rng.col2 = m_tmpLoc.col+1;
-  }
-  else
-  {
-    rng.line2 = m_tmpLoc.line;
-    rng.col2 = m_tmpLoc.col;
-  }
 }
 
-public void calcLocation ( int pos, Location loc )
+public final void calcRangeEnd ( int to, SourceRange rng )
+{
+  calcLocation( to - 1, m_tmpLoc );
+  rng.line2 = m_tmpLoc.line;
+  rng.col2 = m_tmpLoc.col+1;
+}
+
+public final SourceRange calcRange ( int from, int to, SourceRange rng )
+{
+  calcRangeStart( from, rng );
+
+  if (to > from)
+    calcRangeEnd( to, rng );
+  else
+  {
+    rng.line2 = rng.line1;
+    rng.col2 = rng.line2;
+  }
+  return rng;
+}
+
+private void calcLocation ( int pos, Location loc )
 {
   pos -= m_lineStart; // Convert into offset
 
