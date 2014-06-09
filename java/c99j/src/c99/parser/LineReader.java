@@ -213,11 +213,12 @@ public final void calcRangeStart ( int from, SourceRange rng )
   rng.col1 = m_tmpLoc.col;
 }
 
-public final void calcRangeEnd ( int to, SourceRange rng )
+public final SourceRange calcRangeEnd ( int to, SourceRange rng )
 {
   calcLocation( to - 1, m_tmpLoc );
   rng.line2 = m_tmpLoc.line;
   rng.col2 = m_tmpLoc.col+1;
+  return rng;
 }
 
 public final SourceRange calcRange ( int from, int to, SourceRange rng )
@@ -229,7 +230,7 @@ public final SourceRange calcRange ( int from, int to, SourceRange rng )
   else
   {
     rng.line2 = rng.line1;
-    rng.col2 = rng.line2;
+    rng.col2 = rng.col1;
   }
   return rng;
 }

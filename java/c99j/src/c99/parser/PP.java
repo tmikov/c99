@@ -5,10 +5,14 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
+import java.util.LinkedList;
 
 import c99.CompilerLimits;
 import c99.IErrorReporter;
+import c99.ISourceRange;
 import c99.SourceRange;
+import c99.Utils;
 
 public class PP
 {
@@ -71,10 +75,15 @@ public static enum TokenCode
   VERTICAL_EQUALS("|="),
 
   COMMA(","),
-  SHARP("#"),
-  SHARP_SHARP("##"),
+  HASH("#"),
+  HASH_HASH("##"),
 
-  OTHER;
+  OTHER,
+
+  /** Macro parameter reference*/
+  MACRO_PARAM,
+  /** '##' token */
+  CONCAT;
 
   public final String printable;
 
@@ -89,7 +98,7 @@ public static enum TokenCode
   }
 }
 
-public static class Token extends SourceRange
+public static abstract class Token implements Cloneable
 {
   public TokenCode code;
 
@@ -97,6 +106,13 @@ public static class Token extends SourceRange
   {
     this.code = code;
   }
+
+  @SuppressWarnings("CloneDoesntDeclareCloneNotSupportedException")
+  public abstract Token clone ();
+
+  public abstract boolean same ( Token tok );
+
+  public abstract int length ();
 
   @Override
   public String toString ()
@@ -110,11 +126,38 @@ public static class Token extends SourceRange
   {}
 }
 
+/**
+ *
+ */
 public static class PunctuatorToken extends Token
 {
+  public PunctuatorToken ( final TokenCode code )
+  {
+    super(code);
+  }
+
   public PunctuatorToken ()
   {
     super( null );
+  }
+
+  @SuppressWarnings("CloneDoesntCallSuperClone")
+  @Override
+  public Token clone ()
+  {
+    return new PunctuatorToken(this.code);
+  }
+
+  @Override
+  public final boolean same ( final Token tok )
+  {
+    return this.code == tok.code;
+  }
+
+  @Override
+  public int length ()
+  {
+    return code.printable.length();
   }
 
   public void output ( PrintStream out ) throws IOException
@@ -123,11 +166,65 @@ public static class PunctuatorToken extends Token
   }
 }
 
+public static class EOFToken extends Token
+{
+  public EOFToken ()
+  {
+    super( TokenCode.EOF );
+  }
+
+  @SuppressWarnings("CloneDoesntCallSuperClone")
+  @Override
+  public Token clone ()
+  {
+    return new EOFToken();
+  }
+
+  @Override
+  public final boolean same ( final Token tok )
+  {
+    return this.code == tok.code;
+  }
+
+  @Override
+  public int length ()
+  {
+    return 0;
+  }
+
+/*
+  @Override
+  public void output ( final PrintStream out ) throws IOException
+  {
+    out.println();
+  }
+*/
+}
+
 public static class NewLineToken extends Token
 {
   public NewLineToken ()
   {
     super( TokenCode.NEWLINE );
+  }
+
+  @SuppressWarnings("CloneDoesntCallSuperClone")
+  @Override
+  public Token clone ()
+  {
+    return new NewLineToken();
+  }
+
+  @Override
+  public final boolean same ( final Token tok )
+  {
+    return this.code == tok.code;
+  }
+
+  @Override
+  public int length ()
+  {
+    return 0;
   }
 
 /*
@@ -141,9 +238,33 @@ public static class NewLineToken extends Token
 
 public static class WhiteSpaceToken extends Token
 {
+  private WhiteSpaceToken ( final TokenCode code )
+  {
+    super(code);
+  }
+
+  @Override
+  public int length ()
+  {
+    return 1;
+  }
+
   public WhiteSpaceToken ()
   {
     super( TokenCode.WHITESPACE );
+  }
+
+  @Override
+  public final boolean same ( final Token tok )
+  {
+    return this.code == tok.code;
+  }
+
+  @SuppressWarnings("CloneDoesntCallSuperClone")
+  @Override
+  public Token clone ()
+  {
+    return new WhiteSpaceToken(this.code);
   }
 
   public void output ( PrintStream out )
@@ -161,6 +282,31 @@ public static class IdentToken extends Token
     super( TokenCode.IDENT );
   }
 
+  public IdentToken ( TokenCode code, Symbol symbol )
+  {
+    super(code);
+    this.symbol = symbol;
+  }
+
+  @SuppressWarnings("CloneDoesntCallSuperClone")
+  @Override
+  public Token clone ()
+  {
+    return new IdentToken(this.code, this.symbol);
+  }
+
+  @Override
+  public final boolean same ( final Token tok )
+  {
+    return this.code == tok.code;
+  }
+
+  @Override
+  public int length ()
+  {
+    return symbol.length();
+  }
+
   @Override
   public void output ( final PrintStream out ) throws IOException
   {
@@ -170,18 +316,49 @@ public static class IdentToken extends Token
 
 public static class PPNumberToken extends Token
 {
-  public final byte[] text = new byte[32];
+  public final byte[] text;
   public int count;
 
   public PPNumberToken ()
   {
     super( TokenCode.PP_NUMBER );
+    this.text = new byte[32];
+  }
+
+  public PPNumberToken ( byte[] buf, int from, int count )
+  {
+    super( TokenCode.PP_NUMBER );
+    this.text = Arrays.copyOfRange( buf, from, from + count );
+    this.count = count;
+  }
+
+  @Override
+  public boolean same ( Token tok )
+  {
+    if (tok.code != this.code)
+      return false;
+    PPNumberToken t = (PPNumberToken)tok;
+    return t.count == this.count && Utils.equals( this.text, 0, t.text, 0, this.count );
+  }
+
+  @Override
+  public int length ()
+  {
+    return this.count;
   }
 
   private void setText ( byte[] buf, int from, int count )
   {
     assert count < text.length;
-    System.arraycopy( buf, from, this.text, 0, this.count = count );
+    System.arraycopy(buf, from, this.text, 0, count );
+    this.count = count;
+  }
+
+  @SuppressWarnings("CloneDoesntCallSuperClone")
+  @Override
+  public Token clone ()
+  {
+    return new PPNumberToken( this.text, 0, this.count );
   }
 
   @Override
@@ -195,18 +372,47 @@ public static class CharConstToken extends Token
 {
   public static final int MAX_LEN = 32;
 
-  public final byte[] text = new byte[MAX_LEN];
+  public final byte[] text;
   public int count;
 
   public CharConstToken ()
   {
     super(TokenCode.CHAR_CONST);
+    this.text = new byte[MAX_LEN];
+  }
+
+  public CharConstToken ( byte[] buf, int from, int count )
+  {
+    super(TokenCode.CHAR_CONST);
+    this.text = Arrays.copyOfRange( buf, from, from + count );
+  }
+
+  @Override
+  public boolean same ( Token tok )
+  {
+    if (tok.code != this.code)
+      return false;
+    PPNumberToken t = (PPNumberToken)tok;
+    return t.count == this.count && Utils.equals( this.text, 0, t.text, 0, this.count );
+  }
+
+  @Override
+  public int length ()
+  {
+    return this.count;
   }
 
   private void setText ( byte[] buf, int from, int count )
   {
     assert count < MAX_LEN;
     System.arraycopy( buf, from, this.text, 0, this.count = count );
+  }
+
+  @SuppressWarnings("CloneDoesntCallSuperClone")
+  @Override
+  public Token clone ()
+  {
+    return new CharConstToken( this.text, 0, this.count );
   }
 
   @Override
@@ -226,10 +432,38 @@ public static class StringConstToken extends Token
     super(TokenCode.STRING_CONST);
   }
 
+  public StringConstToken ( byte[] buf, int from, int count )
+  {
+    super(TokenCode.STRING_CONST);
+    setText( buf, from, count );
+  }
+
+  @Override
+  public boolean same ( Token tok )
+  {
+    if (tok.code != this.code)
+      return false;
+    PPNumberToken t = (PPNumberToken)tok;
+    return t.count == this.count && Utils.equals( this.text, 0, t.text, 0, this.count );
+  }
+
+  @Override
+  public int length ()
+  {
+    return this.count;
+  }
+
   private void setText ( byte[] buf, int from, int count )
   {
     this.count = count;
     text = Arrays.copyOfRange( buf, from, from + count );
+  }
+
+  @SuppressWarnings("CloneDoesntCallSuperClone")
+  @Override
+  public Token clone ()
+  {
+    return new StringConstToken( this.text, 0, this.count );
   }
 
   @Override
@@ -245,6 +479,31 @@ public static class OtherToken extends Token
   public OtherToken ()
   {
     super( TokenCode.OTHER );
+  }
+
+  public OtherToken ( int value )
+  {
+    super( TokenCode.OTHER );
+    this.value = value;
+  }
+
+  @Override
+  public boolean same ( Token tok )
+  {
+    return tok.code == this.code && ((OtherToken)tok).value == this.value;
+  }
+
+  @Override
+  public int length ()
+  {
+    return 1;
+  }
+
+  @SuppressWarnings("CloneDoesntCallSuperClone")
+  @Override
+  public Token clone ()
+  {
+    return new OtherToken( this.value );
   }
 
   @Override
@@ -279,9 +538,7 @@ private LineReader m_reader;
 private int m_start, m_end;
 private int m_cur;
 
-private final SourceRange m_tempRng = new SourceRange();
-
-private final Token m_tokEOF = new Token( TokenCode.EOF );
+private final Token m_tokEOF = new EOFToken();
 private final PunctuatorToken m_tokPunkt = new PunctuatorToken();
 private final NewLineToken m_tokNewLine = new NewLineToken();
 private final WhiteSpaceToken m_tokSpace = new WhiteSpaceToken();
@@ -291,8 +548,10 @@ private final CharConstToken m_tokCharConst = new CharConstToken();
 private final StringConstToken m_tokStringConst = new StringConstToken();
 private final OtherToken m_tokOther = new OtherToken();
 
-/** Most internal parsing functions store their result here */
 private Token m_tok;
+private final SourceRange m_tokRange = new SourceRange();
+
+private final Symbol m_sym_VA_ARGS;
 
 public PP ( final IErrorReporter reporter, String fileName, InputStream input )
 {
@@ -300,6 +559,23 @@ public PP ( final IErrorReporter reporter, String fileName, InputStream input )
   m_fileName = fileName;
   m_reader = new LineReader( input, 16384 );
   m_start = m_end = m_cur = 0;
+
+  m_tokRange.setFileName( m_fileName );
+
+  for ( PPSymCode ppCode : PPSymCode.values() )
+  {
+    Symbol sym = m_symTable.symbol( ppCode.name );
+    assert sym.ppCode == null;
+    sym.ppCode = ppCode;
+  }
+
+  m_sym_VA_ARGS = m_symTable.symbol( PPSymCode.VA_ARGS.name );
+  assert m_sym_VA_ARGS.ppCode == PPSymCode.VA_ARGS;
+}
+
+public ISourceRange lastSourceRange ()
+{
+  return m_tokRange;
 }
 
 private boolean isSpace ( int c )
@@ -360,7 +636,7 @@ private boolean nextLine ()
       if (end+1 < m_reader.getLineEnd() && isSpace( buf[end+1] ))
       {
         m_reporter.warning(
-            m_reader.calcRange( end, end + 1, m_tempRng.setFileName( m_fileName ) ),
+            m_reader.calcRange( end, end + 1, m_tokRange ),
             "backslash and newline separated by space"
         );
       }
@@ -378,13 +654,10 @@ private boolean nextLine ()
   return true;
 }
 
-private Token parseBlockComment ( int cur )
+private void parseBlockComment ( int cur )
 {
   byte [] buf;
   int end;
-
-  m_reader.calcRangeStart( m_cur, m_tempRng );
-  m_tokSpace.code = TokenCode.COMMENT;
 
 outerLoop:
   for(;;)
@@ -406,7 +679,6 @@ outerLoop:
         switch (buf[cur++])
         {
         case '/':
-          m_reader.calcRangeEnd( cur, m_tempRng );
           break outerLoop;
         case '*': break;
         default: state = 1; break;
@@ -419,15 +691,16 @@ outerLoop:
     if (!nextLine())
     {
       cur = m_end;
-      m_reader.calcRangeEnd( cur, m_tempRng );
-      m_reporter.error( m_tempRng, "Unterminated block comment" );
+      m_reader.calcRangeEnd( cur, m_tokRange );
+      m_reporter.error( m_tokRange, "Unterminated block comment" );
       break;
     }
   }
 
-  m_tokSpace.setRange( m_tempRng );
+  m_reader.calcRangeEnd( cur, m_tokRange );
   m_cur = cur;
-  return m_tokSpace;
+  m_tokSpace.code = TokenCode.COMMENT;
+  m_tok = m_tokSpace;
 }
 
 private int parseCharConst ( int cur )
@@ -435,24 +708,25 @@ private int parseCharConst ( int cur )
   int end = m_end;
   byte[] buf = m_reader.getLineBuf();
 
-  while (cur < end && buf[cur] != '\'')
-    if (buf[cur++] == '\\')
-      if (cur < end && buf[cur] == '\'')
-        ++cur;
+  boolean closed = false;
+loop:
+  while (cur < end)
+    switch (buf[cur++])
+    {
+    case '\\': if (cur < end) ++cur; break;
+    case '\'': closed = true; break loop;
+    }
 
-  if (cur < end)
-  {
-    assert buf[cur] == '\'';
-    ++cur;
-  }
-  else
-    m_reporter.error( m_reader.calcRange( m_cur, cur, m_tempRng ), "Unterminated character constant" );
+  m_reader.calcRangeEnd( cur, m_tokRange );
+
+  if (!closed)
+    m_reporter.error( m_tokRange, "Unterminated character constant" );
 
   int len = cur - m_cur;
   if (len > CharConstToken.MAX_LEN)
   {
-    m_reporter.error( m_reader.calcRange( m_cur, cur, m_tempRng ),
-                      "Character constant is too long" );
+    m_reporter.warning( m_reader.calcRange( m_cur, cur, m_tokRange ),
+                        "Character constant is too long" );
     len = CharConstToken.MAX_LEN;
   }
   m_tokCharConst.setText( buf, m_cur, len );
@@ -466,18 +740,19 @@ private int parseStringConst ( int cur )
   int end = m_end;
   byte[] buf = m_reader.getLineBuf();
 
-  while (cur < end && buf[cur] != '"')
-    if (buf[cur++] == '\\')
-      if (cur < end && buf[cur] == '"')
-        ++cur;
+  boolean closed = false;
+loop:
+  while (cur < end)
+    switch (buf[cur++])
+    {
+    case '\\': if (cur < end) ++cur; break;
+    case '"': closed = true; break loop;
+    }
 
-  if (cur < end)
-  {
-    assert buf[cur] == '"';
-    ++cur;
-  }
-  else
-    m_reporter.error( m_reader.calcRange( m_cur, cur, m_tempRng ), "Unterminated string constant" );
+  m_reader.calcRangeEnd( cur, m_tokRange );
+
+  if (!closed)
+    m_reporter.error( m_tokRange, "Unterminated string constant" );
 
   m_tokStringConst.setText( buf, m_cur, cur-m_cur );
   m_tok = m_tokStringConst;
@@ -572,7 +847,7 @@ private final int parsePunctuator ( int cur )
           case ':':
             if (cur + 2 < end && buf[cur+1] == '%' && buf[cur+2] == ':')
             {
-              code = TokenCode.SHARP_SHARP;
+              code = TokenCode.HASH_HASH;
               cur += 3;
               break;
             }
@@ -640,11 +915,11 @@ private final int parsePunctuator ( int cur )
     case '#': // #, ##
       if (++cur < end && buf[cur] == '#')
       {
-        code = TokenCode.SHARP_SHARP;
+        code = TokenCode.HASH_HASH;
         ++cur;
       }
       else
-        code = TokenCode.SHARP;
+        code = TokenCode.HASH;
       break;
 
     case '<': // <, <=, <:, <%, <<, <<=
@@ -705,23 +980,25 @@ private final int parsePunctuator ( int cur )
   return cur;
 }
 
-public final Token nextToken ()
+private final void innerNextToken ()
 {
-  m_tempRng.setFileName( m_fileName );
-
   if (m_cur == m_end)
   {
     if (!nextLine())
     {
-      m_tokEOF.setLocation( m_fileName, m_reader.getCurLineNumber(), 1 );
-      return m_tokEOF;
+      m_tokRange.setLocation( m_reader.getCurLineNumber(), 1 );
+      m_tok = m_tokEOF;
+      return;
     }
     else
     {
-      m_tokNewLine.setRange( m_reader.calcRange( m_cur, m_cur, m_tempRng ) );
-      return m_tokNewLine;
+      m_reader.calcRange( m_cur, m_cur, m_tokRange );
+      m_tok = m_tokNewLine;
+      return;
     }
   }
+
+  m_reader.calcRangeStart( m_cur, m_tokRange );
 
   int cur = m_cur;
   int end = m_end;
@@ -730,7 +1007,6 @@ public final Token nextToken ()
 
   byte[] buf = m_reader.getLineBuf();
 
-  Token res;
   // Whitespace
   //
   if (isAnySpace( buf[cur] ))
@@ -739,21 +1015,22 @@ public final Token nextToken ()
       ++cur;
     while (isAnySpace( buf[cur] ));
 
-    res = m_tokSpace;
-    res.code = TokenCode.WHITESPACE;
+    m_tokSpace.code = TokenCode.WHITESPACE;
+    m_tok = m_tokSpace;
   }
   // Block comment
   else if (buf[cur] == '/' && cur + 1 < end && buf[cur+1] == '*')
   {
-    return parseBlockComment( cur + 2 );
+    parseBlockComment( cur + 2 );
+    return;
   }
   // Line comment
   //
   else if (buf[cur] == '/' && cur + 1 < end && buf[cur+1] == '/')
   {
     cur = end;
-    res = m_tokSpace;
-    res.code = TokenCode.COMMENT;
+    m_tokSpace.code = TokenCode.COMMENT;
+    m_tok = m_tokSpace;
   }
   // Ident
   //
@@ -764,7 +1041,7 @@ public final Token nextToken ()
     while (isIdentBody( buf[cur] ));
 
     m_tokIdent.symbol = m_symTable.symbol( buf, m_cur, cur - m_cur );
-    res = m_tokIdent;
+    m_tok = m_tokIdent;
   }
   // pp-number
   //
@@ -787,42 +1064,509 @@ public final Token nextToken ()
     }
 
     m_tokNumber.setText( buf, m_cur, cur - m_cur );
-    res = m_tokNumber;
+    m_tok = m_tokNumber;
   }
   // Character constant
   else if (buf[cur] == '\'')
   {
     cur = parseCharConst( cur + 1 );
-    res = m_tok;
   }
   else if ((buf[cur] == 'L' || buf[cur] == 'u' || buf[cur] == 'U') && cur+1 < end && buf[cur+1] == '\'')
   {
     cur = parseCharConst( cur + 2 );
-    res = m_tok;
   }
   // String constant
   else if (buf[cur] == '"')
   {
     cur = parseStringConst( cur + 1 );
-    res = m_tok;
   }
   else if ((buf[cur] == 'L' || buf[cur] == 'u' || buf[cur] == 'U') && cur+1 < end && buf[cur+1] == '"')
   {
     cur = parseStringConst( cur + 2 );
-    res = m_tok;
   }
   else
   // Punctuators
   //
   {
     cur = parsePunctuator( cur );
-    res = m_tok;
   }
 
-  res.setRange( m_reader.calcRange( m_cur, cur, m_tempRng ) );
+  m_reader.calcRangeEnd( cur, m_tokRange );
   m_cur = cur;
+}
 
-  return res;
+private static final class Macro
+{
+  public final SourceRange nameLoc = new SourceRange();
+  public final SourceRange bodyLoc = new SourceRange();
+  public final Symbol name;
+  public boolean funcLike;
+  public boolean variadic;
+
+  public final ArrayList<ParamDecl> params = new ArrayList<ParamDecl>();
+  public final LinkedList<Token> body = new LinkedList<Token>();
+
+  Macro ( final Symbol name, ISourceRange nameLoc )
+  {
+    this.name = name;
+    this.nameLoc.setRange( nameLoc );
+  }
+
+  void cleanUpParamScope ()
+  {
+    for ( ParamDecl param : params )
+      param.cleanUp();
+  }
+
+  boolean same ( Macro m )
+  {
+    if (this.name != m.name ||
+        this.funcLike != m.funcLike ||
+        this.params.size() != m.params.size() ||
+        this.body.size() != m.body.size())
+    {
+      return false;
+    }
+
+    Iterator<ParamDecl> p1 = this.params.iterator();
+    Iterator<ParamDecl> p2 = m.params.iterator();
+    while (p1.hasNext())
+      if (!p1.next().same( p2.next() ))
+        return false;
+
+    Iterator<Token> t1 = this.body.iterator();
+    Iterator<Token> t2 = m.body.iterator();
+    while (t1.hasNext())
+      if (!t1.next().same( t2.next() ))
+        return false;
+
+    return true;
+  }
+}
+
+private static final class ParamDecl
+{
+  private final Object prevPPDecl;
+  public final Symbol symbol;
+  public final int index;
+
+  ParamDecl ( final Symbol symbol, int index )
+  {
+    this.prevPPDecl = symbol.ppDecl;
+    this.symbol = symbol;
+    this.index = index;
+
+    assert !(symbol.ppDecl instanceof ParamDecl);
+    symbol.ppDecl = this;
+  }
+
+  public final boolean same ( ParamDecl p )
+  {
+    return this.symbol == p.symbol && this.index == p.index;
+  }
+
+  void cleanUp ()
+  {
+    assert symbol.ppDecl == this;
+    symbol.ppDecl = prevPPDecl;
+  }
+}
+
+private static final class ParamToken extends Token
+{
+  public final ParamDecl param;
+  public boolean stringify;
+
+  private ParamToken ( final ParamDecl param )
+  {
+    super( TokenCode.MACRO_PARAM );
+    this.param = param;
+  }
+
+  @SuppressWarnings("CloneDoesntCallSuperClone")
+  @Override
+  public Token clone ()
+  {
+    return this;
+  }
+
+  @Override
+  public boolean same ( final Token tok )
+  {
+    return this.code == tok.code && this.param.same( ((ParamToken)tok).param );
+  }
+
+  @Override
+  public int length ()
+  {
+    return this.param.symbol.length();
+  }
+}
+
+private static final class ConcatToken extends Token
+{
+  private Token left, right;
+
+  public ConcatToken ( Token left, Token right )
+  {
+    super(TokenCode.CONCAT);
+    this.left = left;
+    this.right = right;
+  }
+
+  @SuppressWarnings("CloneDoesntCallSuperClone")
+  @Override
+  public Token clone ()
+  {
+    return new ConcatToken( this.left.clone(), this.right.clone() );
+  }
+
+  @Override
+  public boolean same ( final Token tok )
+  {
+    return this.code == tok.code &&
+           left.same( ((ConcatToken)tok).left ) &&
+           right.same( ((ConcatToken)tok).right );
+  }
+
+  @Override
+  public int length ()
+  {
+    return left.length() + right.length();
+  }
+
+  @Override
+  public String toString ()
+  {
+    return "ConcatToken{" +
+           "left=" + left +
+           ", right=" + right +
+           '}';
+  }
+}
+
+private final void nextNoBlanks ()
+{
+  do
+    innerNextToken();
+  while (m_tok.code == TokenCode.WHITESPACE || m_tok.code == TokenCode.COMMENT);
+}
+
+private final void nextNoNewLineOrBlanks ()
+{
+  do
+    innerNextToken();
+  while (m_tok.code == TokenCode.WHITESPACE || m_tok.code == TokenCode.COMMENT || m_tok.code == TokenCode.NEWLINE);
+}
+
+private final int sNORMAL = 0;
+private final int sLINEBEG = 1;
+
+private int m_state = sLINEBEG;
+
+private final void skipBlanks ()
+{
+  while (m_tok.code == TokenCode.WHITESPACE || m_tok.code == TokenCode.COMMENT)
+    innerNextToken();
+}
+
+private final void skipUntilEOL ()
+{
+  while (m_tok.code != TokenCode.NEWLINE && m_tok.code != TokenCode.EOF)
+    innerNextToken();
+}
+
+private final boolean parseMacroParamList ( Macro macro )
+{
+  nextNoBlanks(); // consume the '('
+
+  if (m_tok.code != TokenCode.R_PAREN)
+  {
+    for(;;)
+    {
+      if (m_tok.code == TokenCode.IDENT)
+      {
+        Symbol sym = ((IdentToken)m_tok).symbol;
+        if (sym.ppDecl instanceof ParamDecl)
+        {
+          m_reporter.error( m_tokRange, "Duplicated macro parameter '%s'", sym.name );
+          skipUntilEOL();
+          return false;
+        }
+
+        macro.params.add( new ParamDecl( sym, macro.params.size() ) );
+
+        nextNoBlanks();
+        if (m_tok.code == TokenCode.R_PAREN)
+          break;
+        else if (m_tok.code == TokenCode.COMMA)
+          nextNoBlanks();
+/* TODO: GCC extension for variadic macros "macro(args...)"
+        else if (m_tok.code == TokenCode.ELLIPSIS)
+          {}
+*/
+        else
+        {
+          m_reporter.error(  m_tokRange, "Expected ',', ')', '...' or an identifier in macro parameter list" );
+          skipUntilEOL();
+          return false;
+        }
+      }
+      else if (m_tok.code == TokenCode.ELLIPSIS)
+      {
+        macro.variadic = true;
+        macro.params.add( new ParamDecl( m_sym_VA_ARGS, macro.params.size() ) );
+        nextNoBlanks();
+
+        if (m_tok.code == TokenCode.R_PAREN)
+          break;
+        else
+        {
+          m_reporter.error(  m_tokRange, "Expected ')' after '...' in macro parameter list" );
+          skipUntilEOL();
+          return false;
+        }
+      }
+      else
+      {
+        if (m_tok.code == TokenCode.EOF || m_tok.code == TokenCode.NEWLINE)
+          m_reporter.error( m_tokRange, "Missing closing ')' in macro parameter list" );
+        else
+          m_reporter.error( m_tokRange, "Macro parameter name expected" );
+        skipUntilEOL();
+        return false;
+      }
+    }
+  }
+
+  nextNoBlanks(); // Consume the ')'
+  return true;
+}
+
+private static ParamDecl isParam ( Token tok )
+{
+  if (tok.code == TokenCode.IDENT)
+  {
+    Symbol sym = ((IdentToken)tok).symbol;
+    if (sym.ppDecl instanceof ParamDecl)
+      return (ParamDecl)sym.ppDecl;
+  }
+
+  return null;
+}
+
+private final SourceRange m_tmpRange = new SourceRange();
+
+private final Token parseMacroReplacementListToken ( Macro macro )
+{
+  Token tok;
+  ParamDecl param;
+
+  if (m_tok.code == TokenCode.HASH)
+  {
+    /* 6.10.3.2 (1) Each # preprocessing token in the replacement list for a function-like macro shall be
+       followed by a parameter as the next preprocessing token in the replacement list. */
+    nextNoBlanks();
+
+    if ( (param = isParam( m_tok )) != null)
+    {
+      ParamToken paramToken = new ParamToken( param );
+      paramToken.stringify = true;
+      tok = paramToken;
+    }
+    else
+    {
+      m_reporter.error( m_tokRange, "'#' must be followed by a macro parameter" );
+      skipUntilEOL();
+      return null;
+    }
+  }
+  else if ((param = isParam( m_tok )) != null)
+    tok = new ParamToken( param );
+  else if (m_tok.code == TokenCode.IDENT && ((IdentToken)m_tok).symbol == m_sym_VA_ARGS)
+  {
+    assert !macro.variadic;
+    m_reporter.error( m_tokRange, "'__VA_ARGS__' must only appear in a variadic macro" );
+    skipUntilEOL();
+    return null;
+  }
+  else
+    tok = m_tok.clone();
+
+  return tok;
+}
+
+private final boolean parseMacroReplacementList ( Macro macro )
+{
+  Token ws = null;
+
+  macro.bodyLoc.setRange( m_tokRange );
+
+  for ( ; m_tok.code != TokenCode.EOF && m_tok.code != TokenCode.NEWLINE; innerNextToken() )
+  {
+    if (m_tok.code == TokenCode.WHITESPACE || m_tok.code == TokenCode.COMMENT)
+    {
+      if (ws == null)
+        ws = new WhiteSpaceToken();
+    }
+    else
+    {
+      Token tok;
+
+      if (m_tok.code == TokenCode.HASH_HASH)
+      {
+        /* 6.10.3.3 (1) A ## preprocessing token shall not occur at the beginning or at the end of
+           a replacement list for either form of macro definition. */
+        if (macro.body.size() == 0)
+        {
+          m_reporter.error( m_tokRange, "'##' can only occur between two tokens" );
+          skipUntilEOL();
+          return false;
+        }
+
+        do // skip consecutive '##'
+        {
+          m_tmpRange.setRange( m_tokRange ); // Save the location of the token
+          nextNoBlanks();
+          if (m_tok.code == TokenCode.EOF || m_tok.code == TokenCode.NEWLINE)
+          {
+            m_reporter.error( m_tmpRange, "'##' can only occur between two tokens" );
+            return false;
+          }
+        }
+        while (m_tok.code == TokenCode.HASH_HASH);
+
+        if ( (tok = parseMacroReplacementListToken( macro )) == null)
+          return false;
+
+        tok = new ConcatToken( macro.body.removeLast(), tok );
+      }
+      else
+      {
+        if ((tok = parseMacroReplacementListToken( macro )) == null)
+          return false;
+      }
+
+      if (ws != null)
+      {
+        macro.body.add( ws );
+        ws = null;
+      }
+
+      macro.body.addLast( tok );
+      macro.bodyLoc.extend( m_tokRange );
+    }
+  }
+
+  return true;
+}
+
+private final void parseDefine ()
+{
+  nextNoBlanks(); // consume the 'define'
+
+  if (m_tok.code != TokenCode.IDENT)
+  {
+    m_reporter.error( m_tokRange, "An identifier macro name expected" );
+    skipUntilEOL();
+    return;
+  }
+
+  final Symbol macroSym = ((IdentToken)m_tok).symbol;
+  final Macro macro = new Macro( macroSym, m_tokRange );
+  try
+  {
+    innerNextToken();
+    if (m_tok.code == TokenCode.L_PAREN)
+    {
+      macro.funcLike = true;
+      if (!parseMacroParamList( macro ))
+        return;
+    }
+    else
+    {
+      skipBlanks();
+      macro.funcLike = false;
+    }
+
+    if (!parseMacroReplacementList( macro ))
+      return;
+  }
+  finally
+  {
+    macro.cleanUpParamScope();
+  }
+
+  if (macroSym.ppDecl instanceof Macro)
+  {
+    Macro prevMacro = (Macro)macroSym.ppDecl;
+    if (!macro.same( prevMacro ))
+    {
+      m_reporter.warning(
+        macro.nameLoc, "redefinition of macro '%s' differs from previous definition at %s",
+        macro.name.name, m_reporter.formatRange( prevMacro.nameLoc )
+      );
+    }
+  }
+
+  macroSym.ppDecl = macro;
+}
+
+private final void parseDirective ()
+{
+  nextNoBlanks(); // consume the '#'
+
+  switch (m_tok.code)
+  {
+  case NEWLINE:
+    return;
+
+  case IDENT:
+    {
+      Symbol sym = ((IdentToken)m_tok).symbol;
+      if (sym.ppCode != null)
+      {
+        switch (sym.ppCode)
+        {
+        case DEFINE:
+          parseDefine();
+          return;
+        }
+      }
+    }
+    break;
+
+  case PP_NUMBER:
+    break;
+  }
+}
+
+public final Token nextToken ()
+{
+  switch (m_state)
+  {
+  //case sNORMAL:
+  default:
+    innerNextToken();
+    if (m_tok.code == TokenCode.NEWLINE)
+      m_state = sLINEBEG;
+    return m_tok;
+
+  case sLINEBEG:
+    nextNoBlanks();
+    switch (m_tok.code)
+    {
+    case HASH:
+      parseDirective();
+      return m_tok;
+
+    default:
+      m_state = sNORMAL;
+      // Fall-through
+    case NEWLINE:
+      return m_tok;
+    }
+  }
 }
 
 } // class

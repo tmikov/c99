@@ -3,6 +3,7 @@ package c99.driver;
 import java.io.FileInputStream;
 
 import c99.DummyErrorReporter;
+import c99.ISourceRange;
 import c99.parser.PP;
 
 public class Preprocessor
@@ -19,25 +20,27 @@ public static void main ( String[] args )
     PP.Token tok;
     while ((tok = pp.nextToken()).code != PP.TokenCode.EOF)
     {
-      if (!tok.fileName1.equals( lastFile ))
+      ISourceRange rng = pp.lastSourceRange();
+
+      if (!rng.getFileName().equals( lastFile ))
       {
-        System.out.format(  "\n# %d %s\n", tok.getLine1(), tok.fileName1 );
-        lastLine = tok.line1;
+        System.out.format(  "\n# %d %s\n", rng.getLine1(), rng.getFileName() );
+        lastLine = rng.getLine1();
       }
-      else if (tok.line1 != lastLine)
+      else if (rng.getLine1() != lastLine)
       {
-        if (tok.line1 - lastLine <= 10)
+        if (rng.getLine1() - lastLine <= 10)
         {
           do
             System.out.println();
-          while (++lastLine < tok.line1);
+          while (++lastLine < rng.getLine1());
         }
         else
-          System.out.format( "\n# %d\n", tok.line1 );
-        lastLine = tok.line1;
+          System.out.format( "\n# %d\n", rng.getLine1() );
+        lastLine = rng.getLine1();
       }
 
-      lastFile = tok.fileName1;
+      lastFile = rng.getFileName();
 
       tok.output( System.out );
       if (false)

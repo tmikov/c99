@@ -1,7 +1,10 @@
 package c99.parser;
 
+import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.HashMap;
+
+import c99.Utils;
 
 public class SymTable
 {
@@ -46,17 +49,10 @@ private static final class Key
 
     Key key = (Key)o;
 
-    if (hash != key.hash || count != key.count)
-      return false;
-
-    int off = this.offset;
-    final int end = off + this.count;
-    int off2 = key.offset;
-    for ( ; off < end; ++off, ++off2 )
-      if (this.val[off] != key.val[off2])
-        return false;
-
-    return true;
+    return
+      hash == key.hash &&
+      count == key.count &&
+      Utils.equals( this.val, this.offset, key.val, key.offset, this.count );
   }
 }
 
@@ -76,6 +72,14 @@ public Symbol symbol ( byte val[], int offset, int len )
   }
 
   return symbol;
+}
+
+private static final Charset s_latin = Charset.forName( "ISO-8859-1" );
+
+public Symbol symbol ( String name )
+{
+  byte[] bytes = name.getBytes( s_latin );
+  return symbol( bytes, 0, bytes.length );
 }
 
 private static int calcHashCode( byte val[], int off, int len )

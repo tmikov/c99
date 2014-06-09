@@ -39,4 +39,14 @@ public static String asciiString ( byte[] bytes, int from, int count )
   return new String( value );
 }
 
+public static boolean equals ( byte[] a, int offA, byte[] b, int offB, int len )
+{
+  final int end = offA + len;
+  for ( ; offA < end; ++offA, ++offB )
+    if (a[offA] != b[offB])
+      return false;
+
+  return true;
+}
+
 } // class
