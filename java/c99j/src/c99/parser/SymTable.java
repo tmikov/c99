@@ -54,6 +54,15 @@ private static final class Key
       count == key.count &&
       Utils.equals( this.val, this.offset, key.val, key.offset, this.count );
   }
+
+  @Override
+  public String toString ()
+  {
+    return "Key{" +
+           "hash=" + hash +
+           ", count=" + count +
+           '}';
+  }
 }
 
 private final HashMap<Key,Symbol> m_map = new HashMap<Key, Symbol>();

@@ -36,5 +36,13 @@ public final int hashCode ()
   return m_hash;
 }
 
+@Override
+public String toString ()
+{
+  return "Symbol{" +
+         "name='" + name + '\'' +
+         ", m_hash=" + m_hash +
+         '}';
+}
 } // class
 

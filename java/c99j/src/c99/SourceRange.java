@@ -59,6 +59,18 @@ public final SourceRange extend ( ISourceRange end )
   return this;
 }
 
+public final void translate ( int colOfs )
+{
+  this.col1 += colOfs;
+  this.col2 += colOfs;
+}
+
+public final void setLength ( int len )
+{
+  this.line2 = this.line1;
+  this.col2 = this.col1 + len;
+}
+
 @Override
 public final String getFileName ()
 {

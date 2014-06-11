@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 
 import c99.CompilerLimits;
 import c99.IErrorReporter;
@@ -286,6 +287,12 @@ public static class IdentToken extends Token
   {
     super(code);
     this.symbol = symbol;
+  }
+
+  void copyFrom ( IdentToken tok )
+  {
+    this.code = tok.code;
+    this.symbol = tok.symbol;
   }
 
   @SuppressWarnings("CloneDoesntCallSuperClone")
@@ -1245,33 +1252,61 @@ private static final class ConcatToken extends Token
   }
 }
 
+/**
+ * The whitespace skipped by some routines.
+ *
+ * If {@link #nextNoBlanks()} or {@link #nextNoNewLineOrBlanks()} or {@link #skipBlanks()}
+ * skips over any whitespace, a single whitespace token is set here.
+ */
+private WhiteSpaceToken m_skippedWs;
+/**
+ * The token used to initialize {@link #m_skippedWs}
+ */
+private WhiteSpaceToken m__defaultWs = new WhiteSpaceToken();
+
+private final SourceRange m_tmpRange = new SourceRange();
+
+private final void nextWithBlanks ()
+{
+  m_skippedWs = null;
+  innerNextToken();
+}
+
 private final void nextNoBlanks ()
 {
-  do
+  m_skippedWs = null;
+  innerNextToken();
+  while (m_tok.code == TokenCode.WHITESPACE || m_tok.code == TokenCode.COMMENT)
+  {
+    m_skippedWs = m__defaultWs;
     innerNextToken();
-  while (m_tok.code == TokenCode.WHITESPACE || m_tok.code == TokenCode.COMMENT);
+  }
 }
 
 private final void nextNoNewLineOrBlanks ()
 {
-  do
+  m_skippedWs = null;
+  innerNextToken();
+  while (m_tok.code == TokenCode.WHITESPACE || m_tok.code == TokenCode.COMMENT || m_tok.code == TokenCode.NEWLINE)
+  {
+    m_skippedWs = m__defaultWs;
     innerNextToken();
-  while (m_tok.code == TokenCode.WHITESPACE || m_tok.code == TokenCode.COMMENT || m_tok.code == TokenCode.NEWLINE);
+  }
 }
-
-private final int sNORMAL = 0;
-private final int sLINEBEG = 1;
-
-private int m_state = sLINEBEG;
 
 private final void skipBlanks ()
 {
+  m_skippedWs = null;
   while (m_tok.code == TokenCode.WHITESPACE || m_tok.code == TokenCode.COMMENT)
+  {
+    m_skippedWs = m__defaultWs;
     innerNextToken();
+  }
 }
 
 private final void skipUntilEOL ()
 {
+  m_skippedWs = null;
   while (m_tok.code != TokenCode.NEWLINE && m_tok.code != TokenCode.EOF)
     innerNextToken();
 }
@@ -1355,8 +1390,6 @@ private static ParamDecl isParam ( Token tok )
   return null;
 }
 
-private final SourceRange m_tmpRange = new SourceRange();
-
 private final Token parseMacroReplacementListToken ( Macro macro )
 {
   Token tok;
@@ -1398,64 +1431,55 @@ private final Token parseMacroReplacementListToken ( Macro macro )
 
 private final boolean parseMacroReplacementList ( Macro macro )
 {
-  Token ws = null;
-
   macro.bodyLoc.setRange( m_tokRange );
+  m_skippedWs = null;
 
-  for ( ; m_tok.code != TokenCode.EOF && m_tok.code != TokenCode.NEWLINE; innerNextToken() )
+  for ( ; m_tok.code != TokenCode.EOF && m_tok.code != TokenCode.NEWLINE; nextNoBlanks() )
   {
-    if (m_tok.code == TokenCode.WHITESPACE || m_tok.code == TokenCode.COMMENT)
+    Token tok;
+
+    if (m_tok.code == TokenCode.HASH_HASH)
     {
-      if (ws == null)
-        ws = new WhiteSpaceToken();
+      /* 6.10.3.3 (1) A ## preprocessing token shall not occur at the beginning or at the end of
+         a replacement list for either form of macro definition. */
+      if (macro.body.size() == 0)
+      {
+        m_reporter.error( m_tokRange, "'##' can only occur between two tokens" );
+        skipUntilEOL();
+        return false;
+      }
+
+      do // skip consecutive '##'
+      {
+        m_tmpRange.setRange( m_tokRange ); // Save the location of the token
+        nextNoBlanks();
+        if (m_tok.code == TokenCode.EOF || m_tok.code == TokenCode.NEWLINE)
+        {
+          m_reporter.error( m_tmpRange, "'##' can only occur between two tokens" );
+          return false;
+        }
+      }
+      while (m_tok.code == TokenCode.HASH_HASH);
+
+      if ( (tok = parseMacroReplacementListToken( macro )) == null)
+        return false;
+
+      tok = new ConcatToken( macro.body.removeLast(), tok );
     }
     else
     {
-      Token tok;
-
-      if (m_tok.code == TokenCode.HASH_HASH)
-      {
-        /* 6.10.3.3 (1) A ## preprocessing token shall not occur at the beginning or at the end of
-           a replacement list for either form of macro definition. */
-        if (macro.body.size() == 0)
-        {
-          m_reporter.error( m_tokRange, "'##' can only occur between two tokens" );
-          skipUntilEOL();
-          return false;
-        }
-
-        do // skip consecutive '##'
-        {
-          m_tmpRange.setRange( m_tokRange ); // Save the location of the token
-          nextNoBlanks();
-          if (m_tok.code == TokenCode.EOF || m_tok.code == TokenCode.NEWLINE)
-          {
-            m_reporter.error( m_tmpRange, "'##' can only occur between two tokens" );
-            return false;
-          }
-        }
-        while (m_tok.code == TokenCode.HASH_HASH);
-
-        if ( (tok = parseMacroReplacementListToken( macro )) == null)
-          return false;
-
-        tok = new ConcatToken( macro.body.removeLast(), tok );
-      }
-      else
-      {
-        if ((tok = parseMacroReplacementListToken( macro )) == null)
-          return false;
-      }
-
-      if (ws != null)
-      {
-        macro.body.add( ws );
-        ws = null;
-      }
-
-      macro.body.addLast( tok );
-      macro.bodyLoc.extend( m_tokRange );
+      if ((tok = parseMacroReplacementListToken( macro )) == null)
+        return false;
     }
+
+    if (m_skippedWs != null)
+    {
+      macro.body.add( m_skippedWs.clone() );
+      m_skippedWs = null;
+    }
+
+    macro.body.addLast( tok );
+    macro.bodyLoc.extend( m_tokRange );
   }
 
   return true;
@@ -1476,7 +1500,7 @@ private final void parseDefine ()
   final Macro macro = new Macro( macroSym, m_tokRange );
   try
   {
-    innerNextToken();
+    nextWithBlanks();
     if (m_tok.code == TokenCode.L_PAREN)
     {
       macro.funcLike = true;
@@ -1541,32 +1565,133 @@ private final void parseDirective ()
   }
 }
 
+private Iterator<Token> m_expIt;
+private final IdentToken m_savedIdent = new IdentToken();
+private final SourceRange m_savedIdentRange = new SourceRange();
+private final SourceRange m_savedRange = new SourceRange();
+private Token m_savedTok;
+
+private final void expand ( Macro macro, ArrayList<List<Token>> params )
+{
+  m_state = sEXPANDING;
+  m_expIt = macro.body.iterator();
+}
+
+private final boolean possiblyExpandFuncMacro ( Macro macro )
+{
+  m_savedIdent.copyFrom( (IdentToken)m_tok );
+  m_savedIdentRange.setRange( m_tokRange );
+
+  nextNoNewLineOrBlanks();
+
+  // False alarm? It wasn't a macro, so we must return the original token and the optional
+  // white-space.
+  if (m_tok.code != TokenCode.L_PAREN)
+  {
+    m_savedRange.setRange( m_tokRange );
+    m_savedTok = m_tok;
+
+    m_tok = m_savedIdent;
+    m_tokRange.setRange( m_savedIdentRange );
+
+    m_state = sUNDO_IDENT;
+    return false;
+  }
+
+  expand( macro, null );
+  return true;
+}
+
+private final void expandObjectMacro ( Macro macro )
+{
+  expand( macro, null );
+}
+
+/**
+ *
+ * @param macro
+ * @return true if macro expansion will proceed, so we must loop instead of returning a token
+ */
+private final boolean possiblyExpandMacro ( Macro macro )
+{
+  if (macro.funcLike)
+    return possiblyExpandFuncMacro( macro );
+  else
+  {
+    expandObjectMacro( macro );
+    return true;
+  }
+}
+
+private final int sNORMAL_NEXT = 0;
+private final int sNORMAL_USE = 1;
+private final int sLINEBEG = 2;
+private final int sUNDO_IDENT = 3;
+private final int sEXPANDING = 4;
+
+private int m_state = sLINEBEG;
+
 public final Token nextToken ()
 {
-  switch (m_state)
-  {
-  //case sNORMAL:
-  default:
-    innerNextToken();
-    if (m_tok.code == TokenCode.NEWLINE)
-      m_state = sLINEBEG;
-    return m_tok;
-
-  case sLINEBEG:
-    nextNoBlanks();
-    switch (m_tok.code)
+  for(;;)
+    switch (m_state)
     {
-    case HASH:
-      parseDirective();
+    case sNORMAL_NEXT:
+      nextWithBlanks();
+    case sNORMAL_USE:
+      if (m_tok.code == TokenCode.IDENT && ((IdentToken)m_tok).symbol.ppDecl instanceof Macro)
+      {
+        if (possiblyExpandMacro( (Macro)((IdentToken)m_tok).symbol.ppDecl ))
+          continue;
+      }
+      else if (m_tok.code == TokenCode.NEWLINE)
+        m_state = sLINEBEG;
+      else
+        m_state = sNORMAL_NEXT;
       return m_tok;
 
-    default:
-      m_state = sNORMAL;
-      // Fall-through
-    case NEWLINE:
+    case sLINEBEG:
+      nextNoBlanks();
+      switch (m_tok.code)
+      {
+      case HASH:
+        parseDirective();
+        return m_tok;
+
+      default:
+        m_state = sNORMAL_USE;
+        continue;
+
+      case NEWLINE:
+        return m_tok;
+      }
+
+    case sUNDO_IDENT:
+      if (m_skippedWs != null)
+      {
+        m_tokRange.translate( m_skippedWs.length() );
+        m_tok = m_skippedWs;
+        m_skippedWs = null;
+      }
+      else
+      {
+        m_tokRange.setRange( m_savedRange );
+        m_tok = m_savedTok;
+        m_savedTok= null;
+      }
       return m_tok;
+
+    case sEXPANDING:
+      if (m_expIt.hasNext())
+      {
+        m_tok = m_expIt.next();
+        m_tokRange.setLength( m_tok.length() );
+        return m_tok;
+      }
+      else
+        m_state = sNORMAL_NEXT;
+      break;
     }
-  }
 }
 
 } // class
