@@ -96,7 +96,7 @@ public static enum Code
   }
 }
 
-public abstract static class AbstractToken implements Cloneable
+public abstract static class AbstractToken extends SourceRange implements Cloneable
 {
   protected Code m_code;
 
@@ -155,6 +155,8 @@ public static class Token extends AbstractToken
       m_symbol = tok.m_symbol;
     else if (tok.m_text != null)
       m_text = Arrays.copyOfRange( tok.m_text, 0, tok.m_length );
+
+    setRange( tok );
   }
 
   public void copyFrom ( Token tok )
@@ -259,8 +261,9 @@ private final Token m_tokCharConst = new Token( Code.CHAR_CONST );
 private final Token m_tokStringConst = new Token( Code.STRING_CONST );
 private final Token m_tokOther = new Token( Code.OTHER );
 
+private final SourceRange m_tokRange = new SourceRange();
+
 protected Token m_tok;
-protected final SourceRange m_tokRange = new SourceRange();
 
 public PPLexer ( final IErrorReporter reporter, String fileName, InputStream input,
                  final SymTable symTable )
@@ -271,11 +274,6 @@ public PPLexer ( final IErrorReporter reporter, String fileName, InputStream inp
   m_end = m_cur = 0;
 
   m_tokRange.setFileName( fileName );
-}
-
-public ISourceRange lastSourceRange ()
-{
-  return m_tokRange;
 }
 
 private boolean isSpace ( int c )
@@ -401,6 +399,7 @@ outerLoop:
   m_cur = cur;
   m_tokSpace.setCode( Code.COMMENT );
   m_tok = m_tokSpace;
+  m_tok.setRange( m_tokRange );
 }
 
 private int parseCharConst ( int cur )
@@ -688,12 +687,14 @@ protected final void innerNextToken ()
     {
       m_tokRange.setLocation( m_reader.getCurLineNumber(), 1 );
       m_tok = m_tokEOF;
+      m_tok.setRange( m_tokRange );
       return;
     }
     else
     {
       m_reader.calcRange( m_cur, m_cur, m_tokRange );
       m_tok = m_tokNewLine;
+      m_tok.setRange( m_tokRange );
       return;
     }
   }
@@ -792,6 +793,7 @@ protected final void innerNextToken ()
   }
 
   m_reader.calcRangeEnd( cur, m_tokRange );
+  m_tok.setRange( m_tokRange );
   m_cur = cur;
 }
 

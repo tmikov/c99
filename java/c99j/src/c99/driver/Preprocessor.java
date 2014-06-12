@@ -23,27 +23,25 @@ public static void main ( String[] args )
     PPLexer.Token tok;
     while ((tok = pp.nextToken()).code() != PPLexer.Code.EOF)
     {
-      ISourceRange rng = pp.lastSourceRange();
-
-      if (!rng.getFileName().equals( lastFile ))
+      if (!tok.getFileName().equals( lastFile ))
       {
-        System.out.format(  "\n# %d %s\n", rng.getLine1(), rng.getFileName() );
-        lastLine = rng.getLine1();
+        System.out.format(  "\n# %d %s\n", tok.getLine1(), tok.getFileName() );
+        lastLine = tok.getLine1();
       }
-      else if (rng.getLine1() != lastLine)
+      else if (tok.getLine1() != lastLine)
       {
-        if (rng.getLine1() - lastLine <= 10)
+        if (tok.getLine1() - lastLine <= 10)
         {
           do
             System.out.println();
-          while (++lastLine < rng.getLine1());
+          while (++lastLine < tok.getLine1());
         }
         else
-          System.out.format( "\n# %d\n", rng.getLine1() );
-        lastLine = rng.getLine1();
+          System.out.format( "\n# %d\n", tok.getLine1() );
+        lastLine = tok.getLine1();
       }
 
-      lastFile = rng.getFileName();
+      lastFile = tok.getFileName();
 
       tok.output( System.out );
       if (false)

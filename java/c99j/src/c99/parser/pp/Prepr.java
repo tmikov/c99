@@ -125,9 +125,11 @@ private static final class ParamToken extends AbstractToken
 
   @SuppressWarnings("CloneDoesntCallSuperClone")
   @Override
-  public AbstractToken clone ()
+  public ParamToken clone ()
   {
-    return this;
+    ParamToken res = new ParamToken( this.param );
+    res.setRange( this );
+    return res;
   }
 
   @Override
@@ -164,7 +166,9 @@ private static final class ConcatToken extends AbstractToken
   @Override
   public ConcatToken clone ()
   {
-    return new ConcatToken( this.left.clone(), this.right.clone() );
+    ConcatToken res = new ConcatToken( this.left.clone(), this.right.clone() );
+    res.setRange( this );
+    return res;
   }
 
   @Override
@@ -271,7 +275,7 @@ private final boolean parseMacroParamList ( Macro macro )
         Symbol sym = m_tok.symbol();
         if (sym.ppDecl instanceof ParamDecl)
         {
-          m_reporter.error( m_tokRange, "Duplicated macro parameter '%s'", sym.name );
+          m_reporter.error( m_tok, "Duplicated macro parameter '%s'", sym.name );
           skipUntilEOL();
           return false;
         }
@@ -289,7 +293,7 @@ private final boolean parseMacroParamList ( Macro macro )
 */
         else
         {
-          m_reporter.error(  m_tokRange, "Expected ',', ')', '...' or an identifier in macro parameter list" );
+          m_reporter.error(  m_tok, "Expected ',', ')', '...' or an identifier in macro parameter list" );
           skipUntilEOL();
           return false;
         }
@@ -304,7 +308,7 @@ private final boolean parseMacroParamList ( Macro macro )
           break;
         else
         {
-          m_reporter.error(  m_tokRange, "Expected ')' after '...' in macro parameter list" );
+          m_reporter.error( m_tok, "Expected ')' after '...' in macro parameter list" );
           skipUntilEOL();
           return false;
         }
@@ -312,9 +316,9 @@ private final boolean parseMacroParamList ( Macro macro )
       else
       {
         if (m_tok.code() == Code.EOF || m_tok.code() == Code.NEWLINE)
-          m_reporter.error( m_tokRange, "Missing closing ')' in macro parameter list" );
+          m_reporter.error( m_tok, "Missing closing ')' in macro parameter list" );
         else
-          m_reporter.error( m_tokRange, "Macro parameter name expected" );
+          m_reporter.error( m_tok, "Macro parameter name expected" );
         skipUntilEOL();
         return false;
       }
@@ -356,7 +360,7 @@ private final AbstractToken parseMacroReplacementListToken ( Macro macro )
     }
     else
     {
-      m_reporter.error( m_tokRange, "'#' must be followed by a macro parameter" );
+      m_reporter.error( m_tok, "'#' must be followed by a macro parameter" );
       skipUntilEOL();
       return null;
     }
@@ -366,7 +370,7 @@ private final AbstractToken parseMacroReplacementListToken ( Macro macro )
   else if (m_tok.code() == Code.IDENT && m_tok.symbol() == m_sym_VA_ARGS)
   {
     assert !macro.variadic;
-    m_reporter.error( m_tokRange, "'__VA_ARGS__' must only appear in a variadic macro" );
+    m_reporter.error( m_tok, "'__VA_ARGS__' must only appear in a variadic macro" );
     skipUntilEOL();
     return null;
   }
@@ -378,7 +382,7 @@ private final AbstractToken parseMacroReplacementListToken ( Macro macro )
 
 private final boolean parseMacroReplacementList ( Macro macro )
 {
-  macro.bodyLoc.setRange( m_tokRange );
+  macro.bodyLoc.setRange( m_tok );
   m_skippedWs = null;
 
   for ( ; m_tok.code() != Code.EOF && m_tok.code() != Code.NEWLINE; nextNoBlanks() )
@@ -391,14 +395,14 @@ private final boolean parseMacroReplacementList ( Macro macro )
          a replacement list for either form of macro definition. */
       if (macro.body.size() == 0)
       {
-        m_reporter.error( m_tokRange, "'##' can only occur between two tokens" );
+        m_reporter.error( m_tok, "'##' can only occur between two tokens" );
         skipUntilEOL();
         return false;
       }
 
       do // skip consecutive '##'
       {
-        m_tmpRange.setRange( m_tokRange ); // Save the location of the token
+        m_tmpRange.setRange( m_tok ); // Save the location of the token
         nextNoBlanks();
         if (m_tok.code() == Code.EOF || m_tok.code() == Code.NEWLINE)
         {
@@ -426,7 +430,7 @@ private final boolean parseMacroReplacementList ( Macro macro )
     }
 
     macro.body.addLast( tok );
-    macro.bodyLoc.extend( m_tokRange );
+    macro.bodyLoc.extend( m_tok );
   }
 
   return true;
@@ -438,13 +442,13 @@ private final void parseDefine ()
 
   if (m_tok.code() != Code.IDENT)
   {
-    m_reporter.error( m_tokRange, "An identifier macro name expected" );
+    m_reporter.error( m_tok, "An identifier macro name expected" );
     skipUntilEOL();
     return;
   }
 
   final Symbol macroSym = m_tok.symbol();
-  final Macro macro = new Macro( macroSym, m_tokRange );
+  final Macro macro = new Macro( macroSym, m_tok );
   try
   {
     nextWithBlanks();
@@ -527,7 +531,7 @@ private final void expand ( Macro macro, ArrayList<List<Token>> params )
 private final boolean possiblyExpandFuncMacro ( Macro macro )
 {
   m_savedIdent.copyFrom( m_tok );
-  m_savedIdentRange.setRange( m_tokRange );
+  m_savedIdentRange.setRange( m_tok );
 
   nextNoNewLineOrBlanks();
 
@@ -535,11 +539,11 @@ private final boolean possiblyExpandFuncMacro ( Macro macro )
   // white-space.
   if (m_tok.code() != Code.L_PAREN)
   {
-    m_savedRange.setRange( m_tokRange );
+    m_savedRange.setRange( m_tok );
     m_savedTok = m_tok;
 
     m_tok = m_savedIdent;
-    m_tokRange.setRange( m_savedIdentRange );
+    m_tok.setRange( m_savedIdentRange );
 
     m_state = sUNDO_IDENT;
     return false;
@@ -616,13 +620,13 @@ public final Token nextToken ()
     case sUNDO_IDENT:
       if (m_skippedWs != null)
       {
-        m_tokRange.translate( m_skippedWs.length() );
+        m_tok.translate( m_skippedWs.length() );
         m_tok = m_skippedWs;
         m_skippedWs = null;
       }
       else
       {
-        m_tokRange.setRange( m_savedRange );
+        m_tok.setRange( m_savedRange );
         m_tok = m_savedTok;
         m_savedTok= null;
       }
@@ -632,7 +636,7 @@ public final Token nextToken ()
       if (m_expIt.hasNext())
       {
         m_tok = (Token)m_expIt.next();
-        m_tokRange.setLength( m_tok.length() );
+        m_tok.setLength( m_tok.length() );
         return m_tok;
       }
       else
