@@ -44,12 +44,25 @@ public final SourceRange setFileName ( String fileName )
 
 public final SourceRange setLocation ( String fileName, int line, int col )
 {
-  return setRange( fileName, line, col, line, col + 1 );
+  return setRange( fileName, line, col, line, col );
 }
 
 public final SourceRange setLocation ( int line, int col )
 {
-  return setRange( line, col, line, col + 1 );
+  return setRange( line, col, line, col );
+}
+
+public final SourceRange setLocation ( ISourceRange rng )
+{
+  return setLocation( rng.getFileName(), rng.getLine1(), rng.getCol1() );
+}
+
+public final SourceRange shiftExtend ( int length )
+{
+  this.line1 = this.line2;
+  this.col1 = this.col2;
+  this.col2 += length;
+  return this;
 }
 
 public final SourceRange extend ( ISourceRange end )
@@ -63,12 +76,6 @@ public final void translate ( int colOfs )
 {
   this.col1 += colOfs;
   this.col2 += colOfs;
-}
-
-public final void setLength ( int len )
-{
-  this.line2 = this.line1;
-  this.col2 = this.col1 + len;
 }
 
 @Override

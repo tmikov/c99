@@ -6,12 +6,21 @@ import java.io.PrintStream;
 import java.util.Arrays;
 
 import c99.IErrorReporter;
-import c99.ISourceRange;
 import c99.SourceRange;
 import c99.Utils;
 import c99.parser.SymTable;
 import c99.parser.Symbol;
 
+/**
+ * Preprocessor lexer.
+ *
+ * <p>Return preprocessor tokens and whitespace (which is important for the preprocessor).
+ * We go into some lengths to avoid allocating an object per token. Only character/string
+ * constants longer than 32 bytes cause an allocation.
+ *
+ * <p>While this is reasonably efficient, it could be optimized by using a tool to generate a FSM,
+ * which would examine every input character only once. For now it is not worth the trouble though.
+ */
 public class PPLexer
 {
 public static enum Code
@@ -247,33 +256,91 @@ public static class Token extends AbstractToken
 
 protected final SymTable m_symTable;
 protected final IErrorReporter m_reporter;
+private String m_fileName;
 private LineReader m_reader;
 private int m_end;
 private int m_cur;
 
-private final Token m_tokEOF = new Token( Code.EOF );
-private final Token m_tokPunkt = new Token();
-private final Token m_tokNewLine = new Token( Code.NEWLINE );
-private final Token m_tokSpace = new Token( Code.WHITESPACE );
-private final Token m_tokIdent = new Token( Code.IDENT );
-private final Token m_tokNumber = new Token( Code.PP_NUMBER );
-private final Token m_tokCharConst = new Token( Code.CHAR_CONST );
-private final Token m_tokStringConst = new Token( Code.STRING_CONST );
-private final Token m_tokOther = new Token( Code.OTHER );
+private Token m_fifo[];
+private int m_fifoHead, m_fifoTail, m_fifoCount, m_fifoCapacity;
 
-private final SourceRange m_tokRange = new SourceRange();
+private Token m_workTok;
+protected Token m_lastTok;
 
-protected Token m_tok;
+private final SourceRange m_tmpRange = new SourceRange();
 
 public PPLexer ( final IErrorReporter reporter, String fileName, InputStream input,
                  final SymTable symTable )
 {
   m_reporter = reporter;
   m_symTable = symTable;
+  m_fileName = fileName;
   m_reader = new LineReader( input, 16384 );
   m_end = m_cur = 0;
 
-  m_tokRange.setFileName( fileName );
+  m_fifoHead = m_fifoTail = m_fifoCount = 0;
+  m_fifoCapacity = 4;
+  m_fifo = new Token[m_fifoCapacity];
+  for ( int i = 0; i < m_fifoCapacity; ++i )
+    m_fifo[i] = new Token();
+
+  m_lastTok = newFifoToken();
+}
+
+private final Token newFifoToken ()
+{
+  if (m_fifoCount == m_fifoCapacity) // Need to enlarge the fifo?
+  {
+    Token[] newFifo = new Token[m_fifoCapacity << 1];
+
+    final int cap = m_fifoCapacity;
+    final int mask = cap - 1;
+    int head = m_fifoHead;
+    int i;
+    for ( i = 0; i < cap; ++i )
+    {
+      newFifo[i] = m_fifo[head];
+      head = (head + 1) & mask;
+    }
+    for ( ; i < newFifo.length; ++i )
+      newFifo[i] = new Token();
+
+    m_fifo = newFifo;
+    m_fifoCapacity <<= 1;
+    m_fifoHead = 0;
+    m_fifoTail = m_fifoCount;
+  }
+
+  Token tok = m_fifo[m_fifoTail];
+  m_fifoTail = (m_fifoTail + 1) & (m_fifoCapacity - 1);
+  ++m_fifoCount;
+  return tok;
+}
+
+private final void releaseFifoToken ( Token tok )
+{
+  assert tok == m_fifo[m_fifoHead];
+  assert m_fifoCount > 0;
+  tok.reset();
+  m_fifoHead = (m_fifoHead + 1) & (m_fifoCapacity - 1);
+  --m_fifoCount;
+}
+
+private final int getFifoCount ()
+{
+  return m_fifoCount;
+}
+
+private final Token getFifoHead ()
+{
+  assert m_fifoCount > 0;
+  return m_fifo[m_fifoHead];
+}
+
+private final Token getFifoToken ( int headOffset )
+{
+  assert headOffset < m_fifoCount;
+  return m_fifo[(m_fifoHead + headOffset) & (m_fifoCapacity -1)];
 }
 
 private boolean isSpace ( int c )
@@ -334,7 +401,7 @@ private boolean nextLine ()
       if (end+1 < m_reader.getLineEnd() && isSpace( buf[end+1] ))
       {
         m_reporter.warning(
-            m_reader.calcRange( end, end + 1, m_tokRange ),
+            m_reader.calcRange( end, end + 1, m_tmpRange ),
             "backslash and newline separated by space"
         );
       }
@@ -389,20 +456,18 @@ outerLoop:
     if (!nextLine())
     {
       cur = m_end;
-      m_reader.calcRangeEnd( cur, m_tokRange );
-      m_reporter.error( m_tokRange, "Unterminated block comment" );
+      m_reader.calcRangeEnd( cur, m_workTok );
+      m_reporter.error( m_workTok, "Unterminated block comment" );
       break;
     }
   }
 
-  m_reader.calcRangeEnd( cur, m_tokRange );
+  m_reader.calcRangeEnd( cur, m_workTok );
+  m_workTok.setCode( Code.COMMENT );
   m_cur = cur;
-  m_tokSpace.setCode( Code.COMMENT );
-  m_tok = m_tokSpace;
-  m_tok.setRange( m_tokRange );
 }
 
-private int parseCharConst ( int cur )
+private void parseCharConst ( int cur )
 {
   int end = m_end;
   byte[] buf = m_reader.getLineBuf();
@@ -416,25 +481,16 @@ loop:
     case '\'': closed = true; break loop;
     }
 
-  m_reader.calcRangeEnd( cur, m_tokRange );
+  m_reader.calcRangeEnd( cur, m_workTok );
 
   if (!closed)
-    m_reporter.error( m_tokRange, "Unterminated character constant" );
+    m_reporter.error( m_workTok, "Unterminated character constant" );
 
-  int len = cur - m_cur;
-  if (len > 32) // Really, just an arbitrary limit
-  {
-    m_reporter.warning( m_reader.calcRange( m_cur, cur, m_tokRange ),
-                        "Character constant is too long" );
-    len = 32;
-  }
-  m_tokCharConst.setText( Code.CHAR_CONST, buf, m_cur, len );
-  m_tok = m_tokCharConst;
-
-  return cur;
+  m_workTok.setText( Code.CHAR_CONST, buf, m_cur, cur - m_cur );
+  m_cur = cur;
 }
 
-private int parseStringConst ( int cur )
+private void parseStringConst ( int cur )
 {
   int end = m_end;
   byte[] buf = m_reader.getLineBuf();
@@ -448,18 +504,16 @@ loop:
     case '"': closed = true; break loop;
     }
 
-  m_reader.calcRangeEnd( cur, m_tokRange );
+  m_reader.calcRangeEnd( cur, m_workTok );
 
   if (!closed)
-    m_reporter.error( m_tokRange, "Unterminated string constant" );
+    m_reporter.error( m_workTok, "Unterminated string constant" );
 
-  m_tokStringConst.setText( Code.STRING_CONST, buf, m_cur, cur-m_cur );
-  m_tok = m_tokStringConst;
-
-  return cur;
+  m_workTok.setText( Code.STRING_CONST, buf, m_cur, cur - m_cur );
+  m_cur = cur;
 }
 
-private final int parsePunctuator ( int cur )
+private final void parsePunctuator ( int cur )
 {
   int end = m_end;
   byte[] buf = m_reader.getLineBuf();
@@ -669,37 +723,37 @@ private final int parsePunctuator ( int cur )
       break;
 
     default:
-      m_tokOther.setText( Code.OTHER, buf, cur++, 1 );
-      m_tok = m_tokOther;
-      return cur;
+      m_workTok.setText( Code.OTHER, buf, cur++, 1 );
+      m_cur = cur;
+      return;
   }
 
-  m_tokPunkt.setCode( code );
-  m_tok = m_tokPunkt;
-  return cur;
+  m_workTok.setCode( code );
+  m_cur = cur;
 }
 
-protected final void innerNextToken ()
+private final void parseNextToken ( Token tok )
 {
+  m_workTok = tok;
+  m_workTok.setFileName( m_fileName );
+
   if (m_cur == m_end)
   {
     if (!nextLine())
     {
-      m_tokRange.setLocation( m_reader.getCurLineNumber(), 1 );
-      m_tok = m_tokEOF;
-      m_tok.setRange( m_tokRange );
+      m_workTok.setLocation( m_reader.getCurLineNumber(), 1 );
+      m_workTok.setCode( Code.EOF );
       return;
     }
     else
     {
-      m_reader.calcRange( m_cur, m_cur, m_tokRange );
-      m_tok = m_tokNewLine;
-      m_tok.setRange( m_tokRange );
+      m_reader.calcRange( m_cur, m_cur, m_workTok );
+      m_workTok.setCode( Code.NEWLINE );
       return;
     }
   }
 
-  m_reader.calcRangeStart( m_cur, m_tokRange );
+  m_reader.calcRangeStart( m_cur, m_workTok );
 
   int cur = m_cur;
   int end = m_end;
@@ -716,8 +770,7 @@ protected final void innerNextToken ()
       ++cur;
     while (isAnySpace( buf[cur] ));
 
-    m_tokSpace.setCode( Code.WHITESPACE );
-    m_tok = m_tokSpace;
+    m_workTok.setCode( Code.WHITESPACE );
   }
   // Block comment
   else if (buf[cur] == '/' && cur + 1 < end && buf[cur+1] == '*')
@@ -730,8 +783,7 @@ protected final void innerNextToken ()
   else if (buf[cur] == '/' && cur + 1 < end && buf[cur+1] == '/')
   {
     cur = end;
-    m_tokSpace.setCode( Code.COMMENT );
-    m_tok = m_tokSpace;
+    m_workTok.setCode( Code.COMMENT );
   }
   // Ident
   //
@@ -741,8 +793,7 @@ protected final void innerNextToken ()
       ++cur;
     while (isIdentBody( buf[cur] ));
 
-    m_tokIdent.setSymbol( Code.IDENT, m_symTable.symbol( buf, m_cur, cur - m_cur ) );
-    m_tok = m_tokIdent;
+    m_workTok.setSymbol( Code.IDENT, m_symTable.symbol( buf, m_cur, cur - m_cur ) );
   }
   // pp-number
   //
@@ -764,38 +815,58 @@ protected final void innerNextToken ()
         break;
     }
 
-    m_tokNumber.setText( Code.PP_NUMBER, buf, m_cur, cur - m_cur );
-    m_tok = m_tokNumber;
+    m_workTok.setText( Code.PP_NUMBER, buf, m_cur, cur - m_cur );
   }
   // Character constant
   else if (buf[cur] == '\'')
   {
-    cur = parseCharConst( cur + 1 );
+    parseCharConst( cur + 1 );
+    return;
   }
   else if ((buf[cur] == 'L' || buf[cur] == 'u' || buf[cur] == 'U') && cur+1 < end && buf[cur+1] == '\'')
   {
-    cur = parseCharConst( cur + 2 );
+    parseCharConst( cur + 2 );
+    return;
   }
   // String constant
   else if (buf[cur] == '"')
   {
-    cur = parseStringConst( cur + 1 );
+    parseStringConst( cur + 1 );
+    return;
   }
   else if ((buf[cur] == 'L' || buf[cur] == 'u' || buf[cur] == 'U') && cur+1 < end && buf[cur+1] == '"')
   {
-    cur = parseStringConst( cur + 2 );
+    parseStringConst( cur + 2 );
+    return;
   }
   else
   // Punctuators
   //
   {
-    cur = parsePunctuator( cur );
+    parsePunctuator( cur );
+    return;
   }
 
-  m_reader.calcRangeEnd( cur, m_tokRange );
-  m_tok.setRange( m_tokRange );
+  m_reader.calcRangeEnd( cur, m_workTok );
   m_cur = cur;
 }
 
+protected final Token innerNextToken ()
+{
+  releaseFifoToken( m_lastTok );
+
+  if (getFifoCount() == 0)
+    parseNextToken( newFifoToken() );
+
+  return m_lastTok = getFifoHead();
+}
+
+protected final Token lookAhead ( int distance )
+{
+  assert distance >= 0;
+  while (getFifoCount() <= distance)
+    parseNextToken( newFifoToken() );
+  return getFifoToken( distance );
+}
 
 } // class

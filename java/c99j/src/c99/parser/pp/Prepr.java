@@ -216,33 +216,44 @@ private Token m_skippedWs;
 private Token m__defaultWs = new Token( Code.WHITESPACE );
 
 private final SourceRange m_tmpRange = new SourceRange();
+private Token m_tok;
 
 private final void nextWithBlanks ()
 {
   m_skippedWs = null;
-  innerNextToken();
+  m_tok = innerNextToken();
 }
 
 private final void nextNoBlanks ()
 {
   m_skippedWs = null;
-  innerNextToken();
+  m_tok = innerNextToken();
   while (m_tok.code() == Code.WHITESPACE || m_tok.code() == Code.COMMENT)
   {
     m_skippedWs = m__defaultWs;
-    innerNextToken();
+    m_tok = innerNextToken();
   }
 }
 
 private final void nextNoNewLineOrBlanks ()
 {
   m_skippedWs = null;
-  innerNextToken();
+  m_tok = innerNextToken();
   while (m_tok.code() == Code.WHITESPACE || m_tok.code() == Code.COMMENT || m_tok.code() == Code.NEWLINE)
   {
     m_skippedWs = m__defaultWs;
-    innerNextToken();
+    m_tok = innerNextToken();
   }
+}
+
+private final Token lookAheadNoNewLineOrBlanks ()
+{
+  int distance = 0;
+  Token la;
+  do
+    la = lookAhead( ++distance );
+  while (la.code() == Code.WHITESPACE || la.code() == Code.COMMENT || la.code() == Code.NEWLINE);
+  return la;
 }
 
 private final void skipBlanks ()
@@ -251,7 +262,7 @@ private final void skipBlanks ()
   while (m_tok.code() == Code.WHITESPACE || m_tok.code() == Code.COMMENT)
   {
     m_skippedWs = m__defaultWs;
-    innerNextToken();
+    m_tok = innerNextToken();
   }
 }
 
@@ -259,7 +270,7 @@ private final void skipUntilEOL ()
 {
   m_skippedWs = null;
   while (m_tok.code() != Code.NEWLINE && m_tok.code() != Code.EOF)
-    innerNextToken();
+    m_tok = innerNextToken();
 }
 
 private final boolean parseMacroParamList ( Macro macro )
@@ -517,43 +528,21 @@ private final void parseDirective ()
 }
 
 private Iterator<AbstractToken> m_expIt;
-private final Token m_savedIdent = new Token( Code.IDENT );
-private final SourceRange m_savedIdentRange = new SourceRange();
-private final SourceRange m_savedRange = new SourceRange();
-private Token m_savedTok;
+private final SourceRange m_expRange = new SourceRange();
 
 private final void expand ( Macro macro, ArrayList<List<Token>> params )
 {
   m_state = sEXPANDING;
+  m_expRange.setLocation( m_tok );
   m_expIt = macro.body.iterator();
 }
 
-private final boolean possiblyExpandFuncMacro ( Macro macro )
+private final void expandObjectMacro ( Macro macro )
 {
-  m_savedIdent.copyFrom( m_tok );
-  m_savedIdentRange.setRange( m_tok );
-
-  nextNoNewLineOrBlanks();
-
-  // False alarm? It wasn't a macro, so we must return the original token and the optional
-  // white-space.
-  if (m_tok.code() != Code.L_PAREN)
-  {
-    m_savedRange.setRange( m_tok );
-    m_savedTok = m_tok;
-
-    m_tok = m_savedIdent;
-    m_tok.setRange( m_savedIdentRange );
-
-    m_state = sUNDO_IDENT;
-    return false;
-  }
-
   expand( macro, null );
-  return true;
 }
 
-private final void expandObjectMacro ( Macro macro )
+private final void expandFuncMacro ( Macro macro )
 {
   expand( macro, null );
 }
@@ -566,19 +555,21 @@ private final void expandObjectMacro ( Macro macro )
 private final boolean possiblyExpandMacro ( Macro macro )
 {
   if (macro.funcLike)
-    return possiblyExpandFuncMacro( macro );
-  else
   {
-    expandObjectMacro( macro );
-    return true;
+    if (lookAheadNoNewLineOrBlanks().code() != Code.L_PAREN)
+      return false;
+    expandFuncMacro( macro );
   }
+  else
+    expandObjectMacro( macro );
+
+  return true;
 }
 
-private final int sNORMAL_NEXT = 0;
-private final int sNORMAL_USE = 1;
-private final int sLINEBEG = 2;
-private final int sUNDO_IDENT = 3;
-private final int sEXPANDING = 4;
+private static final int sNORMAL_NEXT = 0;
+private static final int sNORMAL_USE = 1;
+private static final int sLINEBEG = 2;
+private static final int sEXPANDING = 3;
 
 private int m_state = sLINEBEG;
 
@@ -617,26 +608,12 @@ public final Token nextToken ()
         return m_tok;
       }
 
-    case sUNDO_IDENT:
-      if (m_skippedWs != null)
-      {
-        m_tok.translate( m_skippedWs.length() );
-        m_tok = m_skippedWs;
-        m_skippedWs = null;
-      }
-      else
-      {
-        m_tok.setRange( m_savedRange );
-        m_tok = m_savedTok;
-        m_savedTok= null;
-      }
-      return m_tok;
-
     case sEXPANDING:
       if (m_expIt.hasNext())
       {
         m_tok = (Token)m_expIt.next();
-        m_tok.setLength( m_tok.length() );
+        m_expRange.shiftExtend( m_tok.length() );
+        m_tok.setRange( m_expRange );
         return m_tok;
       }
       else
