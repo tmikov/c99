@@ -1,4 +1,4 @@
-package c99.parser;
+package c99.parser.pp;
 
 public enum PPSymCode
 {
@@ -18,9 +18,8 @@ VA_ARGS("__VA_ARGS__");
 
 public final String name;
 
-private PPSymCode ( String name )
+PPSymCode ( String name )
 {
   this.name = name;
 }
-
 }

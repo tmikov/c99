@@ -2,6 +2,7 @@ package c99.parser;
 
 import c99.IErrorReporter;
 import c99.SourceRange;
+import c99.parser.pp.LineReader;
 
 public class Lexer
 {

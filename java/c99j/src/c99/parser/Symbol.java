@@ -1,6 +1,7 @@
 package c99.parser;
 
 import c99.Utils;
+import c99.parser.pp.PPSymCode;
 
 public class Symbol
 {
