@@ -92,7 +92,10 @@ private boolean fill ()
       m_limit += n;
 
     if (m_limit < m_buf.length)
+    {
+      m_buf[m_limit] = 0; // Add a sentinel to avoid range checks at EOF
       m_inputEOF = true;
+    }
 
     return n > 0;
   }

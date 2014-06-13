@@ -410,7 +410,10 @@ private boolean nextLine ()
       m_reader.appendNextLine( end );
     }
     else
+    {
+      buf[end+1] = 0; // Add a sentinel at the end of the line
       break;
+    }
   }
 
   m_cur = start;
