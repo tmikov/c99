@@ -518,7 +518,6 @@ loop:
 
 private final void parsePunctuator ( int cur )
 {
-  int end = m_end;
   byte[] buf = m_reader.getLineBuf();
   Code code;
 
@@ -536,7 +535,7 @@ private final void parsePunctuator ( int cur )
     case ',': code = Code.COMMA; ++cur; break;
 
     case '.': // ., ...
-      if (cur+2 < end && buf[cur+1] == '.' && buf[cur+2] == '.')
+      if (buf[cur+1] == '.' && buf[cur+2] == '.')
       {
         code = Code.ELLIPSIS;
         cur += 3;
@@ -549,73 +548,58 @@ private final void parsePunctuator ( int cur )
       break;
 
     case '-': // -, --, ->, -=
-      if (++cur < end)
-        switch (buf[cur])
-        {
-          case '-':  code = Code.MINUS_MINUS; ++cur; break;
-          case '>':  code = Code.MINUS_GREATER; ++cur; break;
-          case '=':  code = Code.MINUS_EQUALS; ++cur; break;
-          default:   code = Code.MINUS; break;
-        }
-      else
-        code = Code.MINUS;
+      switch (buf[++cur])
+      {
+        case '-':  code = Code.MINUS_MINUS; ++cur; break;
+        case '>':  code = Code.MINUS_GREATER; ++cur; break;
+        case '=':  code = Code.MINUS_EQUALS; ++cur; break;
+        default:   code = Code.MINUS; break;
+      }
       break;
     case '+': // +, ++, +=
-      if (++cur < end)
-        switch (buf[cur])
-        {
-          case '+': code = Code.PLUS_PLUS; ++cur; break;
-          case '=': code = Code.PLUS_EQUALS; ++cur; break;
-          default:  code = Code.PLUS; break;
-        }
-      else
-        code = Code.PLUS;
+      switch (buf[++cur])
+      {
+        case '+': code = Code.PLUS_PLUS; ++cur; break;
+        case '=': code = Code.PLUS_EQUALS; ++cur; break;
+        default:  code = Code.PLUS; break;
+      }
       break;
     case '&': // &, &&, &=
-      if (++cur < end)
-        switch (buf[cur])
-        {
-          case '&': code = Code.AMPERSAND_AMPERSAND; ++cur; break;
-          case '=': code = Code.AMPERSAND_EQUALS; ++cur; break;
-          default:  code = Code.AMPERSAND; break;
-        }
-      else
-        code = Code.AMPERSAND;
+      switch (buf[++cur])
+      {
+        case '&': code = Code.AMPERSAND_AMPERSAND; ++cur; break;
+        case '=': code = Code.AMPERSAND_EQUALS; ++cur; break;
+        default:  code = Code.AMPERSAND; break;
+      }
       break;
     case '|': // |, ||, |=
-      if (++cur < end)
-        switch (buf[cur])
-        {
-          case '|': code = Code.VERTICAL_VERTICAL; ++cur; break;
-          case '=': code = Code.VERTICAL_EQUALS; ++cur; break;
-          default:  code = Code.VERTICAL; break;
-        }
-      else
-        code = Code.VERTICAL;
+      switch (buf[++cur])
+      {
+        case '|': code = Code.VERTICAL_VERTICAL; ++cur; break;
+        case '=': code = Code.VERTICAL_EQUALS; ++cur; break;
+        default:  code = Code.VERTICAL; break;
+      }
       break;
 
     case '%': // %, %=, %>, %:, %:%:
-      if (++cur < end)
-        switch (buf[cur])
-        {
-          case '=': code = Code.PERCENT_EQUALS; ++cur; break;
-          case '>': code = Code.R_CURLY; ++cur; break;
-          case ':':
-            if (cur + 2 < end && buf[cur+1] == '%' && buf[cur+2] == ':')
-            {
-              code = Code.HASH_HASH;
-              cur += 3;
-              break;
-            }
-            // else fall-through
-          default: code = Code.PERCENT; break;
-        }
-      else
-        code = Code.PERCENT;
+      switch (buf[++cur])
+      {
+        case '=': code = Code.PERCENT_EQUALS; ++cur; break;
+        case '>': code = Code.R_CURLY; ++cur; break;
+        case ':':
+          if (buf[cur+1] == '%' && buf[cur+2] == ':')
+          {
+            code = Code.HASH_HASH;
+            cur += 3;
+            break;
+          }
+          // else fall-through
+        default: code = Code.PERCENT; break;
+      }
       break;
 
     case '*': // *, *=
-      if (++cur < end && buf[cur] == '=')
+      if (buf[++cur] == '=')
       {
         code = Code.ASTERISK_EQUALS;
         ++cur;
@@ -624,7 +608,7 @@ private final void parsePunctuator ( int cur )
         code = Code.ASTERISK;
       break;
     case '!': // !, !=
-      if (++cur < end && buf[cur] == '=')
+      if (buf[++cur] == '=')
       {
         code = Code.BANG_EQUALS;
         ++cur;
@@ -633,7 +617,7 @@ private final void parsePunctuator ( int cur )
         code = Code.BANG;
       break;
     case '/': // /, /=
-      if (++cur < end && buf[cur] == '=')
+      if (buf[++cur] == '=')
       {
         code = Code.SLASH_EQUALS;
         ++cur;
@@ -642,7 +626,7 @@ private final void parsePunctuator ( int cur )
         code = Code.SLASH;
       break;
     case '=': // =, ==
-      if (++cur < end && buf[cur] == '=')
+      if (buf[++cur] == '=')
       {
         code = Code.EQUALS_EQUALS;
         ++cur;
@@ -651,7 +635,7 @@ private final void parsePunctuator ( int cur )
         code = Code.EQUALS;
       break;
     case '^': // ^, ^=
-      if (++cur < end && buf[cur] == '=')
+      if (buf[++cur] == '=')
       {
         code = Code.CARET_EQUALS;
         ++cur;
@@ -660,7 +644,7 @@ private final void parsePunctuator ( int cur )
         code = Code.CARET;
       break;
     case ':': // :, :>
-      if (++cur < end && buf[cur] == '>')
+      if (buf[++cur] == '>')
       {
         code = Code.R_BRACKET;
         ++cur;
@@ -669,7 +653,7 @@ private final void parsePunctuator ( int cur )
         code = Code.COLON;
       break;
     case '#': // #, ##
-      if (++cur < end && buf[cur] == '#')
+      if (buf[++cur] == '#')
       {
         code = Code.HASH_HASH;
         ++cur;
@@ -679,50 +663,44 @@ private final void parsePunctuator ( int cur )
       break;
 
     case '<': // <, <=, <:, <%, <<, <<=
-      if (++cur < end)
-        switch (buf[cur])
-        {
-          case '=': code = Code.LESS_EQUALS; ++cur; break;
-          case ':': code = Code.L_BRACKET; ++cur; break;
-          case '%': code = Code.L_CURLY; ++cur; break;
-          case '<':
-            if (cur+1 < end && buf[cur+1] == '=')
-            {
-              code = Code.LESS_LESS_EQUALS;
-              cur += 2;
-            }
-            else
-            {
-              code = Code.LESS_LESS;
-              ++cur;
-            }
-            break;
-          default: code = Code.LESS; break;
-        }
-      else
-        code = Code.LESS;
+      switch (buf[++cur])
+      {
+        case '=': code = Code.LESS_EQUALS; ++cur; break;
+        case ':': code = Code.L_BRACKET; ++cur; break;
+        case '%': code = Code.L_CURLY; ++cur; break;
+        case '<':
+          if (buf[cur+1] == '=')
+          {
+            code = Code.LESS_LESS_EQUALS;
+            cur += 2;
+          }
+          else
+          {
+            code = Code.LESS_LESS;
+            ++cur;
+          }
+          break;
+        default: code = Code.LESS; break;
+      }
       break;
     case '>': // >, >=, >>, >>=
-      if (++cur < end)
-        switch (buf[cur])
-        {
-          case '=': code = Code.GREATER_EQUALS; ++cur; break;
-          case '>':
-            if (cur+1 < end && buf[cur+1] == '=')
-            {
-              code = Code.GREATER_GREATER_EQUALS;
-              cur += 2;
-            }
-            else
-            {
-              code = Code.GREATER_GREATER;
-              ++cur;
-            }
-            break;
-          default: code = Code.GREATER; break;
-        }
-      else
-        code = Code.GREATER;
+      switch (buf[++cur])
+      {
+        case '=': code = Code.GREATER_EQUALS; ++cur; break;
+        case '>':
+          if (buf[cur+1] == '=')
+          {
+            code = Code.GREATER_GREATER_EQUALS;
+            cur += 2;
+          }
+          else
+          {
+            code = Code.GREATER_GREATER;
+            ++cur;
+          }
+          break;
+        default: code = Code.GREATER; break;
+      }
       break;
 
     default:
@@ -759,9 +737,8 @@ private final void parseNextToken ( Token tok )
   m_reader.calcRangeStart( m_cur, m_workTok );
 
   int cur = m_cur;
-  int end = m_end;
 
-  assert cur < end;
+  assert cur < m_end;
 
   byte[] buf = m_reader.getLineBuf();
 
@@ -776,16 +753,16 @@ private final void parseNextToken ( Token tok )
     m_workTok.setCode( Code.WHITESPACE );
   }
   // Block comment
-  else if (buf[cur] == '/' && cur + 1 < end && buf[cur+1] == '*')
+  else if (buf[cur] == '/' && buf[cur+1] == '*')
   {
     parseBlockComment( cur + 2 );
     return;
   }
   // Line comment
   //
-  else if (buf[cur] == '/' && cur + 1 < end && buf[cur+1] == '/')
+  else if (buf[cur] == '/' && buf[cur+1] == '/')
   {
-    cur = end;
+    cur = m_end;
     m_workTok.setCode( Code.COMMENT );
   }
   // Ident
@@ -800,19 +777,22 @@ private final void parseNextToken ( Token tok )
   }
   // pp-number
   //
-  else if (isDigit( buf[cur] ) || buf[cur] == '.' && cur+1 < end && isDigit( buf[cur+1] ))
+  else if (isDigit( buf[cur] ) ||
+           buf[cur] == '.' && isDigit( buf[cur+1] ))
   {
-    while (++cur < end)
+    ++cur;
+    for(;;)
     {
       if (isDigit( buf[cur] ) ||
           isIdentStart( buf[cur] ) ||
           buf[cur] == '.')
-      {}
-      else if (((buf[cur] | 32) == 'e' || (buf[cur] | 32) == 'p') &&
-               cur+1 < end &&
-               (buf[cur]+1 == '+' || buf[cur]+1 == '-'))
       {
         ++cur;
+      }
+      else if (((buf[cur] | 32) == 'e' || (buf[cur] | 32) == 'p') &&
+               (buf[cur+1] == '+' || buf[cur+1] == '-'))
+      {
+        cur += 2;
       }
       else
         break;
@@ -826,7 +806,7 @@ private final void parseNextToken ( Token tok )
     parseCharConst( cur + 1 );
     return;
   }
-  else if ((buf[cur] == 'L' || buf[cur] == 'u' || buf[cur] == 'U') && cur+1 < end && buf[cur+1] == '\'')
+  else if ((buf[cur] == 'L' || buf[cur] == 'u' || buf[cur] == 'U') && buf[cur+1] == '\'')
   {
     parseCharConst( cur + 2 );
     return;
@@ -837,7 +817,7 @@ private final void parseNextToken ( Token tok )
     parseStringConst( cur + 1 );
     return;
   }
-  else if ((buf[cur] == 'L' || buf[cur] == 'u' || buf[cur] == 'U') && cur+1 < end && buf[cur+1] == '"')
+  else if ((buf[cur] == 'L' || buf[cur] == 'u' || buf[cur] == 'U') && buf[cur+1] == '"')
   {
     parseStringConst( cur + 2 );
     return;
