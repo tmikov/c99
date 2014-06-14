@@ -1,8 +1,9 @@
 package c99.parser.pp;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -43,17 +44,22 @@ private static final class Macro
 {
   public final SourceRange nameLoc = new SourceRange();
   public final SourceRange bodyLoc = new SourceRange();
-  public final Symbol name;
+  public final Symbol symbol;
   public boolean funcLike;
   public boolean variadic;
 
   public final ArrayList<ParamDecl> params = new ArrayList<ParamDecl>();
   public final LinkedList<AbstractToken> body = new LinkedList<AbstractToken>();
 
-  Macro ( final Symbol name, ISourceRange nameLoc )
+  Macro ( final Symbol symbol, ISourceRange nameLoc )
   {
-    this.name = name;
+    this.symbol = symbol;
     this.nameLoc.setRange( nameLoc );
+  }
+
+  final int paramCount ()
+  {
+    return params.size();
   }
 
   void cleanUpParamScope ()
@@ -64,7 +70,7 @@ private static final class Macro
 
   boolean same ( Macro m )
   {
-    if (this.name != m.name ||
+    if (this.symbol != m.symbol ||
         this.funcLike != m.funcLike ||
         this.params.size() != m.params.size() ||
         this.body.size() != m.body.size())
@@ -149,7 +155,7 @@ private static final class ParamToken extends AbstractToken
   }
 
   @Override
-  public void output ( final PrintStream out ) throws IOException
+  public void output ( final OutputStream out ) throws IOException
   {
     out.write( this.param.symbol.bytes );
   }
@@ -198,11 +204,12 @@ private static final class ConcatToken extends AbstractToken
            '}';
   }
 
+  private static final byte[] s_text = " ## ".getBytes();
   @Override
-  public void output ( final PrintStream out ) throws IOException
+  public void output ( final OutputStream out ) throws IOException
   {
     left.output( out );
-    out.print( " ## " );
+    out.write( s_text );
     right.output( out );
   }
 }
@@ -363,9 +370,13 @@ private final AbstractToken parseMacroReplacementListToken ( Macro macro )
 
   if (m_tok.code() == Code.HASH)
   {
+    Token savedWs = m_skippedWs;
+
     /* 6.10.3.2 (1) Each # preprocessing token in the replacement list for a function-like macro shall be
        followed by a parameter as the next preprocessing token in the replacement list. */
     nextNoBlanks();
+
+    m_skippedWs = savedWs; // Keep the space before the '# something'
 
     if ( (param = isParam( m_tok )) != null)
     {
@@ -494,7 +505,7 @@ private final void parseDefine ()
     {
       m_reporter.warning(
         macro.nameLoc, "redefinition of macro '%s' differs from previous definition at %s",
-        macro.name.name, m_reporter.formatRange( prevMacro.nameLoc )
+        macro.symbol.name, m_reporter.formatRange( prevMacro.nameLoc )
       );
     }
   }
@@ -531,24 +542,188 @@ private final void parseDirective ()
   }
 }
 
-private Iterator<AbstractToken> m_expIt;
+private Iterator<Token> m_expIt;
 private final SourceRange m_expRange = new SourceRange();
 
-private final void expand ( Macro macro, ArrayList<List<Token>> params )
+private final Token stringify ( List<Token> toks )
 {
+  try
+  {
+    // Estimate the size
+    int size = 0;
+    for ( Token tok : toks )
+      size += tok.length();
+
+    ByteArrayOutputStream bo = new ByteArrayOutputStream( size + 16 );
+    for ( Token tok : toks )
+      tok.output( bo );
+
+    // Perform escaping
+    byte[] buf = bo.toByteArray();
+    bo.reset();
+
+    bo.write( '"' );
+    for ( int ch : buf )
+    {
+      if (ch == '"' || ch == '\\')
+      {
+        bo.write( '\\' );
+        bo.write( ch );
+      }
+      else if (ch == '\n')
+      {
+        bo.write( '\\' );
+        bo.write( 'n' );
+      }
+      else if (ch < 32)
+      {
+        bo.write( '\\' );
+        bo.write( ((ch >>> 6)&3) + '0' );
+        bo.write( ((ch >>> 3)&7) + '0' );
+        bo.write( (ch&7) + '0' );
+      }
+      else
+        bo.write( ch );
+    }
+    bo.write( '"' );
+
+    Token res = new Token();
+    res.setTextWithOnwership( Code.STRING_CONST, bo.toByteArray() );
+    return res;
+  }
+  catch (IOException e)
+  {
+    throw new RuntimeException( "Unexpected", e );
+  }
+}
+
+private final void expandATok ( LinkedList<Token> expanded, ArrayList<List<Token>> args, AbstractToken atok )
+{
+  switch (atok.code())
+  {
+  case CONCAT:
+    ConcatToken ct = (ConcatToken)atok;  // FIXME: this is just a temporary hack to get it going
+    expandATok( expanded, args, ct.left );
+    expandATok( expanded, args, ct.right );
+    break;
+
+  case MACRO_PARAM:
+    ParamToken pt = (ParamToken)atok;
+    List<Token> tokens = args.get( pt.param.index );
+    if (pt.stringify)
+      expanded.add( stringify( tokens ) );
+    else
+      expanded.addAll( tokens );
+    break;
+
+  default:
+    expanded.addLast( (Token)atok );
+    break;
+  }
+}
+
+private final void expand ( ISourceRange pos, Macro macro, ArrayList<List<Token>> args )
+{
+  int expectedParams = macro.variadic ? macro.paramCount() - 1 : macro.paramCount();
+  int actualArguments = args != null ? args.size() : 0;
+
+  // Check if the number of parameters match
+  if (macro.variadic && actualArguments < expectedParams ||
+      !macro.variadic && actualArguments != expectedParams)
+  {
+    m_reporter.error( new SourceRange(pos).extendBefore( m_tok ),
+       "macro '%s' requires %d arguments but %d supplied",
+       macro.symbol.name, expectedParams, actualArguments );
+    return;
+  }
+
+  LinkedList<Token> expanded = new LinkedList<Token>();
+
+  for ( AbstractToken atok : macro.body )
+  {
+    expandATok( expanded, args, atok );
+  }
+
   m_state = sEXPANDING;
   m_expRange.setLocation( m_tok );
-  m_expIt = macro.body.iterator();
+  m_expIt = expanded.iterator();
 }
 
-private final void expandObjectMacro ( Macro macro )
+private final LinkedList<Token> parseMacroArg ()
 {
-  expand( macro, null );
+  final LinkedList<Token> res = new LinkedList<Token>();
+  int parenCount = 0;
+
+  m_skippedWs = null;
+
+  for(;;)
+  {
+    switch (m_tok.code())
+    {
+    case L_PAREN:
+      ++parenCount;
+      break;
+
+    case R_PAREN:
+      if (parenCount == 0)
+        return res;
+      --parenCount;
+      break;
+
+    case COMMA:
+      if (parenCount == 0)
+        return res;
+      break;
+
+    case EOF:
+      return res; // The caller will report the error
+    }
+
+    if (m_skippedWs != null)
+      res.addLast( m_skippedWs );
+    res.addLast( m_tok.clone() );
+    nextNoNewLineOrBlanks();
+  }
 }
 
-private final void expandFuncMacro ( Macro macro )
+private final void expandFuncMacro ( ISourceRange pos, Macro macro )
 {
-  expand( macro, null );
+  ArrayList<List<Token>> args = new ArrayList<List<Token>>();
+
+  nextNoNewLineOrBlanks();
+  assert m_tok.code() == Code.L_PAREN;
+
+  nextNoNewLineOrBlanks();
+  if (m_tok.code() != Code.R_PAREN || macro.paramCount() > 0)
+  {
+    // Accumulate the args
+    for (;;)
+    {
+      args.add( parseMacroArg() );
+
+      if (m_tok.code() == Code.R_PAREN)
+        break;
+      else if (m_tok.code() == Code.EOF)
+      {
+        m_reporter.error( m_tok, "Unterminated argument list for macro '%s'", macro.symbol.name );
+        return;
+      }
+      else if (m_tok.code() == Code.COMMA)
+        nextNoNewLineOrBlanks();
+      else
+        assert false; // parseMacroParam() couldn't have returned with a different token
+    }
+  }
+
+  assert m_tok.code() == Code.R_PAREN;
+  nextWithBlanks();
+
+  expand( pos, macro, args );
+}
+
+private final void expandObjectMacro ( ISourceRange pos, Macro macro )
+{
+  expand( pos, macro, null );
 }
 
 /**
@@ -562,10 +737,11 @@ private final boolean possiblyExpandMacro ( Macro macro )
   {
     if (lookAheadNoNewLineOrBlanks().code() != Code.L_PAREN)
       return false;
-    expandFuncMacro( macro );
+
+    expandFuncMacro( new SourceRange(m_tok), macro );
   }
   else
-    expandObjectMacro( macro );
+    expandObjectMacro( new SourceRange(m_tok), macro );
 
   return true;
 }
@@ -584,11 +760,13 @@ public final Token nextToken ()
     {
     case sNORMAL_NEXT:
       nextWithBlanks();
+      m_state = sNORMAL_USE;
+      // fall
     case sNORMAL_USE:
-      if (m_tok.code() == Code.IDENT && m_tok.symbol().ppDecl instanceof Macro)
+      if (m_tok.code() == Code.IDENT && m_tok.symbol().ppDecl instanceof Macro &&
+          possiblyExpandMacro( (Macro)(m_tok.symbol().ppDecl)))
       {
-        if (possiblyExpandMacro( (Macro)(m_tok.symbol().ppDecl)))
-          continue;
+        continue;
       }
       else if (m_tok.code() == Code.NEWLINE)
         m_state = sLINEBEG;
@@ -606,22 +784,23 @@ public final Token nextToken ()
 
       default:
         m_state = sNORMAL_USE;
-        continue;
+        break;
 
       case NEWLINE:
         return m_tok;
       }
+      break;
 
     case sEXPANDING:
       if (m_expIt.hasNext())
       {
-        m_tok = (Token)m_expIt.next();
-        m_expRange.shiftExtend( m_tok.length() );
-        m_tok.setRange( m_expRange );
-        return m_tok;
+        Token res = (Token)m_expIt.next();
+        m_expRange.shiftExtend( res.length() );
+        res.setRange( m_expRange );
+        return res;
       }
       else
-        m_state = sNORMAL_NEXT;
+        m_state = sNORMAL_USE;
       break;
     }
 }

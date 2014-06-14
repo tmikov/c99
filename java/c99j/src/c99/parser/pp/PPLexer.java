@@ -2,7 +2,7 @@ package c99.parser.pp;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintStream;
+import java.io.OutputStream;
 import java.util.Arrays;
 
 import c99.IErrorReporter;
@@ -91,16 +91,19 @@ public static enum Code
   /** '##' token */
   CONCAT;
 
-  public final String printable;
+  public final byte[] printable;
+  public final String str;
 
   Code ()
   {
-    printable = "";
+    str = "";
+    printable = new byte[0];
   }
 
-  Code ( String printable )
+  Code ( String str )
   {
-    this.printable = printable;
+    this.str = str;
+    this.printable = str.getBytes();
   }
 }
 
@@ -128,7 +131,7 @@ public abstract static class AbstractToken extends SourceRange implements Clonea
            "} " + super.toString();
   }
 
-  public abstract void output ( PrintStream out ) throws IOException;
+  public abstract void output ( OutputStream out ) throws IOException;
 }
 
 public static class Token extends AbstractToken
@@ -207,10 +210,21 @@ public static class Token extends AbstractToken
     m_length = count;
   }
 
+  /**
+   * Like {@code #setText} but transfers the ownership of {@param buf}
+   * instead of copying it.
+   */
+  public final void setTextWithOnwership ( Code code, byte[] buf )
+  {
+    this.m_code = code;
+    m_text = buf;
+    m_length = buf.length;
+  }
+
   public final void setCode ( Code code )
   {
     m_code = code;
-    m_length = code.printable.length();
+    m_length = code.printable.length;
   }
 
   @SuppressWarnings("CloneDoesntCallSuperClone")
@@ -242,14 +256,14 @@ public static class Token extends AbstractToken
     return m_length;
   }
 
-  public void output ( PrintStream out ) throws IOException
+  public void output ( OutputStream out ) throws IOException
   {
     if (m_symbol != null)
       out.write( m_symbol.bytes );
     else if (m_text != null)
       out.write( m_text, 0, m_length );
     else
-      out.print( m_code.printable );
+      out.write( m_code.printable );
   }
 
   @Override

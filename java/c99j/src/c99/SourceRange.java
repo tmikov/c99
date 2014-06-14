@@ -7,6 +7,14 @@ public int line1, col1;
 public int line2;
 public int col2;
 
+public SourceRange ()
+{}
+
+public SourceRange ( ISourceRange rng )
+{
+  setRange( rng );
+}
+
 public final SourceRange setRange ( String fileName, int line1, int col1, int line2, int col2 )
 {
   this.fileName = fileName;
@@ -62,6 +70,13 @@ public final SourceRange shiftExtend ( int length )
   this.line1 = this.line2;
   this.col1 = this.col2;
   this.col2 += length;
+  return this;
+}
+
+public final SourceRange extendBefore ( ISourceRange end )
+{
+  this.line2 = end.getLine1();
+  this.col2 = end.getCol1();
   return this;
 }
 
