@@ -251,6 +251,21 @@ public static class Token extends AbstractToken
     else
       out.print( m_code.printable );
   }
+
+  @Override
+  public String toString ()
+  {
+    final StringBuilder sb = new StringBuilder( "Token{" );
+    sb.append( m_code );
+    if (m_symbol != null)
+      sb.append( ", " ).append( m_symbol );
+    else if (m_text != null)
+      sb.append( ", '" ).append( Utils.asciiString( m_text, 0, Math.min( m_length, DEFAULT_LEN ) ) )
+        .append( '\'' );
+    sb.append(  ", " ).append( SourceRange.formatRange( this ) );
+    sb.append( '}' );
+    return sb.toString();
+  }
 }
 
 protected final SymTable m_symTable;

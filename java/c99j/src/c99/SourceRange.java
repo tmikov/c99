@@ -110,23 +110,48 @@ public final int getCol2 ()
   return col2;
 }
 
+public static boolean isRealRange ( ISourceRange rng )
+{
+  return rng != null &&
+         (rng.getLine2() > rng.getLine1() ||
+          rng.getLine2() == rng.getLine1() && rng.getCol2() > rng.getCol1() + 1);
+}
+
+public static String formatRange ( ISourceRange rng )
+{
+  if (rng == null)
+    return "";
+
+  if (isRealRange( rng ))
+  {
+    if (rng.getLine1() != rng.getLine2())
+    {
+      return String.format( "%s(%d)[%d]..(%d)[%d]",
+                            Utils.defaultString( rng.getFileName() ),
+                            rng.getLine1(), rng.getCol1(),
+                            rng.getLine2(), rng.getCol2()
+      );
+    }
+    else
+    {
+      return String.format( "%s(%d)[%d..%d]",
+                            Utils.defaultString( rng.getFileName() ),
+                            rng.getLine1(), rng.getCol1(), rng.getCol2()
+      );
+    }
+  }
+  else
+  {
+    return String.format( "%s(%d)[%d]",
+      Utils.defaultString( rng.getFileName() ),
+      rng.getLine1(), rng.getCol1()
+    );
+  }
+}
+
 @Override
 public String toString ()
 {
-  if (line2 != line1)
-    return "SourceRange{" +
-           fileName + '(' +
-           line1 +
-           '[' + col1 +
-           "].." + line2 +
-           '[' + col2 +
-           "])}";
-  else
-    return "SourceRange{" +
-           fileName + '(' +
-           line1 +
-           '[' + col1 +
-           ".." + col2 +
-           "])}";
+  return "SourceRange{" + formatRange( this ) + '}';
 }
 } // class
