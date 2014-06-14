@@ -28,7 +28,6 @@ public static enum Code
   EOF,
   WHITESPACE(" "),
   NEWLINE,
-  COMMENT(" "),
   IDENT,
   PP_NUMBER,
   CHAR_CONST,
@@ -285,6 +284,8 @@ public PPLexer ( final IErrorReporter reporter, String fileName, InputStream inp
     m_fifo[i] = new Token();
 
   m_lastTok = newFifoToken();
+
+  nextLine();
 }
 
 private final Token newFifoToken ()
@@ -345,7 +346,7 @@ private final Token getFifoToken ( int headOffset )
 
 private boolean isSpace ( int c )
 {
-  return c == 32 || c == 9 || c == 11 || c == 12;
+  return c == 32 || c == 9 || c == 11 || c == 12 || c == 13;
 }
 
 private boolean isAnySpace ( int c )
@@ -420,54 +421,6 @@ private boolean nextLine ()
   m_end = end + 1;
 
   return true;
-}
-
-private void parseBlockComment ( int cur )
-{
-  byte [] buf;
-  int end;
-
-outerLoop:
-  for(;;)
-  {
-    buf = m_reader.getLineBuf();
-    end = m_end;
-
-    int state = 0;
-
-    while (cur < end)
-    {
-      if (state == 0)
-      {
-        if (buf[cur++] == '*')
-          state = 1;
-      }
-      else
-      {
-        switch (buf[cur++])
-        {
-        case '/':
-          break outerLoop;
-        case '*': break;
-        default: state = 1; break;
-        }
-      }
-    }
-
-    // A line has been consumed. Get the next one
-    //
-    if (!nextLine())
-    {
-      cur = m_end;
-      m_reader.calcRangeEnd( cur, m_workTok );
-      m_reporter.error( m_workTok, "Unterminated block comment" );
-      break;
-    }
-  }
-
-  m_reader.calcRangeEnd( cur, m_workTok );
-  m_workTok.setCode( Code.COMMENT );
-  m_cur = cur;
 }
 
 private void parseCharConst ( int cur )
@@ -718,52 +671,82 @@ private final void parseNextToken ( Token tok )
   m_workTok = tok;
   m_workTok.setFileName( m_fileName );
 
-  if (m_cur == m_end)
-  {
-    if (!nextLine())
-    {
-      m_workTok.setLocation( m_reader.getCurLineNumber(), 1 );
-      m_workTok.setCode( Code.EOF );
-      return;
-    }
-    else
-    {
-      m_reader.calcRange( m_cur, m_cur, m_workTok );
-      m_workTok.setCode( Code.NEWLINE );
-      return;
-    }
-  }
-
-  m_reader.calcRangeStart( m_cur, m_workTok );
-
+  byte[] buf = m_reader.getLineBuf();
   int cur = m_cur;
 
-  assert cur < m_end;
+  m_reader.calcRangeStart( cur, m_workTok );
 
-  byte[] buf = m_reader.getLineBuf();
-
-  // Whitespace
-  //
-  if (isAnySpace( buf[cur] ))
+  // Skip all whitespace
+  int ws = 0; // bit 0 is new-line, bit 1 is whitespace
+  for(;;)
   {
-    do
-      ++cur;
-    while (isAnySpace( buf[cur] ));
-
-    m_workTok.setCode( Code.WHITESPACE );
+    // Whitespace
+    if (isSpace( buf[cur] ))
+    {
+      do
+        ++cur;
+      while (isSpace( buf[cur] ));
+      ws |= 2;
+    }
+    // Block comment
+    else if (buf[cur] == '/' && buf[cur+1] == '*')
+    {
+      m_reader.calcRangeStart( cur, m_tmpRange );
+      cur += 2;
+      for(;;)
+      {
+        if (buf[cur] == '*' && buf[cur+1] == '/')
+        {
+          cur += 2;
+          ws |= 2;
+          break;
+        }
+        else if (cur < m_end)
+          ++cur;
+        else if (nextLine())
+        {
+          buf = m_reader.getLineBuf();
+          cur = m_cur;
+        }
+        else
+        {
+          cur = m_end;
+          m_reader.calcRangeEnd( cur, m_tmpRange );
+          m_reporter.error( m_tmpRange.setFileName(m_fileName), "Unterminated block comment" );
+          break; // The outer loop will re-detect and return the EOF
+        }
+      }
+    }
+    // Line comment
+    //
+    else if (buf[cur] == '/' && buf[cur+1] == '/')
+    {
+      cur = m_end; // skip to the end of line
+      ws |= 2;
+    }
+    // New line
+    else if (cur == m_end)
+    {
+      if (nextLine())
+      {
+        buf = m_reader.getLineBuf();
+        cur = m_cur;
+        ws |= 1;
+      }
+      else
+      {
+        m_workTok.setLocation( m_reader.getCurLineNumber(), 1 );
+        m_workTok.setCode( Code.EOF );
+        return;
+      }
+    }
+    else
+      break;
   }
-  // Block comment
-  else if (buf[cur] == '/' && buf[cur+1] == '*')
+
+  if (ws != 0) // If we detected any whitespace at all
   {
-    parseBlockComment( cur + 2 );
-    return;
-  }
-  // Line comment
-  //
-  else if (buf[cur] == '/' && buf[cur+1] == '/')
-  {
-    cur = m_end;
-    m_workTok.setCode( Code.COMMENT );
+    m_workTok.setCode( (ws & 1) != 0 ? Code.NEWLINE : Code.WHITESPACE );
   }
   // Ident
   //

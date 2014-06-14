@@ -228,7 +228,7 @@ private final void nextNoBlanks ()
 {
   m_skippedWs = null;
   m_tok = innerNextToken();
-  while (m_tok.code() == Code.WHITESPACE || m_tok.code() == Code.COMMENT)
+  while (m_tok.code() == Code.WHITESPACE)
   {
     m_skippedWs = m__defaultWs;
     m_tok = innerNextToken();
@@ -239,7 +239,7 @@ private final void nextNoNewLineOrBlanks ()
 {
   m_skippedWs = null;
   m_tok = innerNextToken();
-  while (m_tok.code() == Code.WHITESPACE || m_tok.code() == Code.COMMENT || m_tok.code() == Code.NEWLINE)
+  while (m_tok.code() == Code.WHITESPACE || m_tok.code() == Code.NEWLINE)
   {
     m_skippedWs = m__defaultWs;
     m_tok = innerNextToken();
@@ -252,14 +252,14 @@ private final Token lookAheadNoNewLineOrBlanks ()
   Token la;
   do
     la = lookAhead( ++distance );
-  while (la.code() == Code.WHITESPACE || la.code() == Code.COMMENT || la.code() == Code.NEWLINE);
+  while (la.code() == Code.WHITESPACE || la.code() == Code.NEWLINE);
   return la;
 }
 
 private final void skipBlanks ()
 {
   m_skippedWs = null;
-  while (m_tok.code() == Code.WHITESPACE || m_tok.code() == Code.COMMENT)
+  while (m_tok.code() == Code.WHITESPACE)
   {
     m_skippedWs = m__defaultWs;
     m_tok = innerNextToken();
