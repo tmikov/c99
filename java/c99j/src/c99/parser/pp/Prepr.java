@@ -1,5 +1,6 @@
 package c99.parser.pp;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -13,6 +14,7 @@ import c99.CompilerOptions;
 import c99.IErrorReporter;
 import c99.ISourceRange;
 import c99.SourceRange;
+import c99.Utils;
 import c99.parser.SymTable;
 import c99.parser.Symbol;
 
@@ -438,6 +440,8 @@ private final boolean parseMacroReplacementList ( Macro macro )
       }
       while (m_tok.code() == Code.HASH_HASH);
 
+      m_skippedWs = null;
+
       if ( (tok = parseMacroReplacementListToken( macro )) == null)
         return false;
 
@@ -597,14 +601,95 @@ private final Token stringify ( List<Token> toks )
   }
 }
 
-private final void expandATok ( LinkedList<Token> expanded, ArrayList<List<Token>> args, AbstractToken atok )
+private final Token concatTokens ( ISourceRange pos, Token a, Token b )
+{
+  ByteArrayOutputStream os = new ByteArrayOutputStream(a.length() + b.length());
+  try
+  {
+    a.output(os);
+    b.output(os);
+  }
+  catch (IOException e)
+  {
+    throw new RuntimeException( "Unexpected", e );
+  }
+  byte[] bytes = os.toByteArray();
+  ByteArrayInputStream is = new ByteArrayInputStream(bytes);
+
+  final int[] errorCount = new int[1];
+
+  final IErrorReporter reporter = new IErrorReporter()
+  {
+    @Override
+    public void warning ( final ISourceRange rng, final String format, final Object... args ) {}
+
+    @Override
+    public void error ( final ISourceRange rng, final String format, final Object... args )
+    {
+      ++errorCount[0];
+    }
+
+    @Override
+    public String formatRange ( final ISourceRange rng ) {return "";}
+  };
+
+  PPLexer lexer = new PPLexer( reporter, "", is, m_symTable, bytes.length+1 );
+  Token res = lexer.innerNextToken();
+  if (res.code() == Code.EOF || res.code() == Code.WHITESPACE || errorCount[0] != 0 ||
+      lexer.lookAhead(1).code() != Code.EOF)
+  {
+    m_reporter.error( pos, "Combining \"%s\" and \"%s\" does not produce a valid token",
+                      Utils.asciiString( bytes, 0, a.length() ),
+                      Utils.asciiString( bytes, a.length(), b.length() ) );
+    return null;
+  }
+  return res.clone();
+}
+
+private final boolean concat (
+  LinkedList<Token> expanded, ISourceRange pos, ArrayList<List<Token>> args, ConcatToken ct )
+{
+  // TODO: In theory we don't need to create new lists here. We can simply
+  // keep track of the position in the main list where elements were
+  // added. The problem is that it is impossible to have a marker into LinkedList
+  // efficiently in the face of modifications, even of these modifications are "safe"
+  // (e.g. additions). The list iterators fail if there is any modification at all.
+  //
+  int savedSize = expanded.size();
+  expandATok( expanded, pos, args, ct.left );
+  if (expanded.size() == savedSize) // If left was empty, we have nothing to concatenate
+  {
+    expandATok( expanded, pos, args, ct.right );
+    return true;
+  }
+
+  LinkedList<Token> rt = new LinkedList<Token>();
+  expandATok( rt, pos, args, ct.right );
+  if (rt.isEmpty()) // If right is empty, we have nothing to do
+    return true;
+
+  // We need to concatenate the right-most token of 'expanded' with the left-most token of 'rt'
+  Token newTok;
+  if ( (newTok = concatTokens( pos, expanded.getLast(), rt.getFirst())) == null)
+  {
+    expanded.addAll( rt );
+    return false;
+  }
+
+  expanded.removeLast();
+  expanded.addLast( newTok );
+  rt.removeFirst();
+  expanded.addAll(rt);
+  return true;
+}
+
+private final void expandATok (
+   LinkedList<Token> expanded, ISourceRange pos, ArrayList<List<Token>> args, AbstractToken atok )
 {
   switch (atok.code())
   {
   case CONCAT:
-    ConcatToken ct = (ConcatToken)atok;  // FIXME: this is just a temporary hack to get it going
-    expandATok( expanded, args, ct.left );
-    expandATok( expanded, args, ct.right );
+    concat(expanded, pos, args, (ConcatToken) atok);
     break;
 
   case MACRO_PARAM:
@@ -641,11 +726,11 @@ private final void expand ( ISourceRange pos, Macro macro, ArrayList<List<Token>
 
   for ( AbstractToken atok : macro.body )
   {
-    expandATok( expanded, args, atok );
+    expandATok( expanded, pos, args, atok );
   }
 
   m_state = sEXPANDING;
-  m_expRange.setLocation( m_tok );
+  m_expRange.setLocation( pos );
   m_expIt = expanded.iterator();
 }
 

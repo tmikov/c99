@@ -298,12 +298,12 @@ protected Token m_lastTok;
 private final SourceRange m_tmpRange = new SourceRange();
 
 public PPLexer ( final IErrorReporter reporter, String fileName, InputStream input,
-                 final SymTable symTable )
+                 final SymTable symTable, int bufSize )
 {
   m_reporter = reporter;
   m_symTable = symTable;
   m_fileName = fileName;
-  m_reader = new LineReader( input, 16384 );
+  m_reader = new LineReader( input, bufSize );
   m_end = m_cur = 0;
 
   m_fifoHead = m_fifoTail = m_fifoCount = 0;
@@ -315,6 +315,12 @@ public PPLexer ( final IErrorReporter reporter, String fileName, InputStream inp
   m_lastTok = newFifoToken();
 
   nextLine();
+}
+
+public PPLexer ( final IErrorReporter reporter, String fileName, InputStream input,
+                 final SymTable symTable )
+{
+  this( reporter, fileName, input, symTable, 16384 );
 }
 
 private final Token newFifoToken ()
