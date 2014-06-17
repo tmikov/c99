@@ -2,6 +2,7 @@ package c99.driver;
 
 import java.io.FileInputStream;
 
+import c99.CompilerOptions;
 import c99.DummyErrorReporter;
 import c99.ISourceRange;
 import c99.parser.SymTable;
@@ -55,7 +56,8 @@ public static void main ( String[] args )
 
     DummyErrorReporter reporter = new DummyErrorReporter();
     SymTable symTable = new SymTable();
-    Prepr pp = new Prepr( reporter, fileName, new FileInputStream( fileName ), symTable );
+    CompilerOptions opts = new CompilerOptions();
+    Prepr pp = new Prepr( opts, reporter, fileName, new FileInputStream( fileName ), symTable );
 
     String lastFile = "";
     int lastLine = -1;

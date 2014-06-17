@@ -8,6 +8,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+import c99.CompilerOptions;
 import c99.IErrorReporter;
 import c99.ISourceRange;
 import c99.SourceRange;
@@ -16,12 +17,15 @@ import c99.parser.Symbol;
 
 public class Prepr extends PPLexer
 {
+private final CompilerOptions m_opts;
 private final Symbol m_sym_VA_ARGS;
 
-public Prepr ( final IErrorReporter reporter, final String fileName, final InputStream input,
+public Prepr ( final CompilerOptions opts, final IErrorReporter reporter,
+               final String fileName, final InputStream input,
                final SymTable symTable )
 {
   super( reporter, fileName, input, symTable );
+  m_opts = opts;
 
   for ( PPSymCode ppCode : PPSymCode.values() )
   {
