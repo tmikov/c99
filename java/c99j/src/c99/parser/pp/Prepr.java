@@ -722,6 +722,35 @@ private final void expand ( ISourceRange pos, Macro macro, ArrayList<List<Token>
     return;
   }
 
+  if (macro.variadic)
+  {
+    assert args != null; // if macro is func-like, we can't be called with null args
+
+    if (args.size() >= macro.paramCount()) // Are there any variadic arguments at all?
+    {
+      // Combine all variadic arguments into one
+      List<Token> vaArgs = args.get( macro.paramCount() - 1 );
+      for ( int i = macro.paramCount(); i < args.size(); ++i )
+      {
+        if (!vaArgs.isEmpty())
+        {
+          // vaArgs.add( new Token(Code.WHITESPACE) );
+          vaArgs.add( new Token(Code.COMMA) );
+          vaArgs.add( new Token(Code.WHITESPACE) );
+        }
+        vaArgs.addAll( args.get( i ) );
+      }
+
+      for ( int i = args.size() - 1; i > macro.paramCount(); --i )
+        args.remove( i );
+    }
+    else // Create an empty argument for VA_ARGS
+    {
+      args.add( new LinkedList<Token>() );
+      assert args.size() >= macro.paramCount();
+    }
+  }
+
   LinkedList<Token> expanded = new LinkedList<Token>();
 
   for ( AbstractToken atok : macro.body )

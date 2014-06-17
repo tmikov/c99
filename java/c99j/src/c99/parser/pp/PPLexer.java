@@ -152,7 +152,7 @@ public static class Token extends AbstractToken
   public Token ( Code code )
   {
     this();
-    m_code = code;
+    setCode( code );
   }
 
   public Token ( Token tok )
