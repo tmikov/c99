@@ -101,7 +101,7 @@ private static final class ParamDecl
   private final Object prevPPDecl;
   public final Symbol symbol;
   public final int index;
-  public final boolean variadic;
+  public boolean variadic;
 
   ParamDecl ( final Symbol symbol, int index, boolean variadic )
   {
@@ -313,10 +313,23 @@ private final boolean parseMacroParamList ( Macro macro )
           break;
         else if (m_tok.code() == Code.COMMA)
           nextNoBlanks();
-/* TODO: GCC extension for variadic macros "macro(args...)"
-        else if (m_tok.code() == Code.ELLIPSIS)
-          {}
-*/
+/* GCC extension for variadic macros "macro(args...)" */
+        else if (m_opts.gccExtensions && m_tok.code() == Code.ELLIPSIS)
+        {
+          macro.variadic = true;
+          macro.params.get( macro.params.size()-1 ).variadic = true;
+
+          nextNoBlanks();
+
+          if (m_tok.code() == Code.R_PAREN)
+            break;
+          else
+          {
+            m_reporter.error( m_tok, "Expected ')' after '...' in macro parameter list" );
+            skipUntilEOL();
+            return false;
+          }
+        }
         else
         {
           m_reporter.error(  m_tok, "Expected ',', ')', '...' or an identifier in macro parameter list" );
