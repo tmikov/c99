@@ -101,12 +101,14 @@ private static final class ParamDecl
   private final Object prevPPDecl;
   public final Symbol symbol;
   public final int index;
+  public final boolean variadic;
 
-  ParamDecl ( final Symbol symbol, int index )
+  ParamDecl ( final Symbol symbol, int index, boolean variadic )
   {
     this.prevPPDecl = symbol.ppDecl;
     this.symbol = symbol;
     this.index = index;
+    this.variadic = variadic;
 
     assert !(symbol.ppDecl instanceof ParamDecl);
     symbol.ppDecl = this;
@@ -304,7 +306,7 @@ private final boolean parseMacroParamList ( Macro macro )
           return false;
         }
 
-        macro.params.add( new ParamDecl( sym, macro.params.size() ) );
+        macro.params.add( new ParamDecl( sym, macro.params.size(), false ) );
 
         nextNoBlanks();
         if (m_tok.code() == Code.R_PAREN)
@@ -325,7 +327,7 @@ private final boolean parseMacroParamList ( Macro macro )
       else if (m_tok.code() == Code.ELLIPSIS)
       {
         macro.variadic = true;
-        macro.params.add( new ParamDecl( m_sym_VA_ARGS, macro.params.size() ) );
+        macro.params.add( new ParamDecl( m_sym_VA_ARGS, macro.params.size(), true ) );
         nextNoBlanks();
 
         if (m_tok.code() == Code.R_PAREN)
@@ -555,12 +557,14 @@ private final Token stringify ( List<Token> toks )
   {
     // Estimate the size
     int size = 0;
-    for ( Token tok : toks )
-      size += tok.length();
+    if (toks != null)
+      for ( Token tok : toks )
+        size += tok.length();
 
     ByteArrayOutputStream bo = new ByteArrayOutputStream( size + 16 );
-    for ( Token tok : toks )
-      tok.output( bo );
+    if (toks != null)
+      for ( Token tok : toks )
+        tok.output( bo );
 
     // Perform escaping
     byte[] buf = bo.toByteArray();
@@ -649,6 +653,24 @@ private final Token concatTokens ( ISourceRange pos, Token a, Token b )
 private final boolean concat (
   LinkedList<Token> expanded, ISourceRange pos, ArrayList<List<Token>> args, ConcatToken ct )
 {
+  // GCC extension. ', ## __VA_ARGS__' eliminates the comma if __VA_ARGS__ is null
+  //
+  if (m_opts.gccExtensions &&
+      ct.left.code() == Code.COMMA &&
+      ct.right.code() == Code.MACRO_PARAM &&
+      ((ParamToken)ct.right).param.variadic)
+  {
+    final ParamDecl vaParam = ((ParamToken)ct.right).param;
+    if (vaParam.index < args.size())
+    {
+      expandATok( expanded, pos, args, ct.left );
+      expanded.addLast( m__defaultWs );
+      expandATok( expanded, pos, args, ct.right );
+    }
+
+    return true;
+  }
+
   // TODO: In theory we don't need to create new lists here. We can simply
   // keep track of the position in the main list where elements were
   // added. The problem is that it is impossible to have a marker into LinkedList
@@ -694,11 +716,15 @@ private final void expandATok (
 
   case MACRO_PARAM:
     ParamToken pt = (ParamToken)atok;
-    List<Token> tokens = args.get( pt.param.index );
+    // Note: we must check args.size() because in a variadic macro the last argument may be missing
+    List<Token> tokens = pt.param.index < args.size() ? args.get( pt.param.index ) : null;
     if (pt.stringify)
       expanded.add( stringify( tokens ) );
     else
-      expanded.addAll( tokens );
+    {
+      if (tokens != null)
+        expanded.addAll( tokens );
+    }
     break;
 
   default:
@@ -743,11 +769,6 @@ private final void expand ( ISourceRange pos, Macro macro, ArrayList<List<Token>
 
       for ( int i = args.size() - 1; i > macro.paramCount(); --i )
         args.remove( i );
-    }
-    else // Create an empty argument for VA_ARGS
-    {
-      args.add( new LinkedList<Token>() );
-      assert args.size() >= macro.paramCount();
     }
   }
 
