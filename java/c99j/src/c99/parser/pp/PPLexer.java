@@ -111,6 +111,8 @@ public abstract static class AbstractToken extends SourceRange implements Clonea
 {
   protected Code m_code;
 
+  AbstractToken m_next, m_prev;
+
   @SuppressWarnings("CloneDoesntDeclareCloneNotSupportedException")
   public abstract AbstractToken clone ();
 

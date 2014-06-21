@@ -233,31 +233,18 @@ private Token m__defaultWs = new Token( Code.WHITESPACE );
 private final SourceRange m_tmpRange = new SourceRange();
 private Token m_tok;
 
-private final void nextWithBlanks ()
-{
-  m_skippedWs = null;
-  m_tok = innerNextToken();
-}
+private TokenList<Token> m_tokenList;
+private Token m_listElem;
 
-private final void nextNoBlanks ()
+private final void _next ()
 {
-  m_skippedWs = null;
-  m_tok = innerNextToken();
-  while (m_tok.code() == Code.WHITESPACE)
-  {
-    m_skippedWs = m__defaultWs;
+  if (m_listElem == null)
     m_tok = innerNextToken();
-  }
-}
-
-private final void nextNoNewLineOrBlanks ()
-{
-  m_skippedWs = null;
-  m_tok = innerNextToken();
-  while (m_tok.code() == Code.WHITESPACE || m_tok.code() == Code.NEWLINE)
+  else
   {
-    m_skippedWs = m__defaultWs;
-    m_tok = innerNextToken();
+    m_tok = m_listElem;
+    if ( (m_listElem = m_tokenList.next( m_listElem )) == null)
+      m_tokenList = null;
   }
 }
 
@@ -271,13 +258,41 @@ private final Token lookAheadNoNewLineOrBlanks ()
   return la;
 }
 
+private final void nextWithBlanks ()
+{
+  m_skippedWs = null;
+  _next();
+}
+
+private final void nextNoBlanks ()
+{
+  m_skippedWs = null;
+  _next();
+  while (m_tok.code() == Code.WHITESPACE)
+  {
+    m_skippedWs = m__defaultWs;
+    _next();
+  }
+}
+
+private final void nextNoNewLineOrBlanks ()
+{
+  m_skippedWs = null;
+  _next();
+  while (m_tok.code() == Code.WHITESPACE || m_tok.code() == Code.NEWLINE)
+  {
+    m_skippedWs = m__defaultWs;
+    _next();
+  }
+}
+
 private final void skipBlanks ()
 {
   m_skippedWs = null;
   while (m_tok.code() == Code.WHITESPACE)
   {
     m_skippedWs = m__defaultWs;
-    m_tok = innerNextToken();
+    _next();
   }
 }
 
@@ -285,7 +300,7 @@ private final void skipUntilEOL ()
 {
   m_skippedWs = null;
   while (m_tok.code() != Code.NEWLINE && m_tok.code() != Code.EOF)
-    m_tok = innerNextToken();
+    _next();
 }
 
 private final boolean parseMacroParamList ( Macro macro )
