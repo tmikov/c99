@@ -161,7 +161,7 @@ private static final class ParamToken extends AbstractToken
   @Override
   public void output ( final OutputStream out ) throws IOException
   {
-    out.write( this.param.symbol.bytes );
+    out.write(this.param.symbol.bytes);
   }
 }
 
@@ -248,8 +248,32 @@ private final void _next ()
   }
 }
 
+/*
+private final Token _lookAhead ( int distance )
+{
+  assert distance > 0;
+  Token cur = m_listElem;
+  while (cur != null)
+  {
+    if (--distance == 0)
+      return cur;
+    cur = m_tokenList.next( cur );
+  }
+
+  return lookAhead( distance );
+}
+*/
+
 private final Token lookAheadNoNewLineOrBlanks ()
 {
+  Token cur = m_listElem;
+  while (cur != null)
+  {
+    if (cur.code() != Code.WHITESPACE && cur.code() != Code.NEWLINE)
+      return cur;
+    cur = m_tokenList.next( cur );
+  }
+
   int distance = 0;
   Token la;
   do
