@@ -51,7 +51,7 @@ private static final class Macro
   public boolean variadic;
 
   public final ArrayList<ParamDecl> params = new ArrayList<ParamDecl>();
-  public final LinkedList<AbstractToken> body = new LinkedList<AbstractToken>();
+  public final TokenList<AbstractToken> body = new TokenList<AbstractToken>();
 
   Macro ( final Symbol symbol, ISourceRange nameLoc )
   {
@@ -234,16 +234,26 @@ private final SourceRange m_tmpRange = new SourceRange();
 private Token m_tok;
 
 private TokenList<Token> m_tokenList;
-private Token m_listElem;
+
+private final void insertBeforeNext ( TokenList<Token> list )
+{
+  if (list.isEmpty())
+    return;
+
+  if (m_tokenList == null)
+    m_tokenList = list;
+  else
+    m_tokenList.transferAllBeforeFirst( list );
+}
 
 private final void _next ()
 {
-  if (m_listElem == null)
+  if (m_tokenList == null)
     m_tok = innerNextToken();
   else
   {
-    m_tok = m_listElem;
-    if ( (m_listElem = m_tokenList.next( m_listElem )) == null)
+    m_tok = m_tokenList.removeFirst();
+    if (m_tokenList.isEmpty())
       m_tokenList = null;
   }
 }
@@ -266,12 +276,15 @@ private final Token _lookAhead ( int distance )
 
 private final Token lookAheadNoNewLineOrBlanks ()
 {
-  Token cur = m_listElem;
-  while (cur != null)
+  if (m_tokenList != null)
   {
-    if (cur.code() != Code.WHITESPACE && cur.code() != Code.NEWLINE)
-      return cur;
-    cur = m_tokenList.next( cur );
+    Token cur = m_tokenList.first();
+    do
+    {
+      if (cur.code() != Code.WHITESPACE && cur.code() != Code.NEWLINE)
+        return cur;
+    }
+    while ( (cur = m_tokenList.next( cur )) != null);
   }
 
   int distance = 0;
@@ -509,7 +522,7 @@ private final boolean parseMacroReplacementList ( Macro macro )
 
     if (m_skippedWs != null)
     {
-      macro.body.add( m_skippedWs.clone() );
+      macro.body.addLastClone( m_skippedWs );
       m_skippedWs = null;
     }
 
@@ -600,10 +613,7 @@ private final void parseDirective ()
   }
 }
 
-private Iterator<Token> m_expIt;
-private final SourceRange m_expRange = new SourceRange();
-
-private final Token stringify ( List<Token> toks )
+private final Token stringify ( TokenList<Token> toks )
 {
   try
   {
@@ -703,7 +713,7 @@ private final Token concatTokens ( ISourceRange pos, Token a, Token b )
 }
 
 private final boolean concat (
-  LinkedList<Token> expanded, ISourceRange pos, ArrayList<List<Token>> args, ConcatToken ct )
+  TokenList<Token> expanded, ISourceRange pos, ArrayList<TokenList<Token>> args, ConcatToken ct )
 {
   // GCC extension. ', ## __VA_ARGS__' eliminates the comma if __VA_ARGS__ is null
   //
@@ -716,7 +726,7 @@ private final boolean concat (
     if (vaParam.index < args.size())
     {
       expandATok( expanded, pos, args, ct.left );
-      expanded.addLast( m__defaultWs );
+      expanded.addLastClone(m__defaultWs);
       expandATok( expanded, pos, args, ct.right );
     }
 
@@ -737,55 +747,55 @@ private final boolean concat (
     return true;
   }
 
-  LinkedList<Token> rt = new LinkedList<Token>();
+  final TokenList<Token> rt = new TokenList<Token>();
   expandATok( rt, pos, args, ct.right );
   if (rt.isEmpty()) // If right is empty, we have nothing to do
     return true;
 
   // We need to concatenate the right-most token of 'expanded' with the left-most token of 'rt'
   Token newTok;
-  if ( (newTok = concatTokens( pos, expanded.getLast(), rt.getFirst())) == null)
+  if ( (newTok = concatTokens( pos, expanded.last(), rt.first() )) == null)
   {
-    expanded.addAll( rt );
+    expanded.transferAll(rt);
     return false;
   }
 
-  expanded.removeLast();
-  expanded.addLast( newTok );
-  rt.removeFirst();
-  expanded.addAll(rt);
+  expanded.remove( expanded.last() );
+  expanded.addLast(newTok);
+  rt.remove(rt.first());
+  expanded.transferAll(rt);
   return true;
 }
 
 private final void expandATok (
-   LinkedList<Token> expanded, ISourceRange pos, ArrayList<List<Token>> args, AbstractToken atok )
+   TokenList<Token> expanded, ISourceRange pos, ArrayList<TokenList<Token>> args, AbstractToken atok )
 {
   switch (atok.code())
   {
   case CONCAT:
-    concat(expanded, pos, args, (ConcatToken) atok);
+    concat( expanded, pos, args, (ConcatToken) atok );
     break;
 
   case MACRO_PARAM:
     ParamToken pt = (ParamToken)atok;
     // Note: we must check args.size() because in a variadic macro the last argument may be missing
-    List<Token> tokens = pt.param.index < args.size() ? args.get( pt.param.index ) : null;
+    TokenList<Token> tokens = pt.param.index < args.size() ? args.get( pt.param.index ) : null;
     if (pt.stringify)
-      expanded.add( stringify( tokens ) );
+      expanded.addLast(stringify(tokens));
     else
     {
       if (tokens != null)
-        expanded.addAll( tokens );
+        expanded.addAllClone(tokens);
     }
     break;
 
   default:
-    expanded.addLast( (Token)atok );
+    expanded.addLastClone((Token) atok);
     break;
   }
 }
 
-private final void expand ( ISourceRange pos, Macro macro, ArrayList<List<Token>> args )
+private final void expand ( ISourceRange pos, Macro macro, ArrayList<TokenList<Token>> args )
 {
   int expectedParams = macro.variadic ? macro.paramCount() - 1 : macro.paramCount();
   int actualArguments = args != null ? args.size() : 0;
@@ -807,16 +817,16 @@ private final void expand ( ISourceRange pos, Macro macro, ArrayList<List<Token>
     if (args.size() >= macro.paramCount()) // Are there any variadic arguments at all?
     {
       // Combine all variadic arguments into one
-      List<Token> vaArgs = args.get( macro.paramCount() - 1 );
+      TokenList<Token> vaArgs = args.get( macro.paramCount() - 1 );
       for ( int i = macro.paramCount(); i < args.size(); ++i )
       {
         if (!vaArgs.isEmpty())
         {
           // vaArgs.add( new Token(Code.WHITESPACE) );
-          vaArgs.add( new Token(Code.COMMA) );
-          vaArgs.add( new Token(Code.WHITESPACE) );
+          vaArgs.addLast(new Token(Code.COMMA));
+          vaArgs.addLast(new Token(Code.WHITESPACE));
         }
-        vaArgs.addAll( args.get( i ) );
+        vaArgs.transferAll(args.get(i));
       }
 
       for ( int i = args.size() - 1; i > macro.paramCount(); --i )
@@ -824,21 +834,22 @@ private final void expand ( ISourceRange pos, Macro macro, ArrayList<List<Token>
     }
   }
 
-  LinkedList<Token> expanded = new LinkedList<Token>();
+  TokenList<Token> expanded = new TokenList<Token>();
 
   for ( AbstractToken atok : macro.body )
   {
     expandATok( expanded, pos, args, atok );
   }
 
-  m_state = sEXPANDING;
-  m_expRange.setLocation( pos );
-  m_expIt = expanded.iterator();
+  for ( Token tok : expanded )
+    tok.setRange( pos );
+
+  insertBeforeNext( expanded );
 }
 
-private final LinkedList<Token> parseMacroArg ()
+private final TokenList<Token> parseMacroArg ()
 {
-  final LinkedList<Token> res = new LinkedList<Token>();
+  final TokenList<Token> res = new TokenList<Token>();
   int parenCount = 0;
 
   m_skippedWs = null;
@@ -867,15 +878,15 @@ private final LinkedList<Token> parseMacroArg ()
     }
 
     if (m_skippedWs != null)
-      res.addLast( m_skippedWs );
-    res.addLast( m_tok.clone() );
+      res.addLastClone(m_skippedWs);
+    res.addLastClone(m_tok);
     nextNoNewLineOrBlanks();
   }
 }
 
 private final void expandFuncMacro ( ISourceRange pos, Macro macro )
 {
-  ArrayList<List<Token>> args = new ArrayList<List<Token>>();
+  ArrayList<TokenList<Token>> args = new ArrayList<TokenList<Token>>();
 
   nextNoNewLineOrBlanks();
   assert m_tok.code() == Code.L_PAREN;
@@ -903,7 +914,7 @@ private final void expandFuncMacro ( ISourceRange pos, Macro macro )
   }
 
   assert m_tok.code() == Code.R_PAREN;
-  nextWithBlanks();
+  //nextWithBlanks();
 
   expand( pos, macro, args );
 }
@@ -936,7 +947,6 @@ private final boolean possiblyExpandMacro ( Macro macro )
 private static final int sNORMAL_NEXT = 0;
 private static final int sNORMAL_USE = 1;
 private static final int sLINEBEG = 2;
-private static final int sEXPANDING = 3;
 
 private int m_state = sLINEBEG;
 
@@ -953,6 +963,7 @@ public final Token nextToken ()
       if (m_tok.code() == Code.IDENT && m_tok.symbol().ppDecl instanceof Macro &&
           possiblyExpandMacro( (Macro)(m_tok.symbol().ppDecl)))
       {
+        m_state = sNORMAL_NEXT;
         continue;
       }
       else if (m_tok.code() == Code.NEWLINE)
@@ -976,18 +987,6 @@ public final Token nextToken ()
       case NEWLINE:
         return m_tok;
       }
-      break;
-
-    case sEXPANDING:
-      if (m_expIt.hasNext())
-      {
-        Token res = (Token)m_expIt.next();
-        m_expRange.shiftExtend( res.length() );
-        res.setRange( m_expRange );
-        return res;
-      }
-      else
-        m_state = sNORMAL_USE;
       break;
     }
 }
