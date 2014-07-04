@@ -28,6 +28,7 @@ public static enum Code
   EOF,
   WHITESPACE(" "),
   NEWLINE,
+  END_MACRO,
   IDENT,
   PP_NUMBER,
   CHAR_CONST,

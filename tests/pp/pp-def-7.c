@@ -10,4 +10,4 @@ f(2) (9)
 
 #define REC(x)  x+REC(x-1)
 
-REC(10)
+REC(10); REC(11);

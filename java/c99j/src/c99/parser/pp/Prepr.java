@@ -49,6 +49,7 @@ private static final class Macro
   public final Symbol symbol;
   public boolean funcLike;
   public boolean variadic;
+  public boolean expanding;
 
   public final ArrayList<ParamDecl> params = new ArrayList<ParamDecl>();
   public final TokenList<AbstractToken> body = new TokenList<AbstractToken>();
@@ -235,6 +236,24 @@ private Token m_tok;
 
 private TokenList<Token> m_tokenList;
 
+private final ArrayList<Macro> m_macroStack = new ArrayList<Macro>();
+
+private final void pushMacro ( Macro m )
+{
+  assert !m.expanding;
+  m.expanding = true;
+  m_macroStack.add( m );
+}
+
+private final void popMacro ( Token tok )
+{
+  assert m_macroStack.size() > 0;
+  Macro m = m_macroStack.remove( m_macroStack.size() - 1 );
+  assert m.symbol == tok.symbol();
+  assert m.expanding;
+  m.expanding = false;
+}
+
 private final void insertBeforeNext ( TokenList<Token> list )
 {
   if (list.isEmpty())
@@ -248,13 +267,24 @@ private final void insertBeforeNext ( TokenList<Token> list )
 
 private final void _next ()
 {
-  if (m_tokenList == null)
-    m_tok = innerNextToken();
-  else
+  for(;;)
   {
-    m_tok = m_tokenList.removeFirst();
-    if (m_tokenList.isEmpty())
-      m_tokenList = null;
+    if (m_tokenList == null)
+      m_tok = innerNextToken();
+    else
+    {
+      m_tok = m_tokenList.removeFirst();
+      if (m_tokenList.isEmpty())
+        m_tokenList = null;
+
+      if (m_tok.code() == Code.END_MACRO)
+      {
+        popMacro( m_tok );
+        continue;
+      }
+    }
+
+    break;
   }
 }
 
@@ -281,7 +311,7 @@ private final Token lookAheadNoNewLineOrBlanks ()
     Token cur = m_tokenList.first();
     do
     {
-      if (cur.code() != Code.WHITESPACE && cur.code() != Code.NEWLINE)
+      if (cur.code() != Code.WHITESPACE && cur.code() != Code.NEWLINE && cur.code() != Code.END_MACRO)
         return cur;
     }
     while ( (cur = m_tokenList.next( cur )) != null);
@@ -291,7 +321,7 @@ private final Token lookAheadNoNewLineOrBlanks ()
   Token la;
   do
     la = lookAhead( ++distance );
-  while (la.code() == Code.WHITESPACE || la.code() == Code.NEWLINE);
+  while (la.code() == Code.WHITESPACE || la.code() == Code.NEWLINE || la.code() == Code.END_MACRO);
   return la;
 }
 
@@ -834,12 +864,16 @@ private final void expand ( ISourceRange pos, Macro macro, ArrayList<TokenList<T
     }
   }
 
+  pushMacro( macro );
+
   TokenList<Token> expanded = new TokenList<Token>();
 
   for ( AbstractToken atok : macro.body )
-  {
     expandATok( expanded, pos, args, atok );
-  }
+
+  Token popToken = new Token();
+  popToken.setSymbol( Code.END_MACRO, macro.symbol );
+  expanded.addLast(popToken);
 
   for ( Token tok : expanded )
     tok.setRange( pos );
@@ -931,13 +965,17 @@ private final void expandObjectMacro ( ISourceRange pos, Macro macro )
  */
 private final boolean possiblyExpandMacro ( Macro macro )
 {
-  if (macro.funcLike)
-  {
-    if (lookAheadNoNewLineOrBlanks().code() != Code.L_PAREN)
-      return false;
+  if (macro.funcLike && lookAheadNoNewLineOrBlanks().code() != Code.L_PAREN)
+    return false;
 
-    expandFuncMacro( new SourceRange(m_tok), macro );
+  if (macro.expanding)
+  {
+    m_reporter.warning( m_tok, "Ignoring recursive invocation of macro '%s'", macro.symbol.name );
+    return false;
   }
+
+  if (macro.funcLike)
+    expandFuncMacro( new SourceRange(m_tok), macro );
   else
     expandObjectMacro( new SourceRange(m_tok), macro );
 
