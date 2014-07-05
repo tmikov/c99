@@ -13,3 +13,4 @@ f(2) (9)
 REC(10); REC(11);
 
 NEG(NEG(1));
+NEG(ABS(NEG(1)));

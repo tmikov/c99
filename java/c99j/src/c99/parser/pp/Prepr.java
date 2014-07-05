@@ -13,6 +13,7 @@ import java.util.List;
 import c99.CompilerOptions;
 import c99.IErrorReporter;
 import c99.ISourceRange;
+import c99.OptResult;
 import c99.SourceRange;
 import c99.Utils;
 import c99.parser.SymTable;
@@ -825,7 +826,7 @@ private final void expandATok (
   }
 }
 
-private final void expand ( ISourceRange pos, Macro macro, ArrayList<TokenList<Token>> args )
+private final TokenList<Token> expand ( ISourceRange pos, Macro macro, ArrayList<TokenList<Token>> args )
 {
   int expectedParams = macro.variadic ? macro.paramCount() - 1 : macro.paramCount();
   int actualArguments = args != null ? args.size() : 0;
@@ -837,7 +838,7 @@ private final void expand ( ISourceRange pos, Macro macro, ArrayList<TokenList<T
     m_reporter.error( new SourceRange(pos).extendBefore( m_tok ),
        "macro '%s' requires %d arguments but %d supplied",
        macro.symbol.name, expectedParams, actualArguments );
-    return;
+    return null;
   }
 
   if (macro.variadic)
@@ -878,7 +879,7 @@ private final void expand ( ISourceRange pos, Macro macro, ArrayList<TokenList<T
   for ( Token tok : expanded )
     tok.setRange( pos );
 
-  insertBeforeNext( expanded );
+  return expanded;
 }
 
 private final TokenList<Token> parseMacroArg ()
@@ -892,6 +893,20 @@ private final TokenList<Token> parseMacroArg ()
   {
     switch (m_tok.code())
     {
+    case IDENT:
+      OptResult<TokenList<Token>> mr;
+      Token saveWs = m_skippedWs;
+      if ( (mr = possiblyExpandMacro( m_tok )) != null)
+      {
+        if (saveWs != null)
+          res.addLastClone( saveWs );
+        if (mr.get() != null)
+          insertBeforeNext( mr.get() );
+        nextNoNewLineOrBlanks();
+        continue;
+      }
+      break;
+
     case L_PAREN:
       ++parenCount;
       break;
@@ -918,7 +933,7 @@ private final TokenList<Token> parseMacroArg ()
   }
 }
 
-private final void expandFuncMacro ( ISourceRange pos, Macro macro )
+private final TokenList<Token> expandFuncMacro ( ISourceRange pos, Macro macro )
 {
   ArrayList<TokenList<Token>> args = new ArrayList<TokenList<Token>>();
 
@@ -938,7 +953,7 @@ private final void expandFuncMacro ( ISourceRange pos, Macro macro )
       else if (m_tok.code() == Code.EOF)
       {
         m_reporter.error( m_tok, "Unterminated argument list for macro '%s'", macro.symbol.name );
-        return;
+        return null;
       }
       else if (m_tok.code() == Code.COMMA)
         nextNoNewLineOrBlanks();
@@ -950,12 +965,12 @@ private final void expandFuncMacro ( ISourceRange pos, Macro macro )
   assert m_tok.code() == Code.R_PAREN;
   //nextWithBlanks();
 
-  expand( pos, macro, args );
+  return expand( pos, macro, args );
 }
 
-private final void expandObjectMacro ( ISourceRange pos, Macro macro )
+private final TokenList<Token> expandObjectMacro ( ISourceRange pos, Macro macro )
 {
-  expand( pos, macro, null );
+  return expand( pos, macro, null );
 }
 
 /**
@@ -963,23 +978,24 @@ private final void expandObjectMacro ( ISourceRange pos, Macro macro )
  * @param macro
  * @return true if macro expansion will proceed, so we must loop instead of returning a token
  */
-private final boolean possiblyExpandMacro ( Macro macro )
+private final OptResult<TokenList<Token>> possiblyExpandMacro ( Token tok )
 {
+  if (!(tok.symbol().ppDecl instanceof Macro))
+    return null;
+  Macro macro = (Macro) tok.symbol().ppDecl;
+
   if (macro.funcLike && lookAheadNoNewLineOrBlanks().code() != Code.L_PAREN)
-    return false;
+    return null;
 
   if (macro.expanding)
   {
     m_reporter.warning( m_tok, "Ignoring recursive invocation of macro '%s'", macro.symbol.name );
-    return false;
+    return null;
   }
 
-  if (macro.funcLike)
-    expandFuncMacro( new SourceRange(m_tok), macro );
-  else
-    expandObjectMacro( new SourceRange(m_tok), macro );
-
-  return true;
+  SourceRange pos = new SourceRange(tok);
+  return new OptResult<TokenList<Token>>(
+    macro.funcLike ? expandFuncMacro( pos, macro ) : expandObjectMacro( pos, macro ) );
 }
 
 private static final int sNORMAL_NEXT = 0;
@@ -998,9 +1014,11 @@ public final Token nextToken ()
       m_state = sNORMAL_USE;
       // fall
     case sNORMAL_USE:
-      if (m_tok.code() == Code.IDENT && m_tok.symbol().ppDecl instanceof Macro &&
-          possiblyExpandMacro( (Macro)(m_tok.symbol().ppDecl)))
+      OptResult<TokenList<Token>> res;
+      if (m_tok.code() == Code.IDENT && (res = possiblyExpandMacro( m_tok )) != null)
       {
+        if (res.get() != null)
+          insertBeforeNext( res.get() );
         m_state = sNORMAL_NEXT;
         continue;
       }
