@@ -5,10 +5,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
 
 import c99.CompilerOptions;
 import c99.IErrorReporter;
@@ -23,6 +23,13 @@ public class Prepr extends PPLexer
 {
 private final CompilerOptions m_opts;
 private final Symbol m_sym_VA_ARGS;
+
+private static enum Builtin
+{
+  __LINE__,
+  __FILE__,
+  __DATE__
+}
 
 public Prepr ( final CompilerOptions opts, final IErrorReporter reporter,
                final String fileName, final InputStream input,
@@ -41,6 +48,19 @@ public Prepr ( final CompilerOptions opts, final IErrorReporter reporter,
   m_sym_VA_ARGS = m_symTable.symbol( PPSymCode.VA_ARGS.name );
   assert m_sym_VA_ARGS.ppCode == PPSymCode.VA_ARGS;
 
+  // Define built-in macros
+  for ( Builtin builtin : Builtin.values() )
+  {
+    Symbol sym = m_symTable.symbol( builtin.name() );
+    sym.ppDecl = new Macro( sym, new SourceRange(), builtin );
+  }
+
+  // Generate the date string which doesn't change duing compilation
+  Macro dateMacro = (Macro) m_symTable.symbol( Builtin.__DATE__.name() ).ppDecl;
+  String dateStr = '"' + new SimpleDateFormat( "MMM dd yyyy" ).format( new Date() ) + '"';
+  Token tok = new Token();
+  tok.setTextWithOnwership( Code.STRING_CONST, dateStr.getBytes() );
+  dateMacro.body.addLast( tok );
 }
 
 private static final class Macro
@@ -48,6 +68,7 @@ private static final class Macro
   public final SourceRange nameLoc = new SourceRange();
   public final SourceRange bodyLoc = new SourceRange();
   public final Symbol symbol;
+  public final Builtin builtin;
   public boolean funcLike;
   public boolean variadic;
   public boolean expanding;
@@ -55,10 +76,11 @@ private static final class Macro
   public final ArrayList<ParamDecl> params = new ArrayList<ParamDecl>();
   public final TokenList<AbstractToken> body = new TokenList<AbstractToken>();
 
-  Macro ( final Symbol symbol, ISourceRange nameLoc )
+  Macro ( final Symbol symbol, ISourceRange nameLoc, Builtin builtin )
   {
     this.symbol = symbol;
     this.nameLoc.setRange( nameLoc );
+    this.builtin = builtin;
   }
 
   final int paramCount ()
@@ -576,7 +598,7 @@ private final void parseDefine ()
   }
 
   final Symbol macroSym = m_tok.symbol();
-  final Macro macro = new Macro( macroSym, m_tok );
+  final Macro macro = new Macro( macroSym, m_tok, null );
   try
   {
     nextWithBlanks();
@@ -603,7 +625,11 @@ private final void parseDefine ()
   if (macroSym.ppDecl instanceof Macro)
   {
     Macro prevMacro = (Macro)macroSym.ppDecl;
-    if (!macro.same( prevMacro ))
+    if (prevMacro.builtin != null)
+    {
+      m_reporter.warning( macro.nameLoc, "redefinition of builtin macro '%s'", macro.symbol.name );
+    }
+    else if (!macro.same( prevMacro ))
     {
       m_reporter.warning(
         macro.nameLoc, "redefinition of macro '%s' differs from previous definition at %s",
@@ -968,14 +994,43 @@ private final TokenList<Token> expandFuncMacro ( ISourceRange pos, Macro macro )
   return expand( pos, macro, args );
 }
 
+private final TokenList<Token> expandBuiltin ( ISourceRange pos, Macro macro )
+{
+  Token tok = new Token();
+
+  switch (macro.builtin)
+  {
+  case __LINE__:
+    tok.setTextWithOnwership( Code.PP_NUMBER, (pos.getLine1()+"").getBytes() );
+    break;
+  case __FILE__:
+    // FIXME: escaping
+    tok.setTextWithOnwership( Code.STRING_CONST, ('"'+pos.getFileName()+'"').getBytes() );
+    break;
+  case __DATE__:
+    tok.copyFrom( (Token) macro.body.first());
+    break;
+  }
+
+  TokenList<Token> expanded = new TokenList<Token>();
+  expanded.addLast( tok );
+  for ( Token t : expanded )
+    t.setRange( pos );
+
+  return expanded;
+}
+
 private final TokenList<Token> expandObjectMacro ( ISourceRange pos, Macro macro )
 {
-  return expand( pos, macro, null );
+  if (macro.builtin == null)
+    return expand( pos, macro, null );
+  else
+    return expandBuiltin( pos, macro );
 }
 
 /**
  *
- * @param macro
+ * @param tok
  * @return true if macro expansion will proceed, so we must loop instead of returning a token
  */
 private final OptResult<TokenList<Token>> possiblyExpandMacro ( Token tok )
