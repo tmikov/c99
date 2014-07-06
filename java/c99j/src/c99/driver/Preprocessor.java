@@ -66,7 +66,7 @@ public static void main ( String[] args )
     {
       if (!tok.getFileName().equals( lastFile ))
       {
-        if (cpp) System.out.format(  "\n# %d %s\n", tok.getLine1(), tok.getFileName() );
+        if (cpp) System.out.format(  "\n# %d %s\n", tok.getLine1(), Prepr.genString(tok.getFileName()) );
         lastLine = tok.getLine1();
       }
       else if (tok.getLine1() != lastLine)

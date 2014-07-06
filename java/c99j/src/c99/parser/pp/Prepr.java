@@ -994,6 +994,21 @@ private final TokenList<Token> expandFuncMacro ( ISourceRange pos, Macro macro )
   return expand( pos, macro, args );
 }
 
+public static String genString ( String str )
+{
+  final StringBuilder buf = new StringBuilder( str.length() + 8 );
+  buf.append( '"' );
+  for ( int len = str.length(), i = 0; i < len; ++i )
+  {
+    final char ch = str.charAt( i );
+    if (ch == '"' || ch == '\\')
+      buf.append( '\\' );
+    buf.append( ch );
+  }
+  buf.append( '"' );
+  return buf.toString();
+}
+
 private final TokenList<Token> expandBuiltin ( ISourceRange pos, Macro macro )
 {
   Token tok = new Token();
@@ -1004,8 +1019,7 @@ private final TokenList<Token> expandBuiltin ( ISourceRange pos, Macro macro )
     tok.setTextWithOnwership( Code.PP_NUMBER, (pos.getLine1()+"").getBytes() );
     break;
   case __FILE__:
-    // FIXME: escaping
-    tok.setTextWithOnwership( Code.STRING_CONST, ('"'+pos.getFileName()+'"').getBytes() );
+    tok.setTextWithOnwership( Code.STRING_CONST, genString( pos.getFileName() ).getBytes() );
     break;
   case __DATE__:
     tok.copyFrom( (Token) macro.body.first());
