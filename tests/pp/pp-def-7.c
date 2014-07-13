@@ -14,3 +14,8 @@ REC(10); REC(11);
 
 NEG(NEG(1));
 NEG(ABS(NEG(1)));
+
+#define RR( x )  x + RR
+
+RR(1);
+RR(2)(3);
