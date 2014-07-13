@@ -62,11 +62,19 @@ public static void main ( String[] args )
     String lastFile = "";
     int lastLine = -1;
     PPLexer.Token tok;
-    while ((tok = pp.nextToken()).code() != PPLexer.Code.EOF)
+    boolean nl = true;
+    do
     {
+      tok = pp.nextToken();
       if (!tok.getFileName().equals( lastFile ))
       {
-        if (cpp) System.out.format(  "\n# %d %s\n", tok.getLine1(), Prepr.genString(tok.getFileName()) );
+        if (cpp)
+        {
+          if (!nl)
+            System.out.println();
+          System.out.format(  "# %d %s\n", tok.getLine1(), Prepr.genString(tok.getFileName()) );
+          nl = true;
+        }
         lastLine = tok.getLine1();
       }
       else if (tok.getLine1() != lastLine)
@@ -74,19 +82,49 @@ public static void main ( String[] args )
         if (tok.getLine1() - lastLine <= 10)
         {
           do
+          {
             if (cpp) System.out.println();
+            nl = true;
+          }
           while (++lastLine < tok.getLine1());
         }
         else
-          if (cpp) System.out.format( "\n# %d\n", tok.getLine1() );
+        {
+          if (cpp)
+          {
+            if (!nl)
+              System.out.println();
+            System.out.format( "# %d\n", tok.getLine1() );
+            nl = true;
+          }
+        }
         lastLine = tok.getLine1();
       }
 
       lastFile = tok.getFileName();
 
-      if (cpp) tok.output( System.out );
+      if (cpp)
+      {
+        if (tok.code() == PPLexer.Code.NEWLINE)
+        {
+          System.out.println();
+          nl = true;
+          ++lastLine;
+        }
+        else
+        {
+          if (nl)
+          {
+            for ( int i = 1, col = tok.getCol1(); i < col; ++i )
+              System.out.print( ' ' );
+          }
+          tok.output( System.out );
+          nl = false;
+        }
+      }
       if (toks) System.out.println( tok );
     }
+    while (tok.code() != PPLexer.Code.EOF);
   }
   catch (Exception e)
   {
