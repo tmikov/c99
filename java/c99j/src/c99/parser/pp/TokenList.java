@@ -41,7 +41,7 @@ private final E cast ( PPLexer.AbstractToken t )
 
 public final E first ()
 {
-  return cast( m_head.m_next );
+  return m_head.m_next != m_head ? cast( m_head.m_next ) : null;
 }
 
 public final E last ()

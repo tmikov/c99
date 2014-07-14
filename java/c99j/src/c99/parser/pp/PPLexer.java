@@ -28,7 +28,6 @@ public static enum Code
   EOF,
   WHITESPACE(" "),
   NEWLINE,
-  END_MACRO,
   IDENT,
   PP_NUMBER,
   CHAR_CONST,
@@ -147,6 +146,8 @@ public static class Token extends AbstractToken
 
   private Symbol m_symbol;
 
+  private int m_flags;
+
   public Token ()
   {
     m_defaultBuf = new byte[DEFAULT_LEN];
@@ -164,6 +165,7 @@ public static class Token extends AbstractToken
 
     m_code = tok.m_code;
     m_length = tok.m_length;
+    m_flags = tok.m_flags;
 
     if (tok.m_symbol != null)
       m_symbol = tok.m_symbol;
@@ -176,6 +178,7 @@ public static class Token extends AbstractToken
   public void copyFrom ( Token tok )
   {
     reset();
+    m_flags = tok.m_flags;
     if (tok.m_symbol != null)
       setSymbol( tok.m_code, tok.m_symbol );
     else if (tok.m_text != null)
@@ -189,6 +192,20 @@ public static class Token extends AbstractToken
     m_code = null;
     m_symbol = null;
     m_text = null;
+    m_flags = 0;
+  }
+
+  public final boolean isNoExpand ()
+  {
+    return (m_flags & 1) != 0;
+  }
+
+  public final void setNoExpand ( boolean f )
+  {
+    if (f)
+      m_flags |= 1;
+    else
+      m_flags &= ~1;
   }
 
   public final Symbol symbol ()
@@ -274,6 +291,8 @@ public static class Token extends AbstractToken
   {
     final StringBuilder sb = new StringBuilder( "Token{" );
     sb.append( m_code );
+    if (isNoExpand())
+      sb.append( ", NO_EXPAND" );
     if (m_symbol != null)
       sb.append( ", " ).append( m_symbol );
     else if (m_text != null)
