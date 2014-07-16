@@ -19,3 +19,9 @@ NEG(ABS(NEG(1)));
 
 RR(1);
 RR(2)(3);
+
+#define RR2      1 + RR2
+#define MM(x)    x
+
+RR2;
+MM(RR2);
