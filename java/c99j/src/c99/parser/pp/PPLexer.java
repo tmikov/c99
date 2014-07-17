@@ -1,5 +1,6 @@
 package c99.parser.pp;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -134,6 +135,15 @@ public abstract static class AbstractToken extends SourceRange implements Clonea
   }
 
   public abstract void output ( OutputStream out ) throws IOException;
+
+  public final String outputString ()
+  {
+    ByteArrayOutputStream out = new ByteArrayOutputStream( 16 );
+    try {
+      output(  out );
+    } catch (IOException e) { throw new Error( "Unexpected", e ); }
+    return out.toString();
+  }
 }
 
 public static class Token extends AbstractToken
