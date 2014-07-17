@@ -193,6 +193,8 @@ public static class Token extends AbstractToken
     m_symbol = null;
     m_text = null;
     m_flags = 0;
+    this.fileName = null;
+    this.line1 = this.col1 = this.line2 = this.col2 = 0;
   }
 
   public final boolean isNoExpand ()
@@ -867,6 +869,7 @@ private final void parseNextToken ( Token tok )
   //
   {
     parsePunctuator( cur );
+    m_reader.calcRangeEnd( m_cur, m_workTok );
     return;
   }
 
