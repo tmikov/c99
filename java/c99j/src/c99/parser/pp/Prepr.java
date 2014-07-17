@@ -1154,7 +1154,7 @@ private final TokenList<Token> parseMacroArg ()
   }
 }
 
-private final boolean expandFuncMacro ( ISourceRange pos, Macro macro )
+private final boolean expandFuncMacro ( SourceRange pos, Macro macro )
 {
   ArrayList<Arg> args = new ArrayList<Arg>();
 
@@ -1186,6 +1186,8 @@ private final boolean expandFuncMacro ( ISourceRange pos, Macro macro )
 
   assert m_tok.code() == Code.R_PAREN;
   //nextWithBlanks();
+
+  pos.extend( m_tok );
 
   return expand( pos, macro, args );
 }
