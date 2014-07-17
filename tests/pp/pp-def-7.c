@@ -25,3 +25,9 @@ RR(2)(3);
 
 RR2;
 MM(RR2);
+
+#define M1   "M1"+M2
+#define M2   "M2"+M1
+
+M1
+M2
