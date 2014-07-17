@@ -888,7 +888,7 @@ private final void parseDefine ()
 
   if (m_tok.code() != Code.IDENT)
   {
-    m_reporter.error( m_tok, "An identifier macro name expected" );
+    m_reporter.error( m_tok, "An identifier macro name expected after #define" );
     skipUntilEOL();
     return;
   }
