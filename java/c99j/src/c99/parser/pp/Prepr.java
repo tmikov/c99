@@ -1267,7 +1267,7 @@ private final TokenList<Token> expandTokens ( TokenList<Token> tokens )
   final TokenList<Token> expanded = new TokenList<Token>();
 
   tokens.addLast( new Token( Code.EOF ) );
-  Token saveTok = m_tok;
+  Token saveTok = m_tok.clone(); // to be on the safe side
   try
   {
     pushContext( new Context( tokens ) );
@@ -1316,6 +1316,7 @@ public final Token nextToken ()
       return m_tok;
 
     case sLINEBEG:
+      assert m_ctx == null;
       nextNoBlanks();
       switch (m_tok.code())
       {
