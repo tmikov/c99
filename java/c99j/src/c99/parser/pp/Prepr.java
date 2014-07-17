@@ -937,6 +937,31 @@ private final void parseDefine ()
   macroSym.ppDecl = macro;
 }
 
+private final void parseUndef ()
+{
+  nextNoBlanks(); // consume the 'undef'
+
+  if (m_tok.code() != Code.IDENT)
+  {
+    m_reporter.error( m_tok, "An identifier macro name expected after #undef" );
+    skipUntilEOL();
+    return;
+  }
+
+  final Symbol macroSym = m_tok.symbol();
+  if (macroSym.ppDecl instanceof Macro)
+    macroSym.ppDecl = null;
+  else
+    m_reporter.warning( m_tok, "Macro '%s' not defined in #undef", macroSym.name );
+
+  nextNoBlanks();
+  if (m_tok.code() != Code.EOF && m_tok.code() != Code.NEWLINE)
+  {
+    m_reporter.error( m_tok, "Extra tokens afer end of #undef" );
+    skipUntilEOL();
+  }
+}
+
 private final void parseDirective ()
 {
   nextNoBlanks(); // consume the '#'
@@ -956,6 +981,10 @@ private final void parseDirective ()
         case DEFINE:
           parseDefine();
           return;
+
+        case UNDEF:
+          parseUndef();
+          return;
         }
       }
     }
@@ -964,6 +993,9 @@ private final void parseDirective ()
   case PP_NUMBER:
     break;
   }
+
+  m_reporter.error( m_tok, "Invalid preprocessor directive #%s", m_tok.outputString() );
+  skipUntilEOL();
 }
 
 private final Token stringify ( TokenList<Token> toks )
