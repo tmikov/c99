@@ -4,3 +4,4 @@ pp-undef-1.c(3)[8..11]: warning: Macro 'xxx' not defined in #undef
 pp-undef-1.c(4)[8..11]: warning: Macro 'xxx' not defined in #undef
 pp-undef-1.c(4)[12]: error: Extra tokens afer end of #undef
 pp-undef-1.c(10)[8..10]: warning: Macro 'MM' not defined in #undef
+pp-undef-1.c(13)[8..16]: warning: undefining '__LINE__'

@@ -8,3 +8,7 @@ MM
 #undef MM
 MM
 #undef MM
+
+__LINE__;
+#undef __LINE__
+__LINE__;

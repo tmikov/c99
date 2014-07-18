@@ -979,7 +979,12 @@ private final void parseUndef ()
 
   final Symbol macroSym = m_tok.symbol();
   if (macroSym.ppDecl instanceof Macro)
+  {
+    if (((Macro)macroSym.ppDecl).builtin != null)
+      m_reporter.warning( m_tok, "undefining '%s'", macroSym.name );
+
     macroSym.ppDecl = null;
+  }
   else
     m_reporter.warning( m_tok, "Macro '%s' not defined in #undef", macroSym.name );
 
