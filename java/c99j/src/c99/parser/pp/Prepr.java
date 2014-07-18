@@ -650,7 +650,7 @@ private final void nextWithBlanks ()
   _next();
 }
 
-private final void nextNoBlanks ()
+private final Token nextNoBlanks ()
 {
   m_skippedWs = null;
   _next();
@@ -659,6 +659,7 @@ private final void nextNoBlanks ()
     m_skippedWs = m__defaultWs;
     _next();
   }
+  return m_tok;
 }
 
 private final void nextNoNewLineOrBlanks ()
@@ -670,6 +671,32 @@ private final void nextNoNewLineOrBlanks ()
     m_skippedWs = m__defaultWs;
     _next();
   }
+}
+
+private final Token nextExpandWithBlanks ()
+{
+  m_skippedWs = null;
+  do
+    _next();
+  while (m_tok.code() == Code.IDENT && possiblyExpandMacro( m_tok ));
+  return m_tok;
+}
+
+private final Token curExpandWithBlanks ()
+{
+  m_skippedWs = null;
+  while (m_tok.code() == Code.IDENT && possiblyExpandMacro( m_tok ))
+    _next();
+  return m_tok;
+}
+
+private final Token nextExpandNoBlanks ()
+{
+  m_skippedWs = null;
+  do
+    _next();
+  while (m_tok.code() == Code.WHITESPACE || m_tok.code() == Code.IDENT && possiblyExpandMacro( m_tok ));
+  return m_tok;
 }
 
 private final void skipBlanks ()
@@ -1306,11 +1333,8 @@ private final TokenList<Token> expandTokens ( TokenList<Token> tokens )
   {
     pushContext( new Context( tokens ) );
 
-    for ( _next(); m_tok.code() != Code.EOF; _next() )
-    {
-      if (m_tok.code() != Code.IDENT || !possiblyExpandMacro( m_tok ))
-        expanded.addLastClone( m_tok );
-    }
+    while (nextExpandWithBlanks().code() != Code.EOF)
+      expanded.addLastClone( m_tok );
   }
   finally
   {
@@ -1321,52 +1345,28 @@ private final TokenList<Token> expandTokens ( TokenList<Token> tokens )
   return expanded;
 }
 
-private static final int sNORMAL_NEXT = 0;
-private static final int sNORMAL_USE = 1;
-private static final int sLINEBEG = 2;
-
-private int m_state = sLINEBEG;
+private boolean m_lineBeg = true;
 
 public final Token nextToken ()
 {
-  for(;;)
-    switch (m_state)
-    {
-    case sNORMAL_NEXT:
-      nextWithBlanks();
-      m_state = sNORMAL_USE;
-      // fall
-    case sNORMAL_USE:
-      OptResult<TokenList<Token>> res;
-      if (m_tok.code() == Code.IDENT && possiblyExpandMacro( m_tok ))
-      {
-        m_state = sNORMAL_NEXT;
-        continue;
-      }
-      else if (m_tok.code() == Code.NEWLINE)
-        m_state = sLINEBEG;
-      else
-        m_state = sNORMAL_NEXT;
-      return m_tok;
+  if (m_lineBeg)
+  {
+    assert m_ctx == null;
 
-    case sLINEBEG:
-      assert m_ctx == null;
-      nextNoBlanks();
-      switch (m_tok.code())
-      {
-      case HASH:
-        parseDirective();
-        return m_tok;
+    m_lineBeg = false;
 
-      default:
-        m_state = sNORMAL_USE;
-        break;
+    if (nextNoBlanks().code() == Code.HASH)
+      parseDirective();
+    else
+      curExpandWithBlanks();
+  }
+  else
+    nextExpandWithBlanks();
 
-      case NEWLINE:
-        return m_tok;
-      }
-      break;
-    }
+  if (m_tok.code() == Code.NEWLINE)
+    m_lineBeg = true;
+
+  return m_tok;
 }
 
 } // class
