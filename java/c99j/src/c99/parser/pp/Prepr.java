@@ -991,7 +991,7 @@ private final void parseUndef ()
   }
 }
 
-private int parseLineInt ( Token tok )
+private int parseLineInt ( Token tok, String afterWhat )
 {
   final byte text[] = tok.text();
   final int len = tok.textLen();
@@ -1003,7 +1003,7 @@ private int parseLineInt ( Token tok )
     int ch = text[i] & 255;
     if (!(ch >= '0' && ch <= '9'))
     {
-      m_reporter.error( tok, "'%s' after #line is not a positive integer", tok.outputString() );
+      m_reporter.error( tok, "'%s' after %s is not a positive integer", tok.outputString(), afterWhat );
       return -1;
     }
 
@@ -1040,7 +1040,7 @@ private static int fromXDigit ( char ch )
 
 
 // FIXME: unify this
-private String unescapeString ( Token tok )
+private String unescapeString ( Token tok, String afterWhat )
 {
   final byte text[] = tok.text();
   int len = tok.textLen();
@@ -1048,7 +1048,7 @@ private String unescapeString ( Token tok )
 
   if (text[0] != '"') // Could be a wide or UTF string
   {
-    m_reporter.error( tok, "Extended strings not supported after #line" );
+    m_reporter.error( tok, "Extended strings not supported after %s", afterWhat );
     return null;
   }
 
@@ -1139,53 +1139,8 @@ loop:
   return buf.toString();
 }
 
-private final void parseLine ()
+private final void handleLineDirective ( int line, String fileName )
 {
-  nextExpandNoBlanks(); // consume the 'line'
-
-  if (m_tok.code() != Code.PP_NUMBER)
-  {
-    m_reporter.error( m_tok, "Integer line number expected after #line" );
-    skipUntilEOL();
-    return;
-  }
-
-  int line = parseLineInt( m_tok );
-  if (line < 0)
-  {
-    skipUntilEOL();
-    return;
-  }
-
-  nextExpandNoBlanks();
-  String fileName;
-  if (m_tok.code() != Code.EOF && m_tok.code() != Code.NEWLINE)
-  {
-    if (m_tok.code() != Code.STRING_CONST)
-    {
-      m_reporter.error( m_tok, "Filename must be a string constant after #line" );
-      skipUntilEOL();
-      return;
-    }
-
-    fileName = unescapeString( m_tok );
-    if (fileName == null)
-    {
-      skipUntilEOL();
-      return;
-    }
-
-    nextNoBlanks();
-  }
-  else
-    fileName = null;
-
-  if (m_tok.code() != Code.EOF && m_tok.code() != Code.NEWLINE)
-  {
-    m_reporter.error( m_tok, "Extra tokens after end of #line" );
-    skipUntilEOL();
-  }
-
   m_lineAdjustment = line - m_tok.getLine1() + m_lineAdjustment - 1;
   if (fileName != null)
     super.setFileName( fileName );
@@ -1207,6 +1162,102 @@ private final void parseLine ()
     pushContext( new Context( list ) );
     m_tok.line2 = m_tok.line1 + 1;
   }
+}
+
+private final void parseLine ()
+{
+  nextExpandNoBlanks(); // consume the 'line'
+
+  if (m_tok.code() != Code.PP_NUMBER)
+  {
+    m_reporter.error( m_tok, "Integer line number expected after #line" );
+    skipUntilEOL();
+    return;
+  }
+
+  int line = parseLineInt( m_tok, "#line" );
+  if (line < 0)
+  {
+    skipUntilEOL();
+    return;
+  }
+
+  nextExpandNoBlanks();
+  String fileName;
+  if (m_tok.code() != Code.EOF && m_tok.code() != Code.NEWLINE)
+  {
+    if (m_tok.code() != Code.STRING_CONST)
+    {
+      m_reporter.error( m_tok, "Filename must be a string constant after #line" );
+      skipUntilEOL();
+      return;
+    }
+
+    fileName = unescapeString( m_tok, "#line" );
+    if (fileName == null)
+    {
+      skipUntilEOL();
+      return;
+    }
+
+    nextNoBlanks();
+  }
+  else
+    fileName = null;
+
+  if (m_tok.code() != Code.EOF && m_tok.code() != Code.NEWLINE)
+  {
+    m_reporter.error( m_tok, "Extra tokens after end of #line" );
+    skipUntilEOL();
+  }
+
+  handleLineDirective( line, fileName );
+}
+
+private final void parseLineMarker ()
+{
+  int line = parseLineInt( m_tok, "#" );
+  if (line < 0)
+  {
+    skipUntilEOL();
+    return;
+  }
+
+  nextNoBlanks();
+
+  if (m_tok.code() != Code.STRING_CONST)
+  {
+    m_reporter.error( m_tok, "Missing filename after #" );
+    skipUntilEOL();
+    return;
+  }
+
+  String fileName = unescapeString( m_tok, "#" );
+  if (fileName == null)
+  {
+    skipUntilEOL();
+    return;
+  }
+
+  nextNoBlanks();
+  boolean ignored = false;
+  while (m_tok.code() != Code.NEWLINE && m_tok.code() != Code.EOF)
+  {
+    if (m_tok.code() != Code.PP_NUMBER)
+      m_reporter.error( m_tok, "Invalid flag '%s' after #", m_tok.outputString() );
+    else
+    {
+      if (!ignored)
+      {
+        ignored = true;
+        m_reporter.warning( m_tok, "Ignoring unsupported GCC-style marker flags" );
+      }
+    }
+
+    nextNoBlanks();
+  }
+
+  handleLineDirective( line, fileName );
 }
 
 private final void parseDirective ()
@@ -1242,7 +1293,8 @@ private final void parseDirective ()
     break;
 
   case PP_NUMBER:
-    break;
+    parseLineMarker();
+    return;
   }
 
   m_reporter.error( m_tok, "Invalid preprocessor directive #%s", m_tok.outputString() );
