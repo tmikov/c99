@@ -314,6 +314,21 @@ public static class Token extends AbstractToken
     sb.append( '}' );
     return sb.toString();
   }
+
+  public final byte[] text ()
+  {
+    return m_text;
+  }
+
+  public final int textLen ()
+  {
+    return m_length;
+  }
+
+  public final String textString ()
+  {
+    return Utils.asciiString( m_text, 0, m_length );
+  }
 }
 
 protected final SymTable m_symTable;
@@ -733,6 +748,11 @@ private final void parsePunctuator ( int cur )
 
   m_workTok.setCode( code );
   m_cur = cur;
+}
+
+public final void setFileName ( String fileName )
+{
+  m_fileName = fileName;
 }
 
 private final void parseNextToken ( Token tok )

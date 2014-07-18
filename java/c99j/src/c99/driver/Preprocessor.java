@@ -4,7 +4,6 @@ import java.io.FileInputStream;
 
 import c99.CompilerOptions;
 import c99.DummyErrorReporter;
-import c99.ISourceRange;
 import c99.parser.SymTable;
 import c99.parser.pp.PPLexer;
 import c99.parser.pp.Prepr;
@@ -72,7 +71,7 @@ public static void main ( String[] args )
         {
           if (!nl)
             System.out.println();
-          System.out.format(  "# %d %s\n", tok.getLine1(), Prepr.genString(tok.getFileName()) );
+          System.out.format(  "# %d %s\n", tok.getLine1(), Prepr.simpleEscapeString(tok.getFileName()));
           nl = true;
         }
         lastLine = tok.getLine1();
@@ -94,7 +93,7 @@ public static void main ( String[] args )
           {
             if (!nl)
               System.out.println();
-            System.out.format( "# %d\n", tok.getLine1() );
+            System.out.format( "# %d %s\n", tok.getLine1(), Prepr.simpleEscapeString(tok.getFileName()));
             nl = true;
           }
         }
@@ -105,13 +104,7 @@ public static void main ( String[] args )
 
       if (cpp)
       {
-        if (tok.code() == PPLexer.Code.NEWLINE)
-        {
-          System.out.println();
-          nl = true;
-          ++lastLine;
-        }
-        else
+        if (tok.code() != PPLexer.Code.NEWLINE)
         {
           if (nl)
           {

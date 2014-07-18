@@ -8,14 +8,12 @@ import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
 
 import c99.CompilerOptions;
 import c99.IErrorReporter;
 import c99.ISourceRange;
-import c99.OptResult;
 import c99.SourceRange;
 import c99.Utils;
 import c99.parser.SymTable;
@@ -592,6 +590,8 @@ private final void popContext ()
 /** Holds lookahead tokens from a context */
 private final ArrayDeque<Token> m_laQueue = new ArrayDeque<Token>();
 
+private int m_lineAdjustment;
+
 private final void _next ()
 {
   if (!m_laQueue.isEmpty())
@@ -605,6 +605,8 @@ private final void _next ()
     if (m_ctx == null)
     {
       m_tok = innerNextToken();
+      m_tok.line1 += m_lineAdjustment;
+      m_tok.line2 += m_lineAdjustment;
       return;
     }
   }
@@ -989,6 +991,224 @@ private final void parseUndef ()
   }
 }
 
+private int parseLineInt ( Token tok )
+{
+  final byte text[] = tok.text();
+  final int len = tok.textLen();
+
+  int res = 0;
+
+  for ( int i = 0; i < len; ++i )
+  {
+    int ch = text[i] & 255;
+    if (!(ch >= '0' && ch <= '9'))
+    {
+      m_reporter.error( tok, "'%s' after #line is not a positive integer", tok.outputString() );
+      return -1;
+    }
+
+    // *= 10
+    int tmp = res * 10;
+    if (tmp < res)
+    {
+      m_reporter.error( tok, "line number out of range" );
+      return -1;
+    }
+
+    // += digit
+    res = tmp + ch - '0';
+    if (res < tmp)
+    {
+      m_reporter.error( tok, "line number out of range" );
+      return -1;
+    }
+  }
+
+  return res;
+}
+
+private static int fromXDigit ( char ch )
+{
+  ch |= 32;
+  if (ch >= '0' && ch <= '9')
+    return ch - '0';
+  else if (ch >= 'a' && ch <= 'f')
+    return ch - ('a' - 10);
+  else
+    return -1;
+}
+
+
+// FIXME: unify this
+private String unescapeString ( Token tok )
+{
+  final byte text[] = tok.text();
+  int len = tok.textLen();
+  StringBuilder buf = new StringBuilder( len+8 );
+
+  if (text[0] != '"') // Could be a wide or UTF string
+  {
+    m_reporter.error( tok, "Extended strings not supported after #line" );
+    return null;
+  }
+
+  assert len >= 2;
+  assert text[len-1] == '"';
+  --len; // skip the closing "
+
+loop:
+  for ( int i = 1; i < len; ++i )
+  {
+    if (text[i] == '\\')
+    {
+      ++i;
+      if (i == len)
+      {
+        m_reporter.error( tok, "Invalid character escape" );
+        break loop;
+      }
+      char ch;
+      switch (text[i])
+      {
+      case '\'':case '"':case '?':case '\\': ch = (char)text[i]; break;
+      case 'a': ch =  7; break;
+      case 'b': ch =  8; break;
+      case 'f': ch = 12; break;
+      case 'n': ch = 10; break;
+      case 'r': ch = 13; break;
+      case 't': ch =  9; break;
+      case 'v': ch = 11; break;
+
+      case 'x':
+        {
+          ++i;
+          if (i == len)
+          {
+            m_reporter.error( tok, "Invalid escape sequence at char offset %d", i - 1 );
+            break loop;
+          }
+          int value = 0;
+          int dig;
+          if ( (dig = fromXDigit( (char)text[i] )) < 0)
+            m_reporter.error( tok, "Invalid hex escape sequence at char offset %d", i );
+          else
+          {
+            do
+            {
+              value = (value << 4) + dig;
+              ++i;
+            }
+            while (i < len && (dig = fromXDigit( (char)text[i] )) >= 0);
+          }
+
+          --i;
+          ch = (char)value; // FIXME: add warning for conversion
+        }
+        break;
+
+      case '0':case '1':case '2':case '3':case '4':case '5':case '6':case '7':
+        {
+          int value = text[i] - '0';
+          if (i+1 < len && text[i+1] >= '0' && text[i+1] <= '7')
+          {
+            value = (value << 3) + (text[i+1] - '0');
+            ++i;
+            if (i+1 < len && text[i+1] >= '0' && text[i+1] <= '7')
+            {
+              value = (value << 3) + (text[i+1] - '0');
+              ++i;
+            }
+          }
+
+          ch = (char)value; // FIXME: add warning for conversion
+        }
+        break;
+
+      default:
+        m_reporter.error( tok, "Invalid escape sequence at char offset %d", i - 1 );
+        ch = (char)text[i];
+        break;
+      }
+
+      buf.append( ch );
+    }
+    else
+      buf.append( (char)(text[i] & 255) );
+  }
+
+  return buf.toString();
+}
+
+private final void parseLine ()
+{
+  nextExpandNoBlanks(); // consume the 'line'
+
+  if (m_tok.code() != Code.PP_NUMBER)
+  {
+    m_reporter.error( m_tok, "Integer line number expected after #line" );
+    skipUntilEOL();
+    return;
+  }
+
+  int line = parseLineInt( m_tok );
+  if (line < 0)
+  {
+    skipUntilEOL();
+    return;
+  }
+
+  nextExpandNoBlanks();
+  String fileName;
+  if (m_tok.code() != Code.EOF && m_tok.code() != Code.NEWLINE)
+  {
+    if (m_tok.code() != Code.STRING_CONST)
+    {
+      m_reporter.error( m_tok, "Filename must be a string constant after #line" );
+      skipUntilEOL();
+      return;
+    }
+
+    fileName = unescapeString( m_tok );
+    if (fileName == null)
+    {
+      skipUntilEOL();
+      return;
+    }
+
+    nextNoBlanks();
+  }
+  else
+    fileName = null;
+
+  if (m_tok.code() != Code.EOF && m_tok.code() != Code.NEWLINE)
+  {
+    m_reporter.error( m_tok, "Extra tokens after end of #line" );
+    skipUntilEOL();
+  }
+
+  m_lineAdjustment = line - m_tok.getLine1() + m_lineAdjustment - 1;
+  if (fileName != null)
+    super.setFileName( fileName );
+
+  // We have a problem if there are multiple new lines after the #line directive,
+  // since they have been merged into a single token. What we want is to modify the
+  // current new-line to end on the next line, and to synthesize a new one with
+  // the adjusted line
+  if (m_tok.line2 - m_tok.line1 > 1)
+  {
+    TokenList<Token> list = new TokenList<Token>();
+    Token nl = new Token( Code.NEWLINE );
+    nl.fileName = fileName != null ? fileName : m_tok.fileName;
+    nl.line1 = line;
+    nl.col1 = 1;
+    nl.line2 = m_tok.line2 + m_lineAdjustment;
+    nl.col2 = 1;
+    list.addLast( nl );
+    pushContext( new Context( list ) );
+    m_tok.line2 = m_tok.line1 + 1;
+  }
+}
+
 private final void parseDirective ()
 {
   nextNoBlanks(); // consume the '#'
@@ -1011,6 +1231,10 @@ private final void parseDirective ()
 
         case UNDEF:
           parseUndef();
+          return;
+
+        case LINE:
+          parseLine();
           return;
         }
       }
@@ -1251,7 +1475,7 @@ private final boolean expandFuncMacro ( SourceRange pos, Macro macro )
   return expand( pos, macro, args );
 }
 
-public static String genString ( String str )
+public static String simpleEscapeString ( String str )
 {
   final StringBuilder buf = new StringBuilder( str.length() + 8 );
   buf.append( '"' );
@@ -1260,6 +1484,13 @@ public static String genString ( String str )
     final char ch = str.charAt( i );
     if (ch == '"' || ch == '\\')
       buf.append( '\\' );
+    else if (ch < 32)
+    {
+      buf.append( '\\' )
+         .append( (ch >>> 6) & 7 )
+         .append( (ch >>> 3) & 7 )
+         .append( ch & 7 );
+    }
     buf.append( ch );
   }
   buf.append( '"' );
@@ -1276,7 +1507,7 @@ private final boolean expandBuiltin ( ISourceRange pos, Macro macro )
     tok.setTextWithOnwership( Code.PP_NUMBER, (pos.getLine1()+"").getBytes() );
     break;
   case __FILE__:
-    tok.setTextWithOnwership( Code.STRING_CONST, genString( pos.getFileName() ).getBytes() );
+    tok.setTextWithOnwership( Code.STRING_CONST, simpleEscapeString( pos.getFileName() ).getBytes() );
     break;
   case __DATE__:
     tok.copyFrom( (Token) macro.body.first());
@@ -1351,7 +1582,9 @@ public final Token nextToken ()
 {
   if (m_lineBeg)
   {
-    assert m_ctx == null;
+    // This craps out when we are compensating for merged new lines after a #line directive
+    // see parseLine()
+    // assert m_ctx == null;
 
     m_lineBeg = false;
 
