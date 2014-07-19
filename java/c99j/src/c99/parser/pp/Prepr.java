@@ -991,7 +991,7 @@ private final void parseUndef ()
   nextNoBlanks();
   if (m_tok.code() != Code.EOF && m_tok.code() != Code.NEWLINE)
   {
-    m_reporter.error( m_tok, "Extra tokens afer end of #undef" );
+    m_reporter.error( m_tok, "Extra tokens after end of #undef" );
     skipUntilEOL();
   }
 }
@@ -1265,6 +1265,123 @@ private final void parseLineMarker ()
   handleLineDirective( line, fileName );
 }
 
+private static final class IfState
+{
+  static final int BLOCK_NONE = 0;
+  static final int BLOCK_IF = 1;
+  static final int BLOCK_ELSE = 2;
+
+  Token tok;
+  int blockType;
+  boolean parentExec;
+  boolean cond;
+
+  IfState ( Token tok, final int blockType, final boolean parentExec, boolean cond )
+  {
+    this.tok = tok;
+    this.blockType = blockType;
+    this.parentExec = parentExec;
+    this.cond = cond;
+  }
+}
+
+private final ArrayList<IfState> m_ifStack = new ArrayList<IfState>();
+private IfState m_ifTop = new IfState( null, IfState.BLOCK_NONE, false, false );
+private boolean m_exec = true;
+
+private final void pushIfState ( Token tok, int blockType, boolean cond, boolean newExec )
+{
+  m_ifStack.add( m_ifTop );
+  m_ifTop = new IfState( tok, blockType, m_exec, cond );
+  m_exec = newExec;
+}
+
+private final void popIfState ()
+{
+  m_exec = m_ifTop.parentExec;
+  m_ifTop = m_ifStack.remove( m_ifStack.size() - 1 );
+}
+
+private final void checkEOL ( String after )
+{
+  if (m_tok.code() != Code.EOF && m_tok.code() != Code.NEWLINE)
+  {
+    m_reporter.error( m_tok, "Extra tokens after end of #%s", after );
+    skipUntilEOL();
+  }
+}
+
+private final void parseIfdef ()
+{
+  Token tok = m_tok.clone();
+  nextNoBlanks(); // consume the if[n]def
+
+  boolean cond = false;
+
+  if (!m_exec)
+    skipUntilEOL();
+  else
+  {
+    if (m_tok.code() != Code.IDENT)
+    {
+      m_reporter.error( m_tok, "Identifier expected after #%s", tok.symbol().ppCode.name );
+      skipUntilEOL();
+    }
+    else
+    {
+      cond = (m_tok.symbol().ppDecl instanceof Macro) ^ (tok.symbol().ppCode == PPSymCode.IFNDEF);
+      nextNoBlanks();
+      checkEOL(tok.symbol().ppCode.name);
+    }
+  }
+
+  assert m_tok.code() == Code.EOF || m_tok.code() == Code.NEWLINE;
+
+  pushIfState( tok, IfState.BLOCK_IF, cond, m_exec && cond );
+}
+
+private final void parseElse ()
+{
+  Token tok = m_tok.clone();
+
+  if (m_ifTop.blockType != IfState.BLOCK_IF)
+  {
+    m_reporter.error( m_tok, "#else without #if" );
+    skipUntilEOL();
+    return;
+  }
+
+  nextNoBlanks(); // consume the else
+  if (!m_ifTop.parentExec)
+    skipUntilEOL();
+  else
+    checkEOL( "else" );
+
+  assert m_tok.code() == Code.EOF || m_tok.code() == Code.NEWLINE;
+  m_ifTop.tok = tok;
+  m_ifTop.blockType = IfState.BLOCK_ELSE;
+  m_exec = m_ifTop.parentExec && !m_ifTop.cond;
+}
+
+private final void parseEndif ()
+{
+  if (m_ifTop.blockType != IfState.BLOCK_IF && m_ifTop.blockType != IfState.BLOCK_ELSE)
+  {
+    m_reporter.error( m_tok, "#endif without #if" );
+    skipUntilEOL();
+    return;
+  }
+
+  nextNoBlanks(); // consume the endif
+  if (!m_ifTop.parentExec)
+    skipUntilEOL();
+  else
+    checkEOL( "endif" );
+
+  assert m_tok.code() == Code.EOF || m_tok.code() == Code.NEWLINE;
+  popIfState();
+}
+
 private final void parseDirective ()
 {
   nextNoBlanks(); // consume the '#'
@@ -1282,15 +1399,40 @@ private final void parseDirective ()
         switch (sym.ppCode)
         {
         case DEFINE:
-          parseDefine();
-          return;
+          if (m_exec)
+          {
+            parseDefine();
+            return;
+          }
+          break;
 
         case UNDEF:
-          parseUndef();
-          return;
+          if (m_exec)
+          {
+            parseUndef();
+            return;
+          }
+          break;
 
         case LINE:
-          parseLine();
+          if (m_exec)
+          {
+            parseLine();
+            return;
+          }
+          break;
+
+        case IFDEF:
+        case IFNDEF:
+          parseIfdef();
+          return;
+
+        case ELSE:
+          parseElse();
+          return;
+
+        case ENDIF:
+          parseEndif();
           return;
         }
       }
@@ -1298,11 +1440,15 @@ private final void parseDirective ()
     break;
 
   case PP_NUMBER:
-    parseLineMarker();
-    return;
+    if (m_exec)
+    {
+      parseLineMarker();
+      return;
+    }
   }
 
-  m_reporter.error( m_tok, "Invalid preprocessor directive #%s", m_tok.outputString() );
+  if (m_exec)
+    m_reporter.error( m_tok, "Invalid preprocessor directive #%s", m_tok.outputString() );
   skipUntilEOL();
 }
 
@@ -1637,25 +1783,37 @@ private boolean m_lineBeg = true;
 
 public final Token nextToken ()
 {
-  if (m_lineBeg)
+  for(;;)
   {
-    // This craps out when we are compensating for merged new lines after a #line directive
-    // see parseLine()
-    // assert m_ctx == null;
+    if (m_lineBeg)
+    {
+      // This craps out when we are compensating for merged new lines after a #line directive
+      // see parseLine()
+      // assert m_ctx == null;
+       m_lineBeg = false;
 
-    m_lineBeg = false;
-
-    if (nextNoBlanks().code() == Code.HASH)
-      parseDirective();
+      if (nextNoBlanks().code() == Code.HASH)
+        parseDirective();
+      else
+        curExpandWithBlanks();
+    }
     else
-      curExpandWithBlanks();
+      nextExpandWithBlanks();
+
+    if (m_tok.code() == Code.NEWLINE)
+      m_lineBeg = true;
+    else if (m_tok.code() == Code.EOF)
+      break;
+
+    if (m_exec)
+      return m_tok;
   }
-  else
-    nextExpandWithBlanks();
 
-  if (m_tok.code() == Code.NEWLINE)
-    m_lineBeg = true;
-
+  if (m_ifTop.blockType != IfState.BLOCK_NONE)
+  {
+    assert m_ifTop.tok != null;
+    m_reporter.error( m_ifTop.tok, "Unterminated #%s", m_ifTop.tok.outputString() );
+  }
   return m_tok;
 }
 
