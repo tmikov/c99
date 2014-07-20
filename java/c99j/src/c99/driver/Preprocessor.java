@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import c99.CompilerOptions;
 import c99.DummyErrorReporter;
 import c99.parser.SymTable;
+import c99.parser.pp.PPDefs;
 import c99.parser.pp.PPLexer;
 import c99.parser.pp.Prepr;
 
@@ -104,7 +105,7 @@ public static void main ( String[] args )
 
       if (cpp)
       {
-        if (tok.code() != PPLexer.Code.NEWLINE)
+        if (tok.code() != PPDefs.Code.NEWLINE)
         {
           if (nl)
           {
@@ -117,7 +118,7 @@ public static void main ( String[] args )
       }
       if (toks) System.out.println( tok );
     }
-    while (tok.code() != PPLexer.Code.EOF);
+    while (tok.code() != PPDefs.Code.EOF);
   }
   catch (Exception e)
   {

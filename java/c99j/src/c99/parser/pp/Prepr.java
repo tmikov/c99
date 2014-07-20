@@ -19,9 +19,11 @@ import c99.Utils;
 import c99.parser.SymTable;
 import c99.parser.Symbol;
 
-public class Prepr extends PPLexer
+public class Prepr implements PPDefs
 {
 private final CompilerOptions m_opts;
+private final IErrorReporter m_reporter;
+private final SymTable m_symTable;
 private final Symbol m_sym_VA_ARGS;
 
 private static enum Builtin
@@ -31,12 +33,17 @@ private static enum Builtin
   __DATE__
 }
 
+private PPLexer m_lex;
+
 public Prepr ( final CompilerOptions opts, final IErrorReporter reporter,
                final String fileName, final InputStream input,
                final SymTable symTable )
 {
-  super( reporter, fileName, input, symTable );
   m_opts = opts;
+  m_reporter = reporter;
+  m_symTable = symTable;
+
+  m_lex = new PPLexer(reporter, fileName, input, symTable );
 
   for ( PPSymCode ppCode : PPSymCode.values() )
   {
@@ -604,7 +611,7 @@ private final void _next ()
   {
     if (m_ctx == null)
     {
-      m_tok = innerNextToken();
+      m_tok = m_lex.innerNextToken();
       m_tok.line1 += m_lineAdjustment;
       m_tok.line2 += m_lineAdjustment;
       return;
@@ -641,7 +648,7 @@ private final Token lookAheadForLParen ()
   int distance = 0;
   Token la;
   do
-    la = lookAhead( ++distance );
+    la = m_lex.lookAhead( ++distance );
   while (la.code() == Code.WHITESPACE || la.code() == Code.NEWLINE);
   return la;
 }
@@ -1148,7 +1155,7 @@ private final void handleLineDirective ( int line, String fileName )
 {
   m_lineAdjustment = line - m_tok.getLine1() + m_lineAdjustment - 1;
   if (fileName != null)
-    super.setFileName( fileName );
+    m_lex.setFileName( fileName );
 
   // We have a problem if there are multiple new lines after the #line directive,
   // since they have been merged into a single token. What we want is to modify the
@@ -1294,13 +1301,13 @@ private final void pushIfState ( Token tok, int blockType, boolean cond, boolean
   m_ifStack.add( m_ifTop );
   m_ifTop = new IfState( tok, blockType, m_exec, cond );
   m_exec = newExec;
-  super.setReportErrors( m_exec );
+  m_lex.setReportErrors( m_exec );
 }
 
 private final void popIfState ()
 {
   m_exec = m_ifTop.parentExec;
-  super.setReportErrors( m_exec );
+  m_lex.setReportErrors( m_exec );
   m_ifTop = m_ifStack.remove( m_ifStack.size() - 1 );
 }
 
