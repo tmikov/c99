@@ -1294,11 +1294,13 @@ private final void pushIfState ( Token tok, int blockType, boolean cond, boolean
   m_ifStack.add( m_ifTop );
   m_ifTop = new IfState( tok, blockType, m_exec, cond );
   m_exec = newExec;
+  super.setReportErrors( m_exec );
 }
 
 private final void popIfState ()
 {
   m_exec = m_ifTop.parentExec;
+  super.setReportErrors( m_exec );
   m_ifTop = m_ifStack.remove( m_ifStack.size() - 1 );
 }
 

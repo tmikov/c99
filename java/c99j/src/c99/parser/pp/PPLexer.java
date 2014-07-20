@@ -333,6 +333,8 @@ public static class Token extends AbstractToken
 
 protected final SymTable m_symTable;
 protected final IErrorReporter m_reporter;
+/** Set to false in discarded conditionals */
+private boolean m_reportErrors = true;
 private String m_fileName;
 private LineReader m_reader;
 private int m_end;
@@ -524,7 +526,12 @@ loop:
   m_reader.calcRangeEnd( cur, m_workTok );
 
   if (!closed)
-    m_reporter.error( m_workTok, "Unterminated character constant" );
+  {
+    if (m_reportErrors)
+      m_reporter.error( m_workTok, "Unterminated character constant" );
+    else
+      m_reporter.warning( m_workTok, "Unterminated character constant" );
+  }
 
   m_workTok.setText( Code.CHAR_CONST, buf, m_cur, cur - m_cur );
   m_cur = cur;
@@ -547,7 +554,12 @@ loop:
   m_reader.calcRangeEnd( cur, m_workTok );
 
   if (!closed)
-    m_reporter.error( m_workTok, "Unterminated string constant" );
+  {
+    if (m_reportErrors)
+      m_reporter.error( m_workTok, "Unterminated string constant" );
+    else
+      m_reporter.warning(m_workTok, "Unterminated string constant");
+  }
 
   m_workTok.setText( Code.STRING_CONST, buf, m_cur, cur - m_cur );
   m_cur = cur;
@@ -925,4 +937,8 @@ protected final Token lookAhead ( int distance )
   return getFifoToken( distance );
 }
 
+protected final void setReportErrors ( final boolean reportErrors )
+{
+  m_reportErrors = reportErrors;
+}
 } // class
