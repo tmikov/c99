@@ -4,12 +4,10 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.Iterator;
 
 import c99.CompilerOptions;
 import c99.IErrorReporter;
@@ -26,14 +24,24 @@ private final IErrorReporter m_reporter;
 private final SymTable m_symTable;
 private final Symbol m_sym_VA_ARGS;
 
-private static enum Builtin
-{
-  __LINE__,
-  __FILE__,
-  __DATE__
-}
-
 private PPLexer m_lex;
+private int m_lineAdjustment;
+
+/**
+ * The whitespace skipped by some routines.
+ *
+ * If {@link #nextNoBlanks()} or {@link #nextNoNewLineOrBlanks()} or {@link #skipBlanks()}
+ * skips over any whitespace, a single whitespace token is set here.
+ */
+private Token m_skippedWs;
+/**
+ * The token used to initialize {@link #m_skippedWs}
+ */
+private Token m__defaultWs = new Token( Code.WHITESPACE );
+
+private final SourceRange m_tmpRange = new SourceRange();
+private Token m_tok;
+
 
 public Prepr ( final CompilerOptions opts, final IErrorReporter reporter,
                final String fileName, final InputStream input,
@@ -70,499 +78,6 @@ public Prepr ( final CompilerOptions opts, final IErrorReporter reporter,
   dateMacro.body.addLast( tok );
 }
 
-private static final class Macro
-{
-  public final SourceRange nameLoc = new SourceRange();
-  public final SourceRange bodyLoc = new SourceRange();
-  public final Symbol symbol;
-  public final Builtin builtin;
-  public boolean funcLike;
-  public boolean variadic;
-  public boolean expanding;
-
-  public final ArrayList<ParamDecl> params = new ArrayList<ParamDecl>();
-  public final TokenList<AbstractToken> body = new TokenList<AbstractToken>();
-
-  Macro ( final Symbol symbol, ISourceRange nameLoc, Builtin builtin )
-  {
-    this.symbol = symbol;
-    this.nameLoc.setRange( nameLoc );
-    this.builtin = builtin;
-  }
-
-  final int paramCount ()
-  {
-    return params.size();
-  }
-
-  void cleanUpParamScope ()
-  {
-    for ( ParamDecl param : params )
-      param.cleanUp();
-  }
-
-  boolean same ( Macro m )
-  {
-    if (this.symbol != m.symbol ||
-        this.funcLike != m.funcLike ||
-        this.params.size() != m.params.size() ||
-        this.body.size() != m.body.size())
-    {
-      return false;
-    }
-
-    Iterator<ParamDecl> p1 = this.params.iterator();
-    Iterator<ParamDecl> p2 = m.params.iterator();
-    while (p1.hasNext())
-      if (!p1.next().same( p2.next() ))
-        return false;
-
-    Iterator<AbstractToken> t1 = this.body.iterator();
-    Iterator<AbstractToken> t2 = m.body.iterator();
-    while (t1.hasNext())
-      if (!t1.next().same( t2.next() ))
-        return false;
-
-    return true;
-  }
-}
-
-private static final class ParamDecl
-{
-  private final Object prevPPDecl;
-  public final Symbol symbol;
-  public final int index;
-  public boolean variadic;
-
-  ParamDecl ( final Symbol symbol, int index, boolean variadic )
-  {
-    this.prevPPDecl = symbol.ppDecl;
-    this.symbol = symbol;
-    this.index = index;
-    this.variadic = variadic;
-
-    assert !(symbol.ppDecl instanceof ParamDecl);
-    symbol.ppDecl = this;
-  }
-
-  public final boolean same ( ParamDecl p )
-  {
-    return this.symbol == p.symbol && this.index == p.index;
-  }
-
-  void cleanUp ()
-  {
-    assert symbol.ppDecl == this;
-    symbol.ppDecl = prevPPDecl;
-  }
-}
-
-private static final class ParamToken extends AbstractToken
-{
-  public final ParamDecl param;
-  public boolean stringify;
-
-  private ParamToken ( final ParamDecl param )
-  {
-    m_code = Code.MACRO_PARAM;
-    this.param = param;
-  }
-
-  @SuppressWarnings("CloneDoesntCallSuperClone")
-  @Override
-  public ParamToken clone ()
-  {
-    ParamToken res = new ParamToken( this.param );
-    res.setRange( this );
-    return res;
-  }
-
-  @Override
-  public boolean same ( final AbstractToken tok )
-  {
-    return this.m_code == tok.m_code && this.param.same( ((ParamToken)tok).param );
-  }
-
-  @Override
-  public int length ()
-  {
-    return this.param.symbol.length();
-  }
-
-  @Override
-  public void output ( final OutputStream out ) throws IOException
-  {
-    out.write(this.param.symbol.bytes);
-  }
-}
-
-/**
- * A '##' between two tokens.
- *
- * It is left associative, meaning that multiple '##'-s aways generate a left tree.
- * 'a ## b ## c' always produces
- * <p>{@code concat( concat( a, b ), c )}
- */
-private static final class ConcatToken extends AbstractToken
-{
-  private final AbstractToken tokens[];
-
-  public ConcatToken ( AbstractToken left, AbstractToken right )
-  {
-    assert !(right instanceof ConcatToken);
-
-    m_code = Code.CONCAT;
-    if (!(left instanceof ConcatToken))
-      this.tokens = new AbstractToken[]{ left, right };
-    else
-    {
-      final ConcatToken lt = (ConcatToken)left;
-      final int len = lt.tokens.length;
-      this.tokens = new AbstractToken[len+1];
-      System.arraycopy( lt.tokens, 0, this.tokens, 0, len );
-      this.tokens[len] = right;
-    }
-  }
-
-  private ConcatToken ( AbstractToken[] tokens )
-  {
-    this.tokens = tokens;
-  }
-
-  @SuppressWarnings("CloneDoesntCallSuperClone")
-  @Override
-  public ConcatToken clone ()
-  {
-    AbstractToken[] t = new AbstractToken[this.tokens.length];
-    for ( int i = 0; i < this.tokens.length; ++i )
-      t[i] = this.tokens[i].clone();
-    ConcatToken res = new ConcatToken( t );
-    res.setRange( this );
-    return res;
-  }
-
-  @Override
-  public boolean same ( final AbstractToken tok )
-  {
-    if (tok.m_code != m_code)
-      return false;
-    ConcatToken t = (ConcatToken)tok;
-    if (this.tokens.length != t.tokens.length)
-      return false;
-    for ( int i = 0; i < tokens.length; ++i )
-      if (!this.tokens[i].same( t.tokens[i] ))
-        return false;
-    return true;
-  }
-
-  @Override
-  public int length ()
-  {
-    int len = 0;
-    for ( AbstractToken tok : this.tokens )
-      len += tok.length();
-    return len;
-  }
-
-  @Override
-  public String toString ()
-  {
-    StringBuilder b = new StringBuilder();
-    b.append(  "ConcatToken{" );
-    for ( int i = 0; i < this.tokens.length; ++i )
-    {
-      if (i > 0)
-        b.append( ", " );
-      b.append( i ).append( '=' ).append( this.tokens[i].toString() );
-    }
-    b.append( '}' );
-    return b.toString();
-  }
-
-  private static final byte[] s_text = " ## ".getBytes();
-  @Override
-  public void output ( final OutputStream out ) throws IOException
-  {
-    for ( int i = 0; i < this.tokens.length; ++i )
-    {
-      if (i > 0)
-        out.write( s_text );
-      this.tokens[i].output( out );
-    }
-  }
-}
-
-/**
- * The whitespace skipped by some routines.
- *
- * If {@link #nextNoBlanks()} or {@link #nextNoNewLineOrBlanks()} or {@link #skipBlanks()}
- * skips over any whitespace, a single whitespace token is set here.
- */
-private Token m_skippedWs;
-/**
- * The token used to initialize {@link #m_skippedWs}
- */
-private Token m__defaultWs = new Token( Code.WHITESPACE );
-
-private final SourceRange m_tmpRange = new SourceRange();
-private Token m_tok;
-
-private static final class Arg
-{
-  public final TokenList<Token> original;
-  public final TokenList<Token> expanded;
-
-  private Arg ( final TokenList<Token> original, final TokenList<Token> expanded )
-  {
-    this.original = original;
-    this.expanded = expanded;
-  }
-}
-
-private static enum ContextState
-{
-  MACRO, PARAM, CONCAT, CONCAT_PARAM, SPACE_BEFORE_PARAM
-}
-
-private final class Context
-{
-  private final SourceRange m_pos = new SourceRange();
-  final Macro macro;
-  private final ArrayList<Arg> m_args;
-  private final TokenList<AbstractToken> m_tokens;
-  private ContextState m_state;
-  private AbstractToken m_next;
-
-  private TokenList<Token> m_argTokens;
-  private Token m_argNext;
-
-  private AbstractToken[] m_concatChildren;
-  private int m_concatIndex;
-  private Token m_concatA, m_concatB;
-
-  Context ( ISourceRange pos, final Macro macro, final ArrayList<Arg> args )
-  {
-    this.macro = macro;
-    m_pos.setRange( pos );
-    m_args = args;
-    m_tokens = macro.body;
-    m_state = ContextState.MACRO;
-    m_next = m_tokens.first();
-  }
-
-  Context ( TokenList<Token> tokens )
-  {
-    this.macro = null;
-    m_args = null;
-    m_tokens = null;
-    m_state = ContextState.PARAM;
-    m_next = null;
-
-    m_argTokens = tokens;
-    m_argNext = m_argTokens.first();
-  }
-
-  private Token nextToken ()
-  {
-    Token res = _nextToken();
-    if (res == null)
-      return null;
-
-    if (m_pos.line1 > 0)
-      res.setRange( m_pos );
-
-    if (!res.isNoExpand() && res.code() == Code.IDENT)
-      if (res.symbol().ppDecl instanceof Macro)
-      {
-        Macro macro = (Macro) res.symbol().ppDecl;
-        if (macro.expanding)
-        {
-          res = res.clone();
-          res.setNoExpand( true );
-        }
-      }
-
-    return res;
-  }
-
-  private Token _nextToken ()
-  {
-    for(;;)
-    {
-      AbstractToken tok;
-
-      switch (m_state)
-      {
-      case MACRO:
-        {
-          if ((tok = m_next) == null)
-          {
-            popContext();
-            return null;
-          }
-          m_next = m_tokens.next(m_next);
-
-          switch (tok.code())
-          {
-          case MACRO_PARAM:
-            {
-              ParamToken pt = (ParamToken)tok;
-              // Note: we must check args.size() because in a variadic macro the last argument may be missing
-              Arg arg = pt.param.index < m_args.size() ? m_args.get( pt.param.index ) : null;
-              if (pt.stringify)
-                return stringify(arg != null ? arg.original : null);
-              else if (arg != null)
-              {
-                m_argTokens = arg.expanded;
-                m_argNext = m_argTokens.first();
-                m_state = ContextState.PARAM;
-              }
-            }
-            break;
-
-          case CONCAT:
-            m_concatChildren = ((ConcatToken)tok).tokens;
-            m_concatIndex = 0;
-            m_concatA = m_concatB = null;
-
-            // GCC extension. ', ## __VA_ARGS__' eliminates the comma if __VA_ARGS__ is null
-            //
-            if (m_opts.gccExtensions &&
-                m_concatChildren.length == 2 &&
-                m_concatChildren[0].code() == Code.COMMA &&
-                m_concatChildren[1].code() == Code.MACRO_PARAM &&
-                ((ParamToken)m_concatChildren[1]).param.variadic &&
-                !((ParamToken)m_concatChildren[1]).stringify)
-            {
-              ParamToken pt = (ParamToken)m_concatChildren[1];
-              // Note: we must check args.size() because in a variadic macro the last argument may be missing
-              Arg arg = pt.param.index < m_args.size() ? m_args.get( pt.param.index ) : null;
-              if (arg != null)
-              {
-                m_argTokens = arg.expanded;
-                m_argNext = m_argTokens.first();
-                m_state = ContextState.SPACE_BEFORE_PARAM;
-
-                Token res = (Token)m_concatChildren[0];
-                m_concatChildren = null;
-                return res;
-              }
-              else
-                break;
-            }
-            m_state = ContextState.CONCAT;
-            break;
-
-          default:
-            return (Token)tok;
-          }
-        }
-        break;
-
-      case SPACE_BEFORE_PARAM:
-        m_state = ContextState.PARAM;
-        return m__defaultWs;
-
-      case PARAM:
-        {
-          Token res;
-          if ((res = m_argNext) == null)
-            m_state = ContextState.MACRO;
-          else
-          {
-            m_argNext = m_argTokens.next( m_argNext );
-            return res;
-          }
-        }
-        break;
-
-      case CONCAT:
-        {
-          if (m_concatA == null)
-            m_concatA = m_concatB;
-          else if (m_concatB != null)
-          {
-            Token tmp = concatTokens( m_pos, m_concatA, m_concatB );
-            if (tmp != null) // successful concatenation?
-            {
-              m_concatA = tmp;
-              m_concatB = null;
-            }
-            else // Handle the error case by returning the tokens separately
-            {
-              Token res = m_concatA;
-              m_concatA = null;
-              return res;
-            }
-          }
-
-          if (m_concatIndex == m_concatChildren.length)
-          {
-            m_concatChildren = null;
-            m_state = ContextState.MACRO;
-            if (m_concatA != null)
-            {
-              Token res = m_concatA;
-              m_concatA = null;
-              return res;
-            }
-            else
-              break;
-          }
-
-          AbstractToken child = m_concatChildren[ m_concatIndex++ ];
-          if (child instanceof ParamToken)
-          {
-            ParamToken pt = (ParamToken)child;
-            // Note: we must check args.size() because in a variadic macro the last argument may be missing
-            Arg arg = pt.param.index < m_args.size() ? m_args.get( pt.param.index ) : null;
-            if (pt.stringify)
-            {
-              m_concatB = stringify(arg != null ? arg.original : null);
-              m_state = ContextState.CONCAT;
-              break;
-            }
-            else if (arg != null)
-            {
-              m_argTokens = arg.original;
-              m_argNext = m_argTokens.first();
-              m_state = ContextState.CONCAT_PARAM;
-              break;
-            }
-            else
-            {
-              m_concatB = null;
-              m_state = ContextState.CONCAT;
-              break;
-            }
-          }
-          else
-          {
-            m_concatB = (Token)child;
-            m_state = ContextState.CONCAT;
-            break;
-          }
-        }
-
-      // Return all parameter tokens except the last one which we must concat
-      case CONCAT_PARAM:
-        {
-          Token res;
-          if ( (res = m_argNext) == null ||
-               (m_argNext = m_argTokens.next( m_argNext )) == null)
-          {
-            m_concatB = res;
-            m_state = ContextState.CONCAT;
-            break;
-          }
-          else
-            return res;
-        }
-      }
-    }
-  }
-}
-
 private Context m_ctx;
 private ArrayList<Context> m_contexts = new ArrayList<Context>();
 
@@ -573,7 +88,7 @@ private final void pushContext ( Context ctx )
     assert !ctx.macro.expanding;
     ctx.macro.expanding = true;
   }
-  m_contexts.add( ctx );
+  m_contexts.add(ctx);
   m_ctx = ctx;
 }
 
@@ -596,8 +111,6 @@ private final void popContext ()
 
 /** Holds lookahead tokens from a context */
 private final ArrayDeque<Token> m_laQueue = new ArrayDeque<Token>();
-
-private int m_lineAdjustment;
 
 private final void _next ()
 {
@@ -1228,7 +741,7 @@ private final void parseLine ()
 
 private final void parseLineMarker ()
 {
-  int line = parseLineInt( m_tok, "#" );
+  int line = parseLineInt(m_tok, "#");
   if (line < 0)
   {
     skipUntilEOL();
@@ -1269,7 +782,7 @@ private final void parseLineMarker ()
     nextNoBlanks();
   }
 
-  handleLineDirective( line, fileName );
+  handleLineDirective(line, fileName);
 }
 
 private static final class IfState
@@ -1826,4 +1339,259 @@ public final Token nextToken ()
   return m_tok;
 }
 
+private static final class Arg
+{
+  public final TokenList<Token> original;
+  public final TokenList<Token> expanded;
+
+  private Arg ( final TokenList<Token> original, final TokenList<Token> expanded )
+  {
+    this.original = original;
+    this.expanded = expanded;
+  }
+}
+
+private static enum ContextState
+{
+  MACRO, PARAM, CONCAT, CONCAT_PARAM, SPACE_BEFORE_PARAM
+}
+
+private final class Context
+{
+  private final SourceRange m_pos = new SourceRange();
+  final Macro macro;
+  private final ArrayList<Arg> m_args;
+  private final TokenList<AbstractToken> m_tokens;
+  private ContextState m_state;
+  private AbstractToken m_next;
+
+  private TokenList<Token> m_argTokens;
+  private Token m_argNext;
+
+  private AbstractToken[] m_concatChildren;
+  private int m_concatIndex;
+  private Token m_concatA, m_concatB;
+
+  Context ( ISourceRange pos, final Macro macro, final ArrayList<Arg> args )
+  {
+    this.macro = macro;
+    m_pos.setRange( pos );
+    m_args = args;
+    m_tokens = macro.body;
+    m_state = ContextState.MACRO;
+    m_next = m_tokens.first();
+  }
+
+  Context ( TokenList<Token> tokens )
+  {
+    this.macro = null;
+    m_args = null;
+    m_tokens = null;
+    m_state = ContextState.PARAM;
+    m_next = null;
+
+    m_argTokens = tokens;
+    m_argNext = m_argTokens.first();
+  }
+
+  private Token nextToken ()
+  {
+    Token res = _nextToken();
+    if (res == null)
+      return null;
+
+    if (m_pos.line1 > 0)
+      res.setRange( m_pos );
+
+    if (!res.isNoExpand() && res.code() == Code.IDENT)
+      if (res.symbol().ppDecl instanceof Macro)
+      {
+        Macro macro = (Macro) res.symbol().ppDecl;
+        if (macro.expanding)
+        {
+          res = res.clone();
+          res.setNoExpand( true );
+        }
+      }
+
+    return res;
+  }
+
+  private Token _nextToken ()
+  {
+    for(;;)
+    {
+      AbstractToken tok;
+
+      switch (m_state)
+      {
+        case MACRO:
+        {
+          if ((tok = m_next) == null)
+          {
+            popContext();
+            return null;
+          }
+          m_next = m_tokens.next(m_next);
+
+          switch (tok.code())
+          {
+            case MACRO_PARAM:
+            {
+              ParamToken pt = (ParamToken)tok;
+              // Note: we must check args.size() because in a variadic macro the last argument may be missing
+              Arg arg = pt.param.index < m_args.size() ? m_args.get( pt.param.index ) : null;
+              if (pt.stringify)
+                return stringify(arg != null ? arg.original : null);
+              else if (arg != null)
+              {
+                m_argTokens = arg.expanded;
+                m_argNext = m_argTokens.first();
+                m_state = ContextState.PARAM;
+              }
+            }
+            break;
+
+            case CONCAT:
+              m_concatChildren = ((ConcatToken)tok).tokens;
+              m_concatIndex = 0;
+              m_concatA = m_concatB = null;
+
+              // GCC extension. ', ## __VA_ARGS__' eliminates the comma if __VA_ARGS__ is null
+              //
+              if (m_opts.gccExtensions &&
+                  m_concatChildren.length == 2 &&
+                  m_concatChildren[0].code() == Code.COMMA &&
+                  m_concatChildren[1].code() == Code.MACRO_PARAM &&
+                  ((ParamToken)m_concatChildren[1]).param.variadic &&
+                  !((ParamToken)m_concatChildren[1]).stringify)
+              {
+                ParamToken pt = (ParamToken)m_concatChildren[1];
+                // Note: we must check args.size() because in a variadic macro the last argument may be missing
+                Arg arg = pt.param.index < m_args.size() ? m_args.get( pt.param.index ) : null;
+                if (arg != null)
+                {
+                  m_argTokens = arg.expanded;
+                  m_argNext = m_argTokens.first();
+                  m_state = ContextState.SPACE_BEFORE_PARAM;
+
+                  Token res = (Token)m_concatChildren[0];
+                  m_concatChildren = null;
+                  return res;
+                }
+                else
+                  break;
+              }
+              m_state = ContextState.CONCAT;
+              break;
+
+            default:
+              return (Token)tok;
+          }
+        }
+        break;
+
+        case SPACE_BEFORE_PARAM:
+          m_state = ContextState.PARAM;
+          return m__defaultWs;
+
+        case PARAM:
+        {
+          Token res;
+          if ((res = m_argNext) == null)
+            m_state = ContextState.MACRO;
+          else
+          {
+            m_argNext = m_argTokens.next( m_argNext );
+            return res;
+          }
+        }
+        break;
+
+        case CONCAT:
+        {
+          if (m_concatA == null)
+            m_concatA = m_concatB;
+          else if (m_concatB != null)
+          {
+            Token tmp = concatTokens( m_pos, m_concatA, m_concatB );
+            if (tmp != null) // successful concatenation?
+            {
+              m_concatA = tmp;
+              m_concatB = null;
+            }
+            else // Handle the error case by returning the tokens separately
+            {
+              Token res = m_concatA;
+              m_concatA = null;
+              return res;
+            }
+          }
+
+          if (m_concatIndex == m_concatChildren.length)
+          {
+            m_concatChildren = null;
+            m_state = ContextState.MACRO;
+            if (m_concatA != null)
+            {
+              Token res = m_concatA;
+              m_concatA = null;
+              return res;
+            }
+            else
+              break;
+          }
+
+          AbstractToken child = m_concatChildren[ m_concatIndex++ ];
+          if (child instanceof ParamToken)
+          {
+            ParamToken pt = (ParamToken)child;
+            // Note: we must check args.size() because in a variadic macro the last argument may be missing
+            Arg arg = pt.param.index < m_args.size() ? m_args.get( pt.param.index ) : null;
+            if (pt.stringify)
+            {
+              m_concatB = stringify(arg != null ? arg.original : null);
+              m_state = ContextState.CONCAT;
+              break;
+            }
+            else if (arg != null)
+            {
+              m_argTokens = arg.original;
+              m_argNext = m_argTokens.first();
+              m_state = ContextState.CONCAT_PARAM;
+              break;
+            }
+            else
+            {
+              m_concatB = null;
+              m_state = ContextState.CONCAT;
+              break;
+            }
+          }
+          else
+          {
+            m_concatB = (Token)child;
+            m_state = ContextState.CONCAT;
+            break;
+          }
+        }
+
+        // Return all parameter tokens except the last one which we must concat
+        case CONCAT_PARAM:
+        {
+          Token res;
+          if ( (res = m_argNext) == null ||
+               (m_argNext = m_argTokens.next( m_argNext )) == null)
+          {
+            m_concatB = res;
+            m_state = ContextState.CONCAT;
+            break;
+          }
+          else
+            return res;
+        }
+      }
+    }
+  }
+}
 } // class
