@@ -8,6 +8,7 @@ import c99.parser.SymTable;
 import c99.parser.pp.PPDefs;
 import c99.parser.pp.PPLexer;
 import c99.parser.pp.Prepr;
+import c99.parser.pp.SearchPathFactory;
 
 public class Preprocessor
 {
@@ -19,9 +20,14 @@ public static void main ( String[] args )
     boolean toks = false;
     String fileName = null;
 
-    for ( String arg : args )
+    CompilerOptions opts = new CompilerOptions();
+    SearchPathFactory incSearch = new SearchPathFactory();
+
+    for ( int i = 0; i < args.length; ++i )
     {
-      if ("--toks".equals( arg ))
+      final String arg = args[i];
+
+      if ("--toks".equals(arg))
       {
         toks = true;
         cpp = false;
@@ -32,6 +38,21 @@ public static void main ( String[] args )
         cpp = true;
       else if ("--no-cpp".equals( arg ))
         cpp = false;
+      else if ("--nostdinc".equals( arg ))
+        opts.noStdInc = true;
+      else if (arg.startsWith("-I") || arg.startsWith("-i"))
+      {
+        String tmp = arg.substring( 2 );
+        if (tmp.length() == 0)
+        {
+          System.err.println( "**fatal: missing argument for " + arg );
+          System.exit(1);
+        }
+        if (arg.startsWith("-I"))
+          incSearch.addInclude( tmp );
+        else
+          incSearch.addQuotedInclude(tmp);
+      }
       else if (arg.startsWith( "-"))
       {
         System.err.println( "**fatal: unknown command line option '"+arg +"'" );
@@ -56,8 +77,8 @@ public static void main ( String[] args )
 
     DummyErrorReporter reporter = new DummyErrorReporter();
     SymTable symTable = new SymTable();
-    CompilerOptions opts = new CompilerOptions();
-    Prepr pp = new Prepr( opts, reporter, fileName, new FileInputStream( fileName ), symTable );
+    Prepr pp = new Prepr( opts, reporter, incSearch.finish( opts ),
+                          fileName, new FileInputStream( fileName ), symTable );
 
     String lastFile = "";
     int lastLine = -1;

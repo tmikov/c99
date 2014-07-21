@@ -24,6 +24,7 @@ protected final IErrorReporter m_reporter;
 /** Set to false in discarded conditionals */
 private boolean m_reportErrors = true;
 private String m_fileName;
+private final String m_actualFileName;
 private LineReader m_reader;
 private int m_end;
 private int m_cur;
@@ -36,12 +37,16 @@ protected Token m_lastTok;
 
 private final SourceRange m_tmpRange = new SourceRange();
 
+/** Special handling after #include */
+private boolean m_parseInclude;
+
 public PPLexer ( final IErrorReporter reporter, String fileName, InputStream input,
                  final SymTable symTable, int bufSize )
 {
   m_reporter = reporter;
   m_symTable = symTable;
   m_fileName = fileName;
+  m_actualFileName = fileName;
   m_reader = new LineReader( input, bufSize );
   m_end = m_cur = 0;
 
@@ -60,6 +65,16 @@ public PPLexer ( final IErrorReporter reporter, String fileName, InputStream inp
                  final SymTable symTable )
 {
   this( reporter, fileName, input, symTable, 16384 );
+}
+
+public final void close ()
+{
+  m_reader.close();
+}
+
+public final String getActualFileName ()
+{
+  return m_actualFileName;
 }
 
 private final Token newFifoToken ()
@@ -455,6 +470,14 @@ public final void setFileName ( String fileName )
   m_fileName = fileName;
 }
 
+private static int find ( byte[] buf, int begin, int end, int ch )
+{
+  for ( ; begin < end; ++begin )
+    if ((buf[begin] & 255) == ch)
+      return begin;
+  return -1;
+}
+
 private final void parseNextToken ( Token tok )
 {
   m_workTok = tok;
@@ -533,6 +556,7 @@ private final void parseNextToken ( Token tok )
       break;
   }
 
+  int tmp;
   if (ws != 0) // If we detected any whitespace at all
   {
     m_workTok.setCode( (ws & 1) != 0 ? Code.NEWLINE : Code.WHITESPACE );
@@ -594,6 +618,11 @@ private final void parseNextToken ( Token tok )
     parseStringConst( cur + 2 );
     return;
   }
+  else if (m_parseInclude && buf[cur] == '<' && (tmp = find( buf, cur+1, m_end, '>')) >= 0)
+  {
+    cur = tmp+1;
+    m_workTok.setText( Code.ANGLED_INCLUDE, buf, m_cur+1, cur - m_cur - 2 );
+  }
   else
   // Punctuators
   //
@@ -605,6 +634,22 @@ private final void parseNextToken ( Token tok )
 
   m_reader.calcRangeEnd( cur, m_workTok );
   m_cur = cur;
+}
+
+final Token nextIncludeToken ()
+{
+  releaseFifoToken( m_lastTok );
+
+  assert getFifoCount() == 0;
+  assert !m_parseInclude;
+  m_parseInclude = true;
+  try {
+    parseNextToken(newFifoToken());
+  } finally {
+    m_parseInclude = false;
+  }
+
+  return m_lastTok = getFifoHead();
 }
 
 protected final Token innerNextToken ()

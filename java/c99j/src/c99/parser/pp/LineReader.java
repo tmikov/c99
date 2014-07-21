@@ -41,6 +41,17 @@ public LineReader ( InputStream input, int bufSize )
   m_lineMapCount = 0;
 }
 
+public final void close ()
+{
+  try
+  {
+    m_input.close();
+  }
+  catch (IOException e)
+  {
+  }
+}
+
 private void resetMap ()
 {
   m_lineMapCount = 0;

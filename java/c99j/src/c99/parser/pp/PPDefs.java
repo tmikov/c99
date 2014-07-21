@@ -20,6 +20,7 @@ public static enum Code
   PP_NUMBER,
   CHAR_CONST,
   STRING_CONST,
+  ANGLED_INCLUDE,
 
   L_BRACKET("["), R_BRACKET("]"),
   L_PAREN("("), R_PAREN(")"),
