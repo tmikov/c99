@@ -957,7 +957,7 @@ loop:
 
   checkEOL( "include" );
 
-  String resolvedIncludePath;
+  ISearchPath.Result resolvedIncludePath;
   if (angled)
     resolvedIncludePath = m_searchPath.searchAngled( name );
   else
@@ -972,7 +972,7 @@ loop:
   FileInputStream input;
   try
   {
-    input = new FileInputStream( resolvedIncludePath );
+    input = new FileInputStream( resolvedIncludePath.path );
   }
   catch (FileNotFoundException e)
   {
@@ -980,7 +980,7 @@ loop:
     return;
   }
 
-  pushSource( resolvedIncludePath, input );
+  pushSource( resolvedIncludePath.path, input );
   if (m_tok.code() == Code.EOF)
   {
     Token tok = new Token(Code.NEWLINE);
