@@ -1,5 +1,6 @@
 package c99.parser.pp;
 
+import c99.Constant;
 import c99.SourceRange;
 import c99.Utils;
 import c99.parser.Symbol;
@@ -138,13 +139,12 @@ public static class Token extends AbstractToken
 {
   private static final int DEFAULT_LEN = 32;
 
+  private int m_length;
+  private int m_flags;
+  private Object m_object;
+
   private final byte[] m_defaultBuf;
   private byte[] m_text;
-  private int m_length;
-
-  private Symbol m_symbol;
-
-  private int m_flags;
 
   public Token ()
   {
@@ -160,37 +160,27 @@ public static class Token extends AbstractToken
   public Token ( Token tok )
   {
     m_defaultBuf = null;
-
-    m_code = tok.m_code;
-    m_length = tok.m_length;
-    m_flags = tok.m_flags;
-
-    if (tok.m_symbol != null)
-      m_symbol = tok.m_symbol;
-    else if (tok.m_text != null)
-      m_text = Arrays.copyOfRange(tok.m_text, 0, tok.m_length);
-
-    setRange( tok );
+    copyFrom( tok );
   }
 
   public void copyFrom ( Token tok )
   {
-    reset();
+    m_code = tok.m_code;
+    m_length = tok.m_length;
     m_flags = tok.m_flags;
-    if (tok.m_symbol != null)
-      setSymbol( tok.m_code, tok.m_symbol );
-    else if (tok.m_text != null)
-      setText( tok.m_code, tok.m_text, 0, tok.m_length );
-    else
-      setCode( tok.m_code );
+    m_object = tok.m_object;
+    if (tok.m_text != null)
+      _setText(tok.m_text, 0, tok.m_length);
+    setRange( tok );
   }
 
   public final void reset ()
   {
     m_code = null;
-    m_symbol = null;
-    m_text = null;
+    m_length = 0;
     m_flags = 0;
+    m_object = null;
+    m_text = null;
     this.fileName = null;
     this.line1 = this.col1 = this.line2 = this.col2 = 0;
   }
@@ -210,24 +200,30 @@ public static class Token extends AbstractToken
 
   public final Symbol symbol ()
   {
-    return m_symbol;
+    return (Symbol)m_object;
   }
 
   public final void setSymbol ( Code code, Symbol symbol )
   {
-    this.m_code = code;
-    m_symbol = symbol;
+    this.m_code = Code.IDENT;
+    m_object = symbol;
     m_length = symbol.length();
   }
 
-  public final void setText ( Code code, byte[] buf, int from, int count )
+  private final void _setText ( byte[] buf, int from, int count )
   {
-    this.m_code = code;
-    if (count <= DEFAULT_LEN)
+    if (m_defaultBuf != null && count <= DEFAULT_LEN)
       System.arraycopy( buf, from, m_text = m_defaultBuf, 0, count );
     else
       m_text = Arrays.copyOfRange( buf, from, from + count );
     m_length = count;
+  }
+
+  public final void setText ( Code code, byte[] buf, int from, int count )
+  {
+    assert code != Code.STRING_CONST && code != Code.CHAR_CONST;
+    this.m_code = code;
+    _setText( buf, from, count );
   }
 
   /**
@@ -236,9 +232,43 @@ public static class Token extends AbstractToken
    */
   public final void setTextWithOnwership ( Code code, byte[] buf )
   {
+    assert code != Code.STRING_CONST && code != Code.CHAR_CONST;
     this.m_code = code;
     m_text = buf;
     m_length = buf.length;
+  }
+
+  public final void setStringConst ( byte[] origText, int from, int count,
+                                     byte[] value )
+  {
+    m_code = Code.STRING_CONST;
+    _setText( origText, from, count );
+    m_object = value;
+  }
+
+  public final void setStringConst ( String value )
+  {
+    m_code = Code.STRING_CONST;
+    m_text = Utils.asciiBytes( Misc.simpleEscapeString( value ) );
+    m_length = m_text.length;
+    m_object = Utils.asciiBytes( value );
+  }
+
+  public byte[] getStringConstValue ()
+  {
+    return (byte[])m_object;
+  }
+
+  public final void setCharConst ( byte[] origText, int from, int count, Constant.IntC value )
+  {
+    m_code = Code.CHAR_CONST;
+    _setText( origText, from, count );
+    m_object = value;
+  }
+
+  public Constant.IntC getCharConstValue ()
+  {
+    return (Constant.IntC)m_object;
   }
 
   public final void setCode ( Code code )
@@ -262,7 +292,7 @@ public static class Token extends AbstractToken
       final Token tok = (Token)_tok;
       return
         m_code == tok.m_code &&
-        m_symbol == tok.m_symbol &&
+        m_object == tok.m_object &&
         m_length == tok.m_length &&
         (m_text == null || Utils.equals(m_text, 0, tok.m_text, 0, m_length));
     }
@@ -278,8 +308,8 @@ public static class Token extends AbstractToken
 
   public void output ( OutputStream out ) throws IOException
   {
-    if (m_symbol != null)
-      out.write( m_symbol.bytes );
+    if (m_object instanceof Symbol)
+      out.write( ((Symbol)m_object).bytes );
     else if (m_text != null)
       out.write( m_text, 0, m_length );
     else
@@ -293,8 +323,8 @@ public static class Token extends AbstractToken
     sb.append( m_code );
     if (isNoExpand())
       sb.append( ", NO_EXPAND" );
-    if (m_symbol != null)
-      sb.append( ", " ).append( m_symbol );
+    if (m_object instanceof Symbol)
+      sb.append( ", " ).append( (Symbol)m_object );
     else if (m_text != null)
       sb.append( ", '" ).append( Utils.asciiString( m_text, 0, Math.min( m_length, DEFAULT_LEN ) ) )
         .append( '\'' );

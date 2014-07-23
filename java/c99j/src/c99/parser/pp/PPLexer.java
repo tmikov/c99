@@ -1,9 +1,13 @@
 package c99.parser.pp;
 
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 
+import c99.Constant;
 import c99.IErrorReporter;
+import c99.ISourceRange;
 import c99.SourceRange;
+import c99.Types;
 import c99.parser.SymTable;
 
 /**
@@ -75,6 +79,33 @@ public final void close ()
 public final String getActualFileName ()
 {
   return m_actualFileName;
+}
+
+private final void reportWarning ( ISourceRange pos, String msg, Object... args )
+{
+  m_reporter.warning( pos, msg, args );
+}
+
+private final void reportError ( ISourceRange pos, String msg, Object... args )
+{
+  if (m_reportErrors)
+    m_reporter.error( pos, msg, args );
+  else
+    m_reporter.warning( pos, msg, args );
+}
+
+private final void calcEndPosAndReportError ( int cur, String msg, Object... args )
+{
+  m_reader.calcRangeEnd( cur, m_workTok );
+  reportError( m_workTok, msg, args );
+}
+
+private final void calcPosAndReportError ( int from, int to, String msg, Object... args )
+{
+  final SourceRange pos = new SourceRange();
+  pos.setFileName( m_fileName );
+  m_reader.calcRange( from, to, pos );
+  reportError( pos, msg, args );
 }
 
 private final Token newFifoToken ()
@@ -212,60 +243,178 @@ private boolean nextLine ()
   return true;
 }
 
-private void parseCharConst ( int cur )
+private static int fromXDigit ( int ch )
+{
+  ch |= 32;
+  if (ch >= '0' && ch <= '9')
+    return ch - '0';
+  else if (ch >= 'a' && ch <= 'f')
+    return ch - ('a' - 10);
+  else
+    return -1;
+}
+
+private byte[] parseCharSequence ( int cur, char terminator, String what )
 {
   int end = m_end;
   byte[] buf = m_reader.getLineBuf();
+  ByteArrayOutputStream str = new ByteArrayOutputStream();
 
-  boolean closed = false;
 loop:
-  while (cur < end)
-    switch (buf[cur++])
+  for(;;++cur)
+  {
+    if (cur == end)
     {
-    case '\\': if (cur < end) ++cur; break;
-    case '\'': closed = true; break loop;
+      calcEndPosAndReportError( cur, "Unterminated %s", what );
+      break;
     }
 
-  m_reader.calcRangeEnd( cur, m_workTok );
+    if (buf[cur] == terminator)
+    {
+      ++cur;
+      break;
+    }
+    if (buf[cur] == '\\')
+    {
+      if (++cur == end)
+      {
+        calcEndPosAndReportError( cur, "Unterminated %s", what );
+        break;
+      }
 
-  if (!closed)
-  {
-    if (m_reportErrors)
-      m_reporter.error( m_workTok, "Unterminated character constant" );
+      byte ch;
+      switch (buf[cur])
+      {
+      case '\'':case '"':case '?':case '\\': ch = buf[cur]; break;
+      case 'a': ch =  7; break;
+      case 'b': ch =  8; break;
+      case 'f': ch = 12; break;
+      case 'n': ch = 10; break;
+      case 'r': ch = 13; break;
+      case 't': ch =  9; break;
+      case 'v': ch = 11; break;
+
+      case 'x':
+        {
+          if (++cur == end)
+          {
+            calcEndPosAndReportError( cur, "Unterminated %s", what );
+            break loop;
+          }
+          boolean err = false;
+          int start = cur;
+          int value = 0;
+          int dig;
+          if ( (dig = fromXDigit( buf[cur]&255 )) < 0)
+          {
+            err = true;
+            calcPosAndReportError( cur-2, cur+1, "Invalid hex escape sequence in %s", what );
+          }
+          else
+          {
+            do
+            {
+              value = (value << 4) + dig;
+              ++cur;
+            }
+            while (cur < end && (dig = fromXDigit( buf[cur]&255 )) >= 0);
+
+            if (cur - start > 4)
+            {
+              err = true;
+              calcPosAndReportError( start, cur, "Integer overflow in %s", what );
+            }
+          }
+
+          --cur;
+          if ((value & 255) != value)
+          {
+            if (!err)
+              calcPosAndReportError( start, cur, "Character overflow in %s", what );
+          }
+
+          ch = (byte)value;
+        }
+        break;
+
+      case '0':case '1':case '2':case '3':case '4':case '5':case '6':case '7':
+        {
+          int start = cur;
+          int value = buf[cur] - '0';
+          if (cur+1 < end && buf[cur+1] >= '0' && buf[cur+1] <= '7')
+          {
+            value = (value << 3) + (buf[cur+1] - '0');
+            ++cur;
+            if (cur+1 < end && buf[cur+1] >= '0' && buf[cur+1] <= '7')
+            {
+              value = (value << 3) + (buf[cur+1] - '0');
+              ++cur;
+            }
+          }
+
+          if ((value & 255) != value)
+            calcPosAndReportError( start, cur+1, "Character overflow in %s", what );
+
+          ch = (byte)value;
+        }
+        break;
+
+      default:
+        calcPosAndReportError( cur-1, cur+1, "Invalid escape sequence in %s", what );
+        ch = buf[cur];
+        break;
+      }
+
+      str.write( ch & 255 );
+    }
     else
-      m_reporter.warning( m_workTok, "Unterminated character constant" );
+      str.write( buf[cur] & 255 );
   }
 
-  m_workTok.setText( Code.CHAR_CONST, buf, m_cur, cur - m_cur );
+  m_reader.calcRangeEnd( cur, m_workTok );
   m_cur = cur;
+  return str.toByteArray();
+}
+
+private static final Constant.IntC s_charShift =
+  Constant.makeLong( Types.TypeSpec.UINT, Types.TypeSpec.UCHAR.width );
+
+private void parseCharConst ( int cur )
+{
+  int start = m_cur;
+  byte[] decoded = parseCharSequence( cur, '\'', "character constant" );
+
+  Constant.IntC value = Constant.makeLong( Types.TypeSpec.SINT, 0 );
+
+  if (decoded.length == 0)
+    reportError( m_workTok, "Empty character constant" );
+  else if (decoded.length == 1)
+    value.setLong( decoded[0] & 255 );
+  else
+  {
+    Constant.IntC dig = Constant.newIntConstant( Types.TypeSpec.SINT );
+
+    if (decoded.length > (Types.TypeSpec.SINT.width+7)/8)
+      reportError( m_workTok, "Character constant is too long for its type" );
+    else
+      reportWarning( m_workTok, "Multi-character character constant" );
+
+    for ( byte b : decoded )
+    {
+      value.shl( value, s_charShift );
+      dig.setLong( b & 255 );
+      value.add( value, dig );
+    }
+  }
+
+  m_workTok.setCharConst( m_reader.getLineBuf(), start, m_cur - start, value );
 }
 
 private void parseStringConst ( int cur )
 {
-  int end = m_end;
-  byte[] buf = m_reader.getLineBuf();
-
-  boolean closed = false;
-loop:
-  while (cur < end)
-    switch (buf[cur++])
-    {
-    case '\\': if (cur < end) ++cur; break;
-    case '"': closed = true; break loop;
-    }
-
-  m_reader.calcRangeEnd( cur, m_workTok );
-
-  if (!closed)
-  {
-    if (m_reportErrors)
-      m_reporter.error( m_workTok, "Unterminated string constant" );
-    else
-      m_reporter.warning(m_workTok, "Unterminated string constant");
-  }
-
-  m_workTok.setText( Code.STRING_CONST, buf, m_cur, cur - m_cur );
-  m_cur = cur;
+  int start = m_cur;
+  byte[] value = parseCharSequence( cur, '"', "string constant" );
+  m_workTok.setStringConst( m_reader.getLineBuf(), start, m_cur - start, value );
 }
 
 private final void parsePunctuator ( int cur )

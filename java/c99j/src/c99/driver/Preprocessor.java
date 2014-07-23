@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import c99.CompilerOptions;
 import c99.DummyErrorReporter;
 import c99.parser.SymTable;
+import c99.parser.pp.Misc;
 import c99.parser.pp.PPDefs;
 import c99.parser.pp.PPLexer;
 import c99.parser.pp.Prepr;
@@ -139,7 +140,7 @@ public static void main ( String[] args )
         {
           if (!nl)
             System.out.println();
-          System.out.format(  "# %d %s\n", tok.getLine1(), Prepr.simpleEscapeString(tok.getFileName()));
+          System.out.format(  "# %d %s\n", tok.getLine1(), Misc.simpleEscapeString(tok.getFileName()));
           nl = true;
           lastTok = PPDefs.Code.NEWLINE;
         }
@@ -163,7 +164,7 @@ public static void main ( String[] args )
           {
             if (!nl)
               System.out.println();
-            System.out.format( "# %d %s\n", tok.getLine1(), Prepr.simpleEscapeString(tok.getFileName()));
+            System.out.format( "# %d %s\n", tok.getLine1(), Misc.simpleEscapeString(tok.getFileName()));
             nl = true;
             lastTok = PPDefs.Code.NEWLINE;
           }

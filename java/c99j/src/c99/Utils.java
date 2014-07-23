@@ -39,6 +39,19 @@ public static String asciiString ( byte[] bytes, int from, int count )
   return new String( value );
 }
 
+public static String asciiString ( byte[] bytes )
+{
+  return asciiString( bytes, 0, bytes.length );
+}
+
+public static byte[] asciiBytes ( String x )
+{
+  byte[] res = new byte[x.length()];
+  for ( int len = x.length(), i = 0; i < len; ++i )
+    res[i] = (byte)x.charAt( i );
+  return res;
+}
+
 public static boolean equals ( byte[] a, int offA, byte[] b, int offB, int len )
 {
   final int end = offA + len;
