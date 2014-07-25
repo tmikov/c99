@@ -1008,6 +1008,12 @@ private final void parseNextToken ( Token tok )
     reportError( m_workTok, "prefixed strings are not supported yet" );
     return;
   }
+  else if (buf[cur] == 'u' && buf[cur+1] == '8' && buf[cur+2] == '"')
+  {
+    parseStringConst( cur + 3 );
+    reportError( m_workTok, "utf-8 strings are not supported yet" );
+    return;
+  }
   else if (m_parseInclude && buf[cur] == '<' && (tmp = find( buf, cur+1, m_end, '>')) >= 0)
   {
     cur = tmp+1;
