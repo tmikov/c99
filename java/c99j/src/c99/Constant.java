@@ -214,13 +214,13 @@ public static final class IntC extends ArithC
 
   public final void shl ( IntC a, IntC b )
   {
-    assert this.spec == a.spec && b.spec == Types.TypeSpec.UINT;
+    assert this.spec == a.spec && b.spec.integer;
     setValue( a.m_value << b.m_value );
   }
 
   public final void shr ( IntC a, IntC b )
   {
-    assert this.spec == a.spec && b.spec == Types.TypeSpec.UINT;
+    assert this.spec == a.spec && b.spec.integer;
     if (this.spec.signed)
       setValue( a.m_value >> b.m_value );
     else
