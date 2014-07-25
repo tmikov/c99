@@ -628,7 +628,7 @@ private final int parseLineNumber ( String afterWhat )
   // Line directive only recognizes decimal numbers
   if (m_tok.textLen() > 1 && m_tok.text()[0] == '0')
   {
-    m_reporter.error( m_tok, "Integer line number expected after %s", afterWhat );
+    m_reporter.error( m_tok, "Only decimal integers supported after %s", afterWhat );
     skipUntilEOL();
     return -1;
   }
