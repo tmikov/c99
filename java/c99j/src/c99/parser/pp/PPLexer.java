@@ -945,16 +945,6 @@ private final void parseNextToken ( Token tok )
   {
     m_workTok.setCode( (ws & 1) != 0 ? Code.NEWLINE : Code.WHITESPACE );
   }
-  // Ident
-  //
-  else if (isIdentStart( buf[cur] ))
-  {
-    do
-      ++cur;
-    while (isIdentBody( buf[cur] ));
-
-    m_workTok.setIdent( m_symTable.symbol( buf, m_cur, cur - m_cur ) );
-  }
   // pp-number
   //
   else if (isDigit( buf[cur] ) ||
@@ -1003,6 +993,7 @@ private final void parseNextToken ( Token tok )
   else if ((buf[cur] == 'L' || buf[cur] == 'u' || buf[cur] == 'U') && buf[cur+1] == '\'')
   {
     parseCharConst( cur + 2 );
+    reportError( m_workTok, "prefixed character constants are not supported yet" );
     return;
   }
   // String constant
@@ -1014,6 +1005,7 @@ private final void parseNextToken ( Token tok )
   else if ((buf[cur] == 'L' || buf[cur] == 'u' || buf[cur] == 'U') && buf[cur+1] == '"')
   {
     parseStringConst( cur + 2 );
+    reportError( m_workTok, "prefixed strings are not supported yet" );
     return;
   }
   else if (m_parseInclude && buf[cur] == '<' && (tmp = find( buf, cur+1, m_end, '>')) >= 0)
@@ -1021,9 +1013,19 @@ private final void parseNextToken ( Token tok )
     cur = tmp+1;
     m_workTok.setOther( Code.ANGLED_INCLUDE, buf, m_cur + 1, cur - m_cur - 2 );
   }
-  else
+  // Ident
+  //
+  else if (isIdentStart( buf[cur] ))
+  {
+    do
+      ++cur;
+    while (isIdentBody( buf[cur] ));
+
+    m_workTok.setIdent( m_symTable.symbol( buf, m_cur, cur - m_cur ) );
+  }
   // Punctuators
   //
+  else
   {
     parsePunctuator( cur );
     m_reader.calcRangeEnd( m_cur, m_workTok );
