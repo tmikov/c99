@@ -43,6 +43,8 @@ public static enum TypeSpec
   public static final TypeSpec WCHAR_T = UINT;
   public static final TypeSpec CHAR16_T = USHORT;
   public static final TypeSpec CHAR32_T = ULONG;
+  public static final TypeSpec INTMAX_T = SLLONG;
+  public static final TypeSpec UINTMAX_T = ULLONG;
 
   public final boolean arithmetic;
   public final boolean floating;
