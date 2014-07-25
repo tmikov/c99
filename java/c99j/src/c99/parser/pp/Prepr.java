@@ -11,6 +11,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Date;
 
+import c99.CompilerLimits;
 import c99.CompilerOptions;
 import c99.IErrorReporter;
 import c99.ISourceRange;
@@ -834,6 +835,12 @@ loop:
   if (resolvedIncludePath == null)
   {
     m_reporter.error( pos, "Can't find include file '%s'", name );
+    return;
+  }
+
+  if (m_sourceStack.size() == CompilerLimits.MAX_INCLUDE_DEPTH)
+  {
+    m_reporter.error( pos, "More than %d nested includes", CompilerLimits.MAX_INCLUDE_DEPTH );
     return;
   }
 
