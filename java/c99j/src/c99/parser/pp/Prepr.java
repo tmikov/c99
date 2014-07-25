@@ -1320,12 +1320,8 @@ private final boolean parseExpression ()
   return intC.isTrue();
 }
 
-private final void parseIf ()
+private final void _parseIf ( Token tok, String what )
 {
-  Token tok = m_tok.clone();
-
-  nextExpandNoBlanks(); // consume the if
-
   boolean cond = false;
 
   if (!m_exec)
@@ -1333,12 +1329,58 @@ private final void parseIf ()
   else
   {
     cond = parseExpression();
-    checkEOL( "if" );
+    checkEOL( what );
   }
 
   assert m_tok.code() == Code.EOF || m_tok.code() == Code.NEWLINE;
 
   pushIfState( tok, IfState.BLOCK_IF, cond, m_exec && cond );
+}
+
+
+private final void parseIf ()
+{
+  Token tok = m_tok.clone();
+
+  nextExpandNoBlanks(); // consume the if
+  _parseIf( tok, "if" );
+}
+
+private final void parseElif ()
+{
+  Token tok = m_tok.clone();
+
+  if (m_ifTop.blockType != IfState.BLOCK_IF)
+  {
+    m_reporter.error( m_tok, "#elif without #if" );
+    if (m_ifTop.blockType == IfState.BLOCK_NONE)
+    {
+      // At top level treat it as a regular if for error recovery
+      nextExpandNoBlanks(); // consume the elif
+      _parseIf( tok, "elif" );
+    }
+    else
+      skipUntilEOL();
+    return;
+  }
+
+  nextExpandNoBlanks(); // consume the elif
+
+  boolean cond = false;
+
+  if (!m_ifTop.parentExec)
+    skipUntilEOL();
+  else
+  {
+    cond = parseExpression();
+    checkEOL( "elif" );
+  }
+
+  assert m_tok.code() == Code.EOF || m_tok.code() == Code.NEWLINE;
+
+  m_exec = m_ifTop.parentExec && !m_ifTop.cond && cond;
+  m_ifTop.tok = tok;
+  m_ifTop.cond |= cond;
 }
 
 private final void parseErrorDirective ()
@@ -1410,6 +1452,10 @@ private final void parseDirective ()
 
         case IF:
           parseIf();
+          return;
+
+        case ELIF:
+          parseElif();
           return;
 
         case IFDEF:
