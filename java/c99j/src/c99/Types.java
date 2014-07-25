@@ -26,9 +26,9 @@ public static enum TypeSpec
   ULONG(false,LONG_BITS),
   SLLONG(true,LONGLONG_BITS),
   ULLONG(false,LONGLONG_BITS),
-  FLOAT(32),
-  DOUBLE(64),
-  LDOUBLE(64),
+  FLOAT(32, Float.MIN_VALUE, Float.MAX_VALUE),
+  DOUBLE(64, Double.MIN_VALUE, Double.MAX_VALUE),
+  LDOUBLE(64, Double.MIN_VALUE, Double.MAX_VALUE),
 
   ENUM(),
 
@@ -53,6 +53,8 @@ public static enum TypeSpec
   public final long longMask;
   public final long minValue;
   public final long maxValue;
+  public final double minReal;
+  public final double maxReal;
 
   TypeSpec ()
   {
@@ -63,9 +65,11 @@ public static enum TypeSpec
     this.longMask = 0;
     this.minValue = 0;
     this.maxValue = 0;
+    this.minReal = 0;
+    this.maxReal = 0;
   }
 
-  TypeSpec ( int width )
+  TypeSpec ( int width, double minReal, double maxReal )
   {
     assert width > 0;
     this.arithmetic = true;
@@ -75,6 +79,8 @@ public static enum TypeSpec
     this.longMask = this.width < 64 ? (1L << this.width) - 1 : ~0L;
     this.minValue = 0;
     this.maxValue = 0;
+    this.minReal = minReal;
+    this.maxReal = maxReal;
   }
 
   TypeSpec ( boolean signed, int width )
@@ -96,6 +102,8 @@ public static enum TypeSpec
       this.minValue = 0;
       this.maxValue = this.longMask;
     }
+    this.minReal = 0;
+    this.maxReal = 0;
   }
 }
 
