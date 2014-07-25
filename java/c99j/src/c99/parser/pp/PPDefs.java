@@ -2,6 +2,7 @@ package c99.parser.pp;
 
 import c99.Constant;
 import c99.SourceRange;
+import c99.Types;
 import c99.Utils;
 import c99.parser.Symbol;
 
@@ -18,7 +19,8 @@ public static enum Code
   WHITESPACE(" "),
   NEWLINE,
   IDENT,
-  PP_NUMBER,
+  PP_INT_NUMBER,
+  PP_REAL_NUMBER,
   CHAR_CONST,
   STRING_CONST,
   ANGLED_INCLUDE,
@@ -170,7 +172,7 @@ public static class Token extends AbstractToken
     m_flags = tok.m_flags;
     m_object = tok.m_object;
     if (tok.m_text != null)
-      _setText(tok.m_text, 0, tok.m_length);
+      setText( tok.m_text, 0, tok.m_length );
     setRange( tok );
   }
 
@@ -203,14 +205,14 @@ public static class Token extends AbstractToken
     return (Symbol)m_object;
   }
 
-  public final void setSymbol ( Code code, Symbol symbol )
+  public final void setIdent ( Symbol symbol )
   {
     this.m_code = Code.IDENT;
     m_object = symbol;
     m_length = symbol.length();
   }
 
-  private final void _setText ( byte[] buf, int from, int count )
+  public final void setText ( byte[] buf, int from, int count )
   {
     if (m_defaultBuf != null && count <= DEFAULT_LEN)
       System.arraycopy( buf, from, m_text = m_defaultBuf, 0, count );
@@ -219,30 +221,27 @@ public static class Token extends AbstractToken
     m_length = count;
   }
 
-  public final void setText ( Code code, byte[] buf, int from, int count )
-  {
-    assert code != Code.STRING_CONST && code != Code.CHAR_CONST;
-    this.m_code = code;
-    _setText( buf, from, count );
-  }
-
   /**
    * Like {@code #setText} but transfers the ownership of {@param buf}
    * instead of copying it.
    */
-  public final void setTextWithOnwership ( Code code, byte[] buf )
+  public final void setTextWithOnwership ( byte[] buf )
   {
-    assert code != Code.STRING_CONST && code != Code.CHAR_CONST;
-    this.m_code = code;
     m_text = buf;
     m_length = buf.length;
+  }
+
+  public final void setOther ( Code code, byte[] buf, int from, int count )
+  {
+    m_code = code;
+    setText(  buf, from, count );
   }
 
   public final void setStringConst ( byte[] origText, int from, int count,
                                      byte[] value )
   {
     m_code = Code.STRING_CONST;
-    _setText( origText, from, count );
+    setText( origText, from, count );
     m_object = value;
   }
 
@@ -254,7 +253,7 @@ public static class Token extends AbstractToken
     m_object = Utils.asciiBytes( value );
   }
 
-  public byte[] getStringConstValue ()
+  public final byte[] getStringConstValue ()
   {
     return (byte[])m_object;
   }
@@ -262,13 +261,42 @@ public static class Token extends AbstractToken
   public final void setCharConst ( byte[] origText, int from, int count, Constant.IntC value )
   {
     m_code = Code.CHAR_CONST;
-    _setText( origText, from, count );
+    setText( origText, from, count );
     m_object = value;
   }
 
-  public Constant.IntC getCharConstValue ()
+  public final Constant.IntC getCharConstValue ()
   {
     return (Constant.IntC)m_object;
+  }
+
+  /** {@link #setText(byte[], int, int)} must have already been called! */
+  public final void setIntConst ( Constant.IntC value )
+  {
+    m_code = Code.PP_INT_NUMBER;
+    m_object = value;
+  }
+
+  public final void setIntConst ( int value )
+  {
+    setTextWithOnwership( (""+value).getBytes() );
+    setIntConst( Constant.makeLong( Types.TypeSpec.SINT, value ) );
+  }
+
+  public final Constant.IntC getIntConstValue ()
+  {
+    return (Constant.IntC)m_object;
+  }
+
+  public final void setRealConst ( Constant.RealC value )
+  {
+    m_code = Code.PP_REAL_NUMBER;
+    m_object = value;
+  }
+
+  public final Constant.RealC getRealConst ()
+  {
+    return (Constant.RealC)m_object;
   }
 
   public final void setCode ( Code code )
@@ -290,11 +318,30 @@ public static class Token extends AbstractToken
     if (_tok instanceof Token)
     {
       final Token tok = (Token)_tok;
-      return
+      if (!(
         m_code == tok.m_code &&
-        m_object == tok.m_object &&
         m_length == tok.m_length &&
-        (m_text == null || Utils.equals(m_text, 0, tok.m_text, 0, m_length));
+        (m_text == null || Utils.equals(m_text, 0, tok.m_text, 0, m_length))
+      ))
+        return false;
+      switch(m_code)
+      {
+      case IDENT:
+        assert m_object instanceof Symbol;
+        return m_object == tok.m_object;
+      case STRING_CONST:
+        return Arrays.equals( (byte[])m_object, (byte[])tok.m_object );
+      case CHAR_CONST:
+      case PP_INT_NUMBER:
+        assert m_object instanceof Constant.IntC;
+        return ((Constant.IntC)m_object).equals( (Constant.IntC)tok.m_object );
+      case PP_REAL_NUMBER:
+        assert m_object instanceof Constant.RealC;
+        return ((Constant.RealC)m_object).equals( (Constant.RealC)tok.m_object );
+      default:
+        assert m_object == null;
+        return true;
+      }
     }
     else
       return false;

@@ -19,8 +19,9 @@ private static boolean needWS ( PPDefs.Code t1, PPDefs.Code t2 )
   switch (t1)
   {
   case IDENT:
-  case PP_NUMBER:
-    return t2 == PPDefs.Code.IDENT || t2 == PPDefs.Code.PP_NUMBER;
+  case PP_INT_NUMBER:
+  case PP_REAL_NUMBER:
+    return t2 == PPDefs.Code.IDENT || t2 == PPDefs.Code.PP_INT_NUMBER || t2 == PPDefs.Code.PP_REAL_NUMBER;
 
   case NEWLINE:
     return t2 == PPDefs.Code.HASH;
@@ -140,7 +141,8 @@ public static void main ( String[] args )
         {
           if (!nl)
             System.out.println();
-          System.out.format(  "# %d %s\n", tok.getLine1(), Misc.simpleEscapeString(tok.getFileName()));
+          System.out.format(  "# %d %s\n", tok.getLine1(), Misc.simpleEscapeString(
+                  tok.getFileName() ));
           nl = true;
           lastTok = PPDefs.Code.NEWLINE;
         }

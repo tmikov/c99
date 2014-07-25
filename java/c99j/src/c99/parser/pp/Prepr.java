@@ -591,53 +591,6 @@ private final void parseUndef ()
   }
 }
 
-private int parseLineInt ( Token tok, String afterWhat )
-{
-  final byte text[] = tok.text();
-  final int len = tok.textLen();
-
-  int res = 0;
-
-  for ( int i = 0; i < len; ++i )
-  {
-    int ch = text[i] & 255;
-    if (!(ch >= '0' && ch <= '9'))
-    {
-      m_reporter.error( tok, "'%s' after %s is not a positive integer", tok.outputString(), afterWhat );
-      return -1;
-    }
-
-    // *= 10
-    int tmp = res * 10;
-    if (tmp < res)
-    {
-      m_reporter.error( tok, "line number out of range" );
-      return -1;
-    }
-
-    // += digit
-    res = tmp + ch - '0';
-    if (res < tmp)
-    {
-      m_reporter.error( tok, "line number out of range" );
-      return -1;
-    }
-  }
-
-  return res;
-}
-
-private static int fromXDigit ( char ch )
-{
-  ch |= 32;
-  if (ch >= '0' && ch <= '9')
-    return ch - '0';
-  else if (ch >= 'a' && ch <= 'f')
-    return ch - ('a' - 10);
-  else
-    return -1;
-}
-
 private final void handleLineDirective ( int line, String fileName )
 {
   m_lineAdjustment = line - m_tok.getLine1() + m_lineAdjustment - 1;
@@ -663,23 +616,42 @@ private final void handleLineDirective ( int line, String fileName )
   }
 }
 
+private final int parseLineNumber ( String afterWhat )
+{
+  if (m_tok.code() != Code.PP_INT_NUMBER)
+  {
+    m_reporter.error( m_tok, "Integer line number expected after %s", afterWhat );
+    skipUntilEOL();
+    return -1;
+  }
+
+  // Line directive only recognizes decimal numbers
+  if (m_tok.textLen() > 1 && m_tok.text()[0] == '0')
+  {
+    m_reporter.error( m_tok, "Integer line number expected after %s", afterWhat );
+    skipUntilEOL();
+    return -1;
+  }
+
+  long lline = m_tok.getIntConstValue()._getLong();
+  int line = (int)lline;
+  if (line < 0 || line != lline)
+  {
+    m_reporter.error( m_tok, "Line number outside of allowed range after %s", afterWhat );
+    skipUntilEOL();
+    return -1;
+  }
+
+  return line;
+}
+
 private final void parseLine ()
 {
   nextExpandNoBlanks(); // consume the 'line'
 
-  if (m_tok.code() != Code.PP_NUMBER)
-  {
-    m_reporter.error( m_tok, "Integer line number expected after #line" );
-    skipUntilEOL();
+  int line;
+  if ( (line = parseLineNumber( "#line" )) < 0)
     return;
-  }
-
-  int line = parseLineInt( m_tok, "#line" );
-  if (line < 0)
-  {
-    skipUntilEOL();
-    return;
-  }
 
   nextExpandNoBlanks();
   String fileName;
@@ -715,12 +687,9 @@ private final void parseLine ()
 
 private final void parseLineMarker ()
 {
-  int line = parseLineInt(m_tok, "#");
-  if (line < 0)
-  {
-    skipUntilEOL();
+  int line;
+  if ( (line = parseLineNumber( "#" )) < 0)
     return;
-  }
 
   nextNoBlanks();
 
@@ -742,7 +711,7 @@ private final void parseLineMarker ()
   boolean ignored = false;
   while (m_tok.code() != Code.NEWLINE && m_tok.code() != Code.EOF)
   {
-    if (m_tok.code() != Code.PP_NUMBER)
+    if (m_tok.code() != Code.PP_INT_NUMBER)
       m_reporter.error( m_tok, "Invalid flag '%s' after #", m_tok.outputString() );
     else
     {
@@ -1060,7 +1029,7 @@ private final void parseDirective ()
     }
     break;
 
-  case PP_NUMBER:
+  case PP_INT_NUMBER:
     if (m_exec)
       { parseLineMarker(); return; }
     break;
@@ -1275,7 +1244,7 @@ private final boolean expandBuiltin ( ISourceRange pos, Macro macro )
   switch (macro.builtin)
   {
   case __LINE__:
-    tok.setTextWithOnwership( Code.PP_NUMBER, (pos.getLine1()+"").getBytes() );
+    tok.setIntConst( pos.getLine1() );
     break;
   case __FILE__:
     tok.setStringConst( pos.getFileName() );

@@ -8,6 +8,7 @@ import c99.IErrorReporter;
 import c99.ISourceRange;
 import c99.SourceRange;
 import c99.Types;
+import c99.Utils;
 import c99.parser.SymTable;
 
 /**
@@ -417,6 +418,240 @@ private void parseStringConst ( int cur )
   m_workTok.setStringConst( m_reader.getLineBuf(), start, m_cur - start, value );
 }
 
+private static final Constant.IntC s_int0 = Constant.makeLong( Types.TypeSpec.SINT, 0 );
+private static final Constant.IntC s_intMaxZero = Constant.makeLong( Types.TypeSpec.INTMAX_T, 0 );
+private static final Constant.IntC s_eight = Constant.makeLong( Types.TypeSpec.UINTMAX_T, 8 );
+private static final Constant.IntC s_ten = Constant.makeLong( Types.TypeSpec.UINTMAX_T, 10 );
+private static final Constant.IntC s_sixteen = Constant.makeLong( Types.TypeSpec.UINTMAX_T, 16 );
+
+private static final Constant.IntC s_intMax_Max =
+   Constant.makeLong( Types.TypeSpec.UINTMAX_T, Types.TypeSpec.INTMAX_T.maxValue );
+
+// the valid suffixes are u[l], ull, l[u], ll[u]
+// state > 23 indicates end. bit 0 is unsigned, bits 1..2 long/long long
+static final byte s_intSuffixTab[]  = {
+               // EOF,   u,   l
+   /* 0 .    */  0x40, 1*3, 4*3,
+   /* 1 u.   */  0x41, 100, 2*3,
+   /* 2 ul.  */  0x43, 100, 3*3,
+   /* 3 ull. */  0x45, 100, 100,
+   /* 4 l.   */  0x42, 7*3, 5*3,
+   /* 5 ll.  */  0x44, 6*3, 100,
+   /* 6 llu. */  0x45, 100, 100,
+   /* 7 lu.  */  0x43, 100, 100,
+                 100,
+};
+
+private final Constant.IntC parsePPInteger ( Token tok )
+{
+  int i = 0;
+  int to = tok.textLen();
+  byte[] text = tok.text();
+
+  boolean err = false;
+  Constant.IntC radixC = s_ten;
+  int radix = 10;
+
+  if (text[i] == '0')
+  {
+    ++i;
+    if (i == to)
+      return s_int0;
+    if ((text[i] | 32) == 'x')
+    {
+      ++i;
+      if (i == to)
+      {
+        reportError( tok, "Invalid integer prefix" );
+        return s_int0;
+      }
+      radixC = s_sixteen;
+      radix = 16;
+    }
+    else
+    {
+      radixC = s_eight;
+      radix = 8;
+    }
+  }
+
+  Constant.IntC res = Constant.makeLong( Types.TypeSpec.UINTMAX_T, 0 );
+  Constant.IntC tmp = Constant.newIntConstant( Types.TypeSpec.UINTMAX_T );
+  Constant.IntC digitC = Constant.newIntConstant( Types.TypeSpec.UINTMAX_T );
+
+  for (; i < to; ++i )
+  {
+    char ch = (char)(text[i] & 255 | 32);
+    if (ch == 'u' || ch == 'l')
+      break;
+
+    int digit;
+    if ((digit = fromXDigit( ch )) < 0 || digit >= radix)
+    {
+      if (!err)
+      {
+        err = true;
+        reportError( tok, "not a valid integer" );
+        break;
+      }
+    }
+
+    // *= 10
+    tmp.mul( res, radixC );
+    if (tmp.lt( res ))
+    {
+      if (!err)
+      {
+        err = true;
+        reportError( tok, "Constant is too large" );
+      }
+    }
+
+    // += digit
+    digitC.setLong( digit );
+    res.add( tmp, digitC );
+    if (res.lt( tmp ))
+    {
+      if (!err)
+      {
+        err = true;
+        reportError( tok, "Constant is too large" );
+      }
+    }
+  }
+
+  boolean mustBeUnsigned = false;
+  int mustBeLong = 0;
+
+  if (i < to) // Suffix detected
+  {
+    assert s_intSuffixTab.length == 24 + 1; // 8 states * 3 + 1 extra
+    int state = 0;
+    do
+      if (i < to)
+      {
+        int ch = text[i++]&255|32;
+        if (ch == 'u') state += 1; else if (ch == 'l') state += 2; else state = 24;
+      }
+    while ( (state = s_intSuffixTab[state]) <= 23);
+
+    if (state == 100)
+    {
+      if (!err)
+      {
+        err = true;
+        reportError( tok, "Invalid integer suffix" );
+      }
+      mustBeUnsigned = true;
+      mustBeLong = 2;
+    }
+    else
+    {
+      mustBeUnsigned = (state & 1) != 0;
+      mustBeLong = (state >>> 1) & 3;
+    }
+  }
+
+  boolean mustBeSigned = !mustBeUnsigned && radix == 10;
+
+  // Determine the type
+  int typeOrd;
+  int step = 1;
+  if (mustBeLong == 1)
+    typeOrd = Types.TypeSpec.SLONG.ordinal();
+  else if (mustBeLong == 2)
+    typeOrd = Types.TypeSpec.SLLONG.ordinal();
+  else
+    typeOrd = Types.TypeSpec.SINT.ordinal();
+  if (mustBeUnsigned)
+  {
+    assert Types.TypeSpec.values()[typeOrd].signed && !Types.TypeSpec.values()[typeOrd+1].signed;
+    ++typeOrd;
+    step = 2;
+  }
+  else if (mustBeSigned)
+    step = 2;
+
+  Types.TypeSpec type;
+  for( ;; typeOrd += step )
+  {
+    type = Types.TypeSpec.values()[typeOrd];
+    tmp.setLong( type.maxValue );
+    if (res.le( tmp ))
+      break;
+    if (typeOrd + step > Types.TypeSpec.ULLONG.ordinal())
+    {
+      if (!err)
+      {
+        err = true;
+        reportWarning( tok, "Constant is too large" );
+        break;
+      }
+    }
+  }
+
+  if (res.spec != type)
+  {
+    Constant.IntC cvtRes = Constant.newIntConstant( type );
+    cvtRes.castFrom( res );
+    return cvtRes;
+  }
+  else
+    return res;
+}
+
+private final Constant.RealC parsePPReal ( Token tok )
+{
+  // Separate the suffix
+  byte[] text = tok.text();
+  int e = tok.textLen();
+  int suff = 0;
+  if (e > 0 && ((text[e-1] | 32) == 'f' || (text[e-1] | 32) == 'l'))
+  {
+    suff = text[e-1] | 32;
+    --e;
+  }
+
+  double x;
+  try
+  {
+    x = Double.parseDouble( Utils.asciiString( text, 0, e ) );
+  }
+  catch (NumberFormatException ex)
+  {
+    reportError( tok, "Invalid floating point constant" );
+    x = 1;
+  }
+
+  if (suff == 'f')
+  {
+    if (x < Types.TypeSpec.FLOAT.minReal || x > Types.TypeSpec.FLOAT.maxReal)
+    {
+      reportError( tok, "Constant is outside of 'float' range" );
+      x = 1;
+    }
+    return Constant.makeDouble( Types.TypeSpec.FLOAT, x );
+  }
+  else if (suff == 'l')
+  {
+    if (x < Types.TypeSpec.LDOUBLE.minReal || x > Types.TypeSpec.LDOUBLE.maxReal)
+    {
+      reportError( tok, "Constant is outside of 'long double' range" );
+      x = 1;
+    }
+    return Constant.makeDouble( Types.TypeSpec.LDOUBLE, x );
+  }
+  else
+  {
+    if (x < Types.TypeSpec.DOUBLE.minReal || x > Types.TypeSpec.DOUBLE.maxReal)
+    {
+      reportError( tok, "Constant is outside of 'double' range" );
+      x = 1;
+    }
+    return Constant.makeDouble( Types.TypeSpec.DOUBLE, x );
+  }
+}
+
 private final void parsePunctuator ( int cur )
 {
   byte[] buf = m_reader.getLineBuf();
@@ -605,7 +840,7 @@ private final void parsePunctuator ( int cur )
       break;
 
     default:
-      m_workTok.setText( Code.OTHER, buf, cur++, 1 );
+      m_workTok.setOther( Code.OTHER, buf, cur++, 1 );
       m_cur = cur;
       return;
   }
@@ -718,32 +953,46 @@ private final void parseNextToken ( Token tok )
       ++cur;
     while (isIdentBody( buf[cur] ));
 
-    m_workTok.setSymbol( Code.IDENT, m_symTable.symbol( buf, m_cur, cur - m_cur ) );
+    m_workTok.setIdent( m_symTable.symbol( buf, m_cur, cur - m_cur ) );
   }
   // pp-number
   //
   else if (isDigit( buf[cur] ) ||
            buf[cur] == '.' && isDigit( buf[cur+1] ))
   {
+    boolean real = buf[cur] == '.';
     ++cur;
     for(;;)
     {
-      if (isDigit( buf[cur] ) ||
-          isIdentStart( buf[cur] ) ||
-          buf[cur] == '.')
-      {
-        ++cur;
-      }
-      else if (((buf[cur] | 32) == 'e' || (buf[cur] | 32) == 'p') &&
+      if (((buf[cur] | 32) == 'e' || (buf[cur] | 32) == 'p') &&
                (buf[cur+1] == '+' || buf[cur+1] == '-'))
       {
+        real = true;
         cur += 2;
+      }
+      else if (buf[cur] == '.')
+      {
+        real = true;
+        ++cur;
+      }
+      else if (isDigit( buf[cur] ) || isIdentStart( buf[cur] ))
+      {
+        ++cur;
       }
       else
         break;
     }
 
-    m_workTok.setText( Code.PP_NUMBER, buf, m_cur, cur - m_cur );
+    m_workTok.setText( buf, m_cur, cur - m_cur );
+    m_reader.calcRangeEnd( cur, m_workTok );
+
+    if (!real)
+      m_workTok.setIntConst( parsePPInteger( m_workTok ) );
+    else
+      m_workTok.setRealConst( parsePPReal( m_workTok ) );
+
+    m_cur = cur;
+    return;
   }
   // Character constant
   else if (buf[cur] == '\'')
@@ -770,7 +1019,7 @@ private final void parseNextToken ( Token tok )
   else if (m_parseInclude && buf[cur] == '<' && (tmp = find( buf, cur+1, m_end, '>')) >= 0)
   {
     cur = tmp+1;
-    m_workTok.setText( Code.ANGLED_INCLUDE, buf, m_cur+1, cur - m_cur - 2 );
+    m_workTok.setOther( Code.ANGLED_INCLUDE, buf, m_cur + 1, cur - m_cur - 2 );
   }
   else
   // Punctuators

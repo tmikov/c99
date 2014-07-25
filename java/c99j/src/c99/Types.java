@@ -16,6 +16,7 @@ public static enum TypeSpec
   VOID(),
 
   BOOL(false,1),
+  // Note: the ordering matters. First <signed>, then <unsigned>, from smaller to larger
   SCHAR(true,CHAR_BITS),
   UCHAR(false,CHAR_BITS),
   SSHORT(true,SHORT_BITS),

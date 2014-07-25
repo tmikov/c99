@@ -92,6 +92,11 @@ public static final class IntC extends ArithC
     setValue( x );
   }
 
+  public final long _getLong ()
+  {
+    return m_value;
+  }
+
   @Override
   public final void assign ( final ArithC a )
   {
