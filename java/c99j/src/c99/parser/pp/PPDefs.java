@@ -255,6 +255,7 @@ public static class Token extends AbstractToken
 
   public final byte[] getStringConstValue ()
   {
+    assert m_code == Code.STRING_CONST;
     return (byte[])m_object;
   }
 
@@ -267,6 +268,7 @@ public static class Token extends AbstractToken
 
   public final Constant.IntC getCharConstValue ()
   {
+    assert m_code == Code.CHAR_CONST;
     return (Constant.IntC)m_object;
   }
 
@@ -285,6 +287,7 @@ public static class Token extends AbstractToken
 
   public final Constant.IntC getIntConstValue ()
   {
+    assert m_code == Code.PP_INT_NUMBER;
     return (Constant.IntC)m_object;
   }
 
@@ -296,6 +299,7 @@ public static class Token extends AbstractToken
 
   public final Constant.RealC getRealConst ()
   {
+    assert m_code == Code.PP_REAL_NUMBER;
     return (Constant.RealC)m_object;
   }
 
