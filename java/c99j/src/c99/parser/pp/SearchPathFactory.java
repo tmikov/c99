@@ -81,7 +81,7 @@ private final ISearchPath.Result _searchQuoted ( final String curFile, final Fil
 
   ISearchPath.Result res;
   final File curDir = new File(curFile).getParentFile();
-  final String key = curDir.getPath() + File.pathSeparatorChar + fileName;
+  final String key = (curDir != null ?  curDir.getPath() : "") + File.pathSeparatorChar + fileName;
 
   if ( (res = m_quotedCache.get( key )) == null )
   {
