@@ -33,6 +33,7 @@ public abstract static class ArithC
 
   public abstract void add ( ArithC a, ArithC b );
   public abstract void sub ( ArithC a, ArithC b );
+  public abstract void neg ( ArithC a );
   public abstract void mul ( ArithC a, ArithC b );
   public abstract void div ( ArithC a, ArithC b );
 }
@@ -173,6 +174,13 @@ public static final class IntC extends ArithC
   }
 
   @Override
+  public void neg ( ArithC a )
+  {
+    assert this.spec == a.spec;
+    setValue( -((IntC)a).m_value );
+  }
+
+  @Override
   public void mul ( final ArithC a, final ArithC b )
   {
     assert this.spec == a.spec && this.spec == b.spec;
@@ -225,6 +233,27 @@ public static final class IntC extends ArithC
       setValue( a.m_value >> b.m_value );
     else
       setValue( a.m_value >>> b.m_value );
+  }
+
+  public final void and ( IntC a, IntC b )
+  {
+    assert this.spec == a.spec && this.spec == b.spec;
+    setValue( a.m_value & b.m_value );
+  }
+  public final void or ( IntC a, IntC b )
+  {
+    assert this.spec == a.spec && this.spec == b.spec;
+    setValue( a.m_value | b.m_value );
+  }
+  public final void xor ( IntC a, IntC b )
+  {
+    assert this.spec == a.spec && this.spec == b.spec;
+    setValue( a.m_value ^ b.m_value );
+  }
+  public final void not ( IntC a )
+  {
+    assert this.spec == a.spec;
+    setValue( ~a.m_value );
   }
 }
 
@@ -335,6 +364,13 @@ public static final class RealC extends ArithC
   {
     assert this.spec == a.spec && this.spec == b.spec;
     setValue( ((RealC)a).m_value - ((RealC)b).m_value );
+  }
+
+  @Override
+  public void neg ( ArithC a )
+  {
+    assert this.spec == a.spec;
+    setValue( -((RealC)a).m_value );
   }
 
   @Override
