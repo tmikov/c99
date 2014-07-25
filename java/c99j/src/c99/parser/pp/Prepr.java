@@ -1341,6 +1341,27 @@ private final void parseIf ()
   pushIfState( tok, IfState.BLOCK_IF, cond, m_exec && cond );
 }
 
+private final void parseErrorDirective ()
+{
+  SourceRange pos = new SourceRange( m_tok );
+  StringBuilder msg = new StringBuilder();
+
+  nextNoBlanks();
+  while (m_tok.code() != Code.NEWLINE && m_tok.code() != Code.EOF)
+  {
+    msg.append( m_tok.outputString() );
+    nextWithBlanks();
+  }
+
+  m_reporter.error( m_tok, "#error %s", msg.toString() );
+}
+
+private final void parsePragmaDirective ()
+{
+  m_reporter.warning( m_tok, "Ignoring unsupported #pragma" );
+  skipUntilEOL();
+}
+
 private final void parseDirective ()
 {
   nextNoBlanks(); // consume the '#'
@@ -1375,6 +1396,16 @@ private final void parseDirective ()
         case INCLUDE:
           if (m_exec)
             { parseInclude(); return; }
+          break;
+
+        case ERROR:
+          if (m_exec)
+            { parseErrorDirective(); return; }
+          break;
+
+        case PRAGMA:
+          if (m_exec)
+            { parsePragmaDirective(); return; }
           break;
 
         case IF:

@@ -13,6 +13,7 @@ ELIF("elif"),
 ENDIF("endif"),
 DEFINED("defined"),
 UNDEF("undef"),
+ERROR("error"),
 PRAGMA("pragma"),
 VA_ARGS("__VA_ARGS__");
 
