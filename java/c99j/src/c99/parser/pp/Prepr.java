@@ -597,7 +597,8 @@ private final void parseUndef ()
     macroSym.ppDecl = null;
   }
   else
-    m_reporter.warning( m_tok, "Macro '%s' not defined in #undef", macroSym.name );
+    if (m_opts.warnUndef)
+      m_reporter.warning( m_tok, "Macro '%s' not defined in #undef", macroSym.name );
 
   nextNoBlanks();
   if (m_tok.code() != Code.EOF && m_tok.code() != Code.NEWLINE)
