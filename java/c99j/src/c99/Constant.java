@@ -435,6 +435,16 @@ public static RealC makeDouble ( Types.TypeSpec spec, double value )
   return c;
 }
 
+public static ArithC convert ( Types.TypeSpec toSpec, ArithC c )
+{
+  if (c.spec == toSpec)
+    return c;
+
+  ArithC res = newConstant( toSpec );
+  res.castFrom( c );
+  return res;
+}
+
 static boolean unsignedLessThan ( long a, long b )
 {
   return (a ^ 0x8000000000000000L) < (b ^ 0x8000000000000000L);
