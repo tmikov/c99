@@ -201,6 +201,19 @@ private final void _nextIncludeToken ()
   adjustToken();
 }
 
+private final void discardLine ()
+{
+  assert m_laQueue.isEmpty();
+
+  if (m_tok.code() != Code.NEWLINE && m_tok.code() != Code.EOF)
+  {
+    m_skippedWs = null;
+    m_tok = m_lex.discardLine();
+    assert m_tok.code() == Code.NEWLINE || m_tok.code() == Code.EOF;
+    adjustToken();
+  }
+}
+
 private final Token lookAheadForLParen ()
 {
   int size;
@@ -1044,7 +1057,7 @@ private final void parseDirective ()
 
   if (m_exec)
     m_reporter.error( m_tok, "Invalid preprocessor directive #%s", m_tok.outputString() );
-  skipUntilEOL();
+  discardLine();
 }
 
 private final Token stringify ( TokenList<Token> toks )
@@ -1339,7 +1352,12 @@ public final Token nextToken ()
       if (nextNoBlanks().code() == Code.HASH)
         parseDirective();
       else
-        curExpandWithBlanks();
+      {
+        if (m_exec)
+          curExpandWithBlanks();
+        else
+          discardLine();
+      }
     }
     else
       nextExpandWithBlanks();

@@ -1036,6 +1036,75 @@ private final void parseNextToken ( Token tok )
   m_cur = cur;
 }
 
+/** Discard whole lines quickly in false conditionals. The only complication is that we
+ * need to check for and handle comments */
+final Token discardLine ()
+{
+  releaseFifoToken( m_lastTok );
+  assert getFifoCount() == 0;
+
+  m_workTok = newFifoToken();
+  m_workTok.setFileName( m_fileName );
+
+  byte[] buf = m_reader.getLineBuf();
+  int cur = m_cur;
+
+  m_reader.calcRangeStart( cur, m_workTok );
+  while (cur < m_end)
+  {
+    if (buf[cur] == '/')
+    {
+      ++cur;
+      if (buf[cur] == '/') // line comment
+        cur = m_end;
+      else if (buf[cur] == '*') // block comment
+      {
+        m_reader.calcRangeStart( cur-1, m_tmpRange );
+        ++cur;
+        for(;;)
+        {
+          if (buf[cur] == '*' && buf[cur+1] == '/')
+          {
+            cur += 2;
+            break;
+          }
+          else if (cur < m_end)
+            ++cur;
+          else if (nextLine())
+          {
+            buf = m_reader.getLineBuf();
+            cur = m_cur;
+          }
+          else
+          {
+            cur = m_end;
+            m_reader.calcRangeEnd( cur, m_tmpRange );
+            m_reporter.error( m_tmpRange.setFileName(m_fileName), "Unterminated block comment" );
+            break; // The outer loop will re-detect and return the EOF
+          }
+        }
+      }
+      else
+        ++cur;
+    }
+    else
+      ++cur;
+  }
+
+  if (nextLine())
+  {
+    m_workTok.setCode( Code.NEWLINE );
+    m_reader.calcRangeEnd( m_cur, m_workTok );
+  }
+  else
+  {
+    m_workTok.setLocation( m_reader.getCurLineNumber(), 1 );
+    m_workTok.setCode( Code.EOF );
+  }
+
+  return m_lastTok = m_workTok;
+}
+
 final Token nextIncludeToken ()
 {
   releaseFifoToken( m_lastTok );
@@ -1069,6 +1138,7 @@ protected final Token lookAhead ( int distance )
     parseNextToken( newFifoToken() );
   return getFifoToken( distance );
 }
+
 
 protected final void setReportErrors ( final boolean reportErrors )
 {
