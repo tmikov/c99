@@ -22,7 +22,9 @@ public static enum Code
   PP_INT_NUMBER,
   PP_REAL_NUMBER,
   CHAR_CONST,
+  WIDE_CHAR_CONST, // u,U,L
   STRING_CONST,
+  WIDE_STRING_CONST, // u8, u, U, L
   ANGLED_INCLUDE,
 
   L_BRACKET("["), R_BRACKET("]"),
