@@ -13,9 +13,11 @@ import java.util.Date;
 
 import c99.CompilerLimits;
 import c99.CompilerOptions;
+import c99.Constant;
 import c99.IErrorReporter;
 import c99.ISourceRange;
 import c99.SourceRange;
+import c99.Types;
 import c99.Utils;
 import c99.parser.SymTable;
 import c99.parser.Symbol;
@@ -996,6 +998,349 @@ private final void parseEndif ()
   popIfState();
 }
 
+private boolean m_exprErrorReported;
+
+private final void exprError ( ISourceRange pos, String msg, Object... args )
+{
+  if (!m_exprErrorReported)
+  {
+    m_exprErrorReported = true;
+    m_reporter.error( pos, msg, args );
+  }
+}
+
+private final boolean need ( Code code )
+{
+  if (m_tok.code() == code)
+  {
+    nextExpandNoBlanks();
+    return true;
+  }
+  else
+  {
+    exprError( m_tok, "'%s' expected", code.str );
+    return false;
+  }
+}
+
+private static final Constant.IntC s_zero = Constant.makeLong( Types.TypeSpec.INTMAX_T, 0 );
+private static final Constant.IntC s_one = Constant.makeLong( Types.TypeSpec.INTMAX_T, 1 );
+
+// 6.10.1 [4] For the purposes of this
+// token conversion and evaluation, all signed integer types and all unsigned integer types
+// act as if they hav e the same representation as, respectively, the types intmax_t and
+// uintmax_t defined in the header <stdint.h>
+private static Constant.IntC expandToMax ( Constant.IntC v )
+{
+  return (Constant.IntC)Constant.convert(
+    Types.usualArithmeticConversions( v.spec, Types.TypeSpec.INTMAX_T ), v
+  );
+}
+
+private static void performUsualArithmeticConversions ( Constant.ArithC e[] )
+{
+  Types.TypeSpec spec = Types.usualArithmeticConversions( e[0].spec, e[1].spec );
+  e[0] = Constant.convert( spec, e[0] );
+  e[1] = Constant.convert( spec, e[1] );
+}
+
+private static Constant.IntC performIntegerPromotion ( Constant.IntC e )
+{
+  return (Constant.IntC)Constant.convert( Types.integerPromotion( e.spec ), e );
+}
+
+private abstract class Expression
+{
+  abstract Constant.IntC parse ();
+}
+
+private class BinEx extends Expression
+{
+  private final Expression m_parent;
+  private final Code m_c0, m_c1, m_c2, m_c3;
+
+  protected BinEx ( final Expression parent, final Code c0, final Code c1,
+                    final Code c2, final Code c3 )
+  {
+    m_parent = parent;
+    m_c0 = c0;
+    m_c1 = c1;
+    m_c2 = c2;
+    m_c3 = c3;
+  }
+
+  protected BinEx ( final Expression parent, final Code c0 )
+  {
+    this( parent, c0, c0, c0, c0 );
+  }
+
+  protected BinEx ( final Expression parent, final Code c0, final Code c1 )
+  {
+    this( parent, c0, c1, c1, c1 );
+  }
+
+  protected BinEx ( final Expression parent, final Code c0, final Code c1, final Code c2 )
+  {
+    this( parent, c0, c1, c2, c2 );
+  }
+
+  final Constant.IntC parse ()
+  {
+    final Constant.IntC e[] = new Constant.IntC[2];
+    e[0] = m_parent.parse();
+
+    for ( Code code = m_tok.code();
+          code == m_c0 || code == m_c1 || code == m_c2 || code == m_c3;
+          code = m_tok.code() )
+    {
+      final SourceRange pos = new SourceRange( m_tok );
+
+      nextExpandNoBlanks();
+
+      e[1] = m_parent.parse();
+      e[0] = perform( pos, code, e );
+    }
+    return e[0];
+  }
+
+  Constant.IntC perform ( ISourceRange pos, Code code, Constant.IntC e[] )
+  {
+    performUsualArithmeticConversions( e );
+    return binaryOp( pos, code, e[0], e[1] );
+  }
+
+  @Override
+  public String toString ()
+  {
+    return m_c0.toString(); // For debugging
+  }
+}
+
+private final Constant.IntC binaryOp ( ISourceRange pos, Code code, Constant.IntC e0, Constant.IntC e1 )
+{
+  switch (code)
+  {
+  case ASTERISK: e0.mul( e0, e1 ); return e0;
+  case SLASH:
+    if (!e1.isZero())
+      e0.div( e0, e1 );
+    else
+      exprError( pos, "Division by zero in '/'" );
+    return e0;
+  case PERCENT:
+    if (!e1.isZero())
+      e0.rem( e0, e1 );
+    else
+      exprError( pos, "Division by zero in '%'" );
+    return e0;
+  case PLUS: e0.add( e0, e1 ); return e0;
+  case MINUS: e0.sub( e0, e1 ); return e0;
+  case LESS_LESS: e0.shl( e0, e1 ); return e0;
+  case GREATER_GREATER: e0.shr( e0, e1 ); return e0;
+  case LESS: return e0.lt( e1 ) ? s_one : s_zero;
+  case GREATER: return e0.gt( e1 ) ? s_one : s_zero;
+  case LESS_EQUALS: return e0.le( e1 ) ? s_one : s_zero;
+  case GREATER_EQUALS: return e0.ge( e1 ) ? s_one : s_zero;
+  case EQUALS_EQUALS: return e0.eq( e1 ) ? s_one : s_zero;
+  case BANG_EQUALS: return e0.ne( e1 ) ? s_one : s_zero;
+  case AMPERSAND: e0.and( e0, e1 ); return e0;
+  case CARET: e0.xor( e0, e1 ); return e0;
+  case VERTICAL: e0.or( e0, e1 ); return e0;
+  case AMPERSAND_AMPERSAND: return e0.isTrue() && e1.isTrue() ? s_one : s_zero;
+  case VERTICAL_VERTICAL: return e0.isTrue() || e1.isTrue() ? s_one : s_zero;
+  }
+  assert false;
+  return null;
+}
+
+/** The type of the returned value is always either intmax_t or uintmax_t */
+private final Constant.IntC primary_expression ()
+{
+  Constant.IntC res;
+
+  switch (m_tok.code())
+  {
+  case IDENT:
+    nextExpandNoBlanks();
+    return s_zero;
+
+  case PP_INT_NUMBER:
+    res = expandToMax( m_tok.getIntConstValue() );
+    nextExpandNoBlanks();
+    return res;
+
+  case CHAR_CONST:
+    res = expandToMax( m_tok.getCharConstValue() );
+    nextExpandNoBlanks();
+    return res;
+
+  case PP_REAL_NUMBER:
+    exprError( m_tok, "floating point constants are not valid in preprocessor expressions" );
+    nextExpandNoBlanks();
+    return s_zero;
+
+  case STRING_CONST:
+    exprError( m_tok, "strings are not valid in preprocessor expressions" );
+    nextExpandNoBlanks();
+    return s_zero;
+
+  case L_PAREN:
+    nextExpandNoBlanks();
+    res = constant_expression();
+    need( Code.R_PAREN );
+    return res;
+
+  default:
+    if (m_tok.code() == Code.NEWLINE || m_tok.code() == Code.EOF)
+      exprError( m_tok, "unexpected end of line in preprocessor expression" );
+    else
+      exprError( m_tok, "unexpected token '%s' in preprocessor expression", m_tok.outputString() );
+    return s_zero;
+  }
+}
+
+private final Constant.IntC unary_expression ()
+{
+  Constant.IntC res;
+  switch (m_tok.code())
+  {
+  case PLUS:
+    nextExpandNoBlanks();
+    return performIntegerPromotion( unary_expression() );
+  case MINUS:
+    nextExpandNoBlanks();
+    res = performIntegerPromotion( unary_expression() );
+    res.neg( res );
+    return res;
+  case TILDE:
+    nextExpandNoBlanks();
+    res = performIntegerPromotion( unary_expression() );
+    res.not( res );
+    return res;
+  case BANG:
+    nextExpandNoBlanks();
+    return unary_expression().isZero() ? s_one : s_zero;
+
+  case IDENT:
+    {
+      if (m_tok.symbol().ppCode != PPSymCode.DEFINED)
+        break;
+      nextNoBlanks();
+      boolean paren = false;
+      if (m_tok.code() == Code.L_PAREN)
+      {
+        paren = true;
+        nextNoBlanks();
+      }
+
+      if (m_tok.code() != Code.IDENT)
+      {
+        exprError( m_tok, "Identifier expected after 'defined'" );
+        res = s_zero;
+      }
+      else
+      {
+        res = (m_tok.symbol().ppDecl instanceof Macro) ? s_one : s_zero;
+        if (paren)
+          nextNoBlanks();
+        else
+          nextExpandNoBlanks();
+      }
+
+      if (paren)
+      {
+        if (m_tok.code() != Code.R_PAREN)
+          exprError( m_tok, "Missing closing ')' after defined" );
+        else
+          nextExpandNoBlanks();
+      }
+
+      return res;
+    }
+  }
+
+  return primary_expression();
+}
+
+private final Expression m_unary = new Expression() {
+  @Override Constant.IntC parse () { return unary_expression(); }
+};
+
+private final BinEx m_multipl    = new BinEx(m_unary,      Code.ASTERISK, Code.SLASH, Code.PERCENT );
+private final BinEx m_additive   = new BinEx(m_multipl,    Code.PLUS, Code.MINUS );
+
+private final Expression m_shift = new BinEx(m_additive,   Code.LESS_LESS, Code.GREATER_GREATER) {
+  @Override Constant.IntC perform (ISourceRange pos, Code code, Constant.IntC e[]) {
+    return binaryOp( pos, code, performIntegerPromotion(e[0]), performIntegerPromotion(e[1]) );
+  }
+};
+
+private final BinEx m_relational = new BinEx(m_shift,      Code.LESS, Code.GREATER, Code.LESS_EQUALS, Code.GREATER_EQUALS);
+private final BinEx m_equality   = new BinEx(m_relational, Code.EQUALS_EQUALS, Code.BANG_EQUALS);
+private final BinEx m_And        = new BinEx(m_equality,   Code.AMPERSAND);
+private final BinEx m_Xor        = new BinEx(m_And,        Code.CARET);
+private final BinEx m_Or         = new BinEx(m_Xor,        Code.VERTICAL);
+private final BinEx m_logicalAnd = new BinEx(m_Or,         Code.AMPERSAND_AMPERSAND);
+private final BinEx m_logicalOR  = new BinEx(m_logicalAnd, Code.VERTICAL_VERTICAL);
+
+private final Constant.IntC conditional_expression ()
+{
+  Constant.IntC cond = m_logicalOR.parse();
+  if (m_tok.code() == Code.QUESTION)
+  {
+    cond = (Constant.IntC)Constant.convert( Types.integerPromotion( cond.spec ), cond );
+
+    nextExpandNoBlanks();
+
+    Constant.IntC e[] = new Constant.IntC[2];
+    e[0] = constant_expression();
+    if (need( Code.COLON ))
+      e[1] = conditional_expression();
+    else
+      e[1] = s_zero;
+
+    performUsualArithmeticConversions( e );
+    return cond.isTrue() ? e[0] : e[1];
+  }
+  else
+    return cond;
+}
+
+private final Constant.IntC constant_expression ()
+{
+  return conditional_expression();
+}
+
+private final boolean parseExpression ()
+{
+  m_exprErrorReported = false;
+  Constant.IntC intC = conditional_expression();
+  if (m_exprErrorReported)
+    skipUntilEOL();
+  return intC.isTrue();
+}
+
+private final void parseIf ()
+{
+  Token tok = m_tok.clone();
+
+  nextExpandNoBlanks(); // consume the if
+
+  boolean cond = false;
+
+  if (!m_exec)
+    skipUntilEOL();
+  else
+  {
+    cond = parseExpression();
+    checkEOL( "if" );
+  }
+
+  assert m_tok.code() == Code.EOF || m_tok.code() == Code.NEWLINE;
+
+  pushIfState( tok, IfState.BLOCK_IF, cond, m_exec && cond );
+}
+
 private final void parseDirective ()
 {
   nextNoBlanks(); // consume the '#'
@@ -1031,6 +1376,10 @@ private final void parseDirective ()
           if (m_exec)
             { parseInclude(); return; }
           break;
+
+        case IF:
+          parseIf();
+          return;
 
         case IFDEF:
         case IFNDEF:
