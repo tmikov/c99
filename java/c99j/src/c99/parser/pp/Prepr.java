@@ -100,6 +100,13 @@ public Prepr ( final CompilerOptions opts, final IErrorReporter reporter,
   dateMacro.body.addLast( tok );
 }
 
+public final void close ()
+{
+  while (popSource())
+    {}
+  m_lex.close();
+}
+
 private final void pushSource ( String fileName, InputStream input )
 {
   PPLexer newLexer = new PPLexer(m_reporter, fileName, input, m_symTable);
