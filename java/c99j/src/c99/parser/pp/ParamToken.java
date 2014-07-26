@@ -3,6 +3,8 @@ package c99.parser.pp;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import c99.parser.Code;
+
 final class ParamToken extends PPDefs.AbstractToken
 {
 public final ParamDecl param;
@@ -10,7 +12,7 @@ public boolean stringify;
 
 ParamToken ( final ParamDecl param )
 {
-  m_code = PPDefs.Code.MACRO_PARAM;
+  m_code = Code.MACRO_PARAM;
   this.param = param;
 }
 

@@ -3,6 +3,8 @@ package c99.parser.pp;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import c99.parser.Code;
+
 /**
  * A '##' between two tokens.
  *
@@ -18,7 +20,7 @@ public ConcatToken ( PPDefs.AbstractToken left, PPDefs.AbstractToken right )
 {
   assert !(right instanceof ConcatToken);
 
-  m_code = PPDefs.Code.CONCAT;
+  m_code = Code.CONCAT;
   if (!(left instanceof ConcatToken))
     this.tokens = new PPDefs.AbstractToken[]{ left, right };
   else

@@ -4,6 +4,7 @@ import c99.Constant;
 import c99.SourceRange;
 import c99.Types;
 import c99.Utils;
+import c99.parser.Code;
 import c99.parser.Symbol;
 
 import java.io.ByteArrayOutputStream;
@@ -13,93 +14,6 @@ import java.util.Arrays;
 
 public interface PPDefs
 {
-public static enum Code
-{
-  EOF,
-  WHITESPACE(" "),
-  NEWLINE,
-  IDENT,
-  PP_INT_NUMBER,
-  PP_REAL_NUMBER,
-  CHAR_CONST,
-  WIDE_CHAR_CONST, // u,U,L
-  STRING_CONST,
-  WIDE_STRING_CONST, // u8, u, U, L
-  ANGLED_INCLUDE,
-
-  L_BRACKET("["), R_BRACKET("]"),
-  L_PAREN("("), R_PAREN(")"),
-  L_CURLY("{"), R_CURLY("}"),
-  FULLSTOP("."),
-  MINUS_GREATER("->"),
-
-  PLUS_PLUS("++"),
-  MINUS_MINUS("--"),
-  AMPERSAND("&"),
-  ASTERISK("*"),
-  PLUS("+"),
-  MINUS("-"),
-  TILDE("~"),
-  BANG("!"),
-
-  SLASH("/"),
-  PERCENT("%"),
-  LESS_LESS("<<"),
-  GREATER_GREATER(">>"),
-  LESS("<"),
-  GREATER(">"),
-  LESS_EQUALS("<="),
-  GREATER_EQUALS(">="),
-  EQUALS_EQUALS("=="),
-  BANG_EQUALS("!="),
-  CARET("^"),
-  VERTICAL("|"),
-  AMPERSAND_AMPERSAND("&&"),
-  VERTICAL_VERTICAL("||"),
-
-  QUESTION("?"),
-  COLON(":"),
-  SEMICOLON(";"),
-  ELLIPSIS("..."),
-
-  EQUALS("="),
-  ASTERISK_EQUALS("*="),
-  SLASH_EQUALS("/="),
-  PERCENT_EQUALS("%="),
-  PLUS_EQUALS("+="),
-  MINUS_EQUALS("-="),
-  LESS_LESS_EQUALS("<<="),
-  GREATER_GREATER_EQUALS(">>="),
-  AMPERSAND_EQUALS("&="),
-  CARET_EQUALS("^="),
-  VERTICAL_EQUALS("|="),
-
-  COMMA(","),
-  HASH("#"),
-  HASH_HASH("##"),
-
-  OTHER,
-
-  /** Macro parameter reference*/
-  MACRO_PARAM,
-  /** '##' token */
-  CONCAT;
-
-  public final byte[] printable;
-  public final String str;
-
-  Code ()
-  {
-    str = "";
-    printable = new byte[0];
-  }
-
-  Code ( String str )
-  {
-    this.str = str;
-    this.printable = str.getBytes();
-  }
-}
 
 public abstract static class AbstractToken extends SourceRange implements Cloneable
 {
@@ -277,7 +191,7 @@ public static class Token extends AbstractToken
   /** {@link #setText(byte[], int, int)} must have already been called! */
   public final void setIntConst ( Constant.IntC value )
   {
-    m_code = Code.PP_INT_NUMBER;
+    m_code = Code.INT_NUMBER;
     m_object = value;
   }
 
@@ -289,19 +203,19 @@ public static class Token extends AbstractToken
 
   public final Constant.IntC getIntConstValue ()
   {
-    assert m_code == Code.PP_INT_NUMBER;
+    assert m_code == Code.INT_NUMBER;
     return (Constant.IntC)m_object;
   }
 
   public final void setRealConst ( Constant.RealC value )
   {
-    m_code = Code.PP_REAL_NUMBER;
+    m_code = Code.REAL_NUMBER;
     m_object = value;
   }
 
   public final Constant.RealC getRealConst ()
   {
-    assert m_code == Code.PP_REAL_NUMBER;
+    assert m_code == Code.REAL_NUMBER;
     return (Constant.RealC)m_object;
   }
 
@@ -338,10 +252,10 @@ public static class Token extends AbstractToken
       case STRING_CONST:
         return Arrays.equals( (byte[])m_object, (byte[])tok.m_object );
       case CHAR_CONST:
-      case PP_INT_NUMBER:
+      case INT_NUMBER:
         assert m_object instanceof Constant.IntC;
         return ((Constant.IntC)m_object).equals( (Constant.IntC)tok.m_object );
-      case PP_REAL_NUMBER:
+      case REAL_NUMBER:
         assert m_object instanceof Constant.RealC;
         return ((Constant.RealC)m_object).equals( (Constant.RealC)tok.m_object );
       default:

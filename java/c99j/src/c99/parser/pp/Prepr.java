@@ -19,6 +19,7 @@ import c99.ISourceRange;
 import c99.SourceRange;
 import c99.Types;
 import c99.Utils;
+import c99.parser.Code;
 import c99.parser.SymTable;
 import c99.parser.Symbol;
 
@@ -635,7 +636,7 @@ private final void handleLineDirective ( int line, String fileName )
 
 private final int parseLineNumber ( String afterWhat )
 {
-  if (m_tok.code() != Code.PP_INT_NUMBER)
+  if (m_tok.code() != Code.INT_NUMBER)
   {
     m_reporter.error( m_tok, "Integer line number expected after %s", afterWhat );
     skipUntilEOL();
@@ -728,7 +729,7 @@ private final void parseLineMarker ()
   boolean ignored = false;
   while (m_tok.code() != Code.NEWLINE && m_tok.code() != Code.EOF)
   {
-    if (m_tok.code() != Code.PP_INT_NUMBER)
+    if (m_tok.code() != Code.INT_NUMBER)
       m_reporter.error( m_tok, "Invalid flag '%s' after #", m_tok.outputString() );
     else
     {
@@ -1165,7 +1166,7 @@ private final Constant.IntC primary_expression ()
     nextExpandNoBlanks();
     return s_zero;
 
-  case PP_INT_NUMBER:
+  case INT_NUMBER:
     res = expandToMax( m_tok.getIntConstValue() );
     nextExpandNoBlanks();
     return res;
@@ -1175,7 +1176,7 @@ private final Constant.IntC primary_expression ()
     nextExpandNoBlanks();
     return res;
 
-  case PP_REAL_NUMBER:
+  case REAL_NUMBER:
     exprError( m_tok, "floating point constants are not valid in preprocessor expressions" );
     nextExpandNoBlanks();
     return s_zero;
@@ -1476,7 +1477,7 @@ private final void parseDirective ()
     }
     break;
 
-  case PP_INT_NUMBER:
+  case INT_NUMBER:
     if (m_exec)
       { parseLineMarker(); return; }
     break;

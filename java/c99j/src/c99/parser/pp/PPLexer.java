@@ -9,6 +9,7 @@ import c99.ISourceRange;
 import c99.SourceRange;
 import c99.Types;
 import c99.Utils;
+import c99.parser.Code;
 import c99.parser.SymTable;
 
 /**
