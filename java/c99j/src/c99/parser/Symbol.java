@@ -11,6 +11,7 @@ private final int m_hash;
 
 public PPSymCode ppCode;
 public Object ppDecl;
+public Code   keyword;
 
 public Symbol ( byte bytes[], int hash )
 {
