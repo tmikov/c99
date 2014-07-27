@@ -24,12 +24,12 @@ b4_defines_if([b4_fatal([%s: %%defines does not make sense in Java],
 # non-used flags.
 b4_parse_trace_if([0], [0])
 
-m4_define([b4_symbol_no_destructor_assert],
-[b4_symbol_if([$1], [has_destructor],
-              [b4_fatal([%s: %s: %%destructor does not make sense in Java],
-                        [b4_skeleton],
-                        [b4_symbol_action_location([$1], [destructor])])])])
-b4_symbol_foreach([b4_symbol_no_destructor_assert])
+#m4_define([b4_symbol_no_destructor_assert],
+#[b4_symbol_if([$1], [has_destructor],
+#              [b4_fatal([%s: %s: %%destructor does not make sense in Java],
+#                        [b4_skeleton],
+#                        [b4_symbol_action_location([$1], [destructor])])])])
+#b4_symbol_foreach([b4_symbol_no_destructor_assert])
 
 # Setup some macros for api.push-pull.
 b4_percent_define_default([[api.push-pull]], [[pull]])
@@ -69,6 +69,7 @@ m4_define([b4_define_state],[[
     int yystate = 0;
     YYStack yystack = new YYStack ();
     int label = YYNEWSTATE;
+    ]b4_push_if([int retval = YYABORT],[boolean retval = false])[;
 
     /* Error handling.  */
     int yynerrs_ = 0;
@@ -608,7 +609,7 @@ b4_dollar_popdef[]dnl
 
     boolean push_token_consumed = true;
 ]])[
-    for (;;)
+    parse_loop: for (;;)
       switch (label)
       {
         /* New state.  Unlike in the C/C++ skeletons, the state is already
@@ -620,8 +621,7 @@ b4_dollar_popdef[]dnl
 
         /* Accept?  */
         if (yystate == yyfinal_)
-          ]b4_push_if([{label = YYACCEPT; break;}],
-                      [return true;])[
+          {label = YYACCEPT; break;}
 
         /* Take a decision.  First try without lookahead.  */
         yyn = yypact_[yystate];
@@ -747,10 +747,14 @@ b4_dollar_popdef[]dnl
           {
           /* Return failure if at end of input.  */
           if (yychar == Lexer.EOF)
-            ]b4_push_if([{label = YYABORT; break;}],[return false;])[
+            {label = YYABORT; break;}
           }
         else
+          {
+            yydestruct ("Error: discarding",
+                        yytoken, yylval]b4_locations_if([, yylloc])[);
             yychar = yyempty_;
+          }
           }
 
         /* Else will try to reuse lookahead token after shifting the error
@@ -795,9 +799,11 @@ b4_dollar_popdef[]dnl
             /* Pop the current state because it cannot handle the
              * error token.  */
             if (yystack.height == 0)
-              ]b4_push_if([{label = YYABORT; break;}],[return false;])[
+              {label = YYABORT; break;}
 
             ]b4_locations_if([yyerrloc = yystack.locationAt (0);])[
+            yydestruct ("Error: popping",
+                        yystos_[yystate], yystack.valueAt(0)]b4_locations_if([, yystack.locationAt (0)])[);
             yystack.pop ();
             yystate = yystack.stateAt (0);
             if (yydebug > 0)
@@ -826,15 +832,39 @@ b4_dollar_popdef[]dnl
 
         /* Accept.  */
       case YYACCEPT:
-        ]b4_push_if([this.push_parse_initialized = false; return YYACCEPT;],
-                    [return true;])[
+        ]b4_push_if([this.push_parse_initialized = false; retval = YYACCEPT;],
+                    [retval = true;])[
+        break parse_loop;
 
         /* Abort.  */
       case YYABORT:
-        ]b4_push_if([this.push_parse_initialized = false; return YYABORT;],
-                    [return false;])[
+        ]b4_push_if([this.push_parse_initialized = false; retval = YYABORT;],
+                    [retval = false;])[
+        break parse_loop;
       }
-}
+
+    if (yychar != yyempty_)
+    {
+      /* Make sure we have latest lookahead translation.  See comments at
+          user semantic actions for why this is necessary.  */
+      yytoken = yytranslate_(yychar);
+      yydestruct ("Cleanup: discarding lookahead",
+                  yytoken, yylval]b4_locations_if([, yylloc])[);
+    }
+    /* Do not reclaim the symbols of the rule whose action triggered
+      this YYABORT or YYACCEPT.  */
+    yystack.pop(yylen);
+    if (yydebug > 0)
+      yystack.print (yyDebugStream);
+    while (yystack.height > 0)
+    {
+      yydestruct ("Cleanup: popping",
+                  yystos_[yystack.stateAt(0)], yystack.valueAt(0)]b4_locations_if([, yystack.locationAt(0)])[);
+      yystack.pop(1);
+    }
+
+    return retval;
+  }
 ]b4_push_if([[
   boolean push_parse_initialized = false;
 
@@ -984,7 +1014,50 @@ b4_both_if([[
 ]])[
     return "syntax error";
   }
+]
+m4_define_default([b4_symbol_value],[$1])
+m4_define([b4_symbol_action],
+[b4_symbol_if([$1], [has_$2],
+[b4_dollar_pushdef([yyvaluep],
+                   b4_symbol_if([$1], [has_type],
+                                [m4_dquote(b4_symbol([$1], [type]))]),
+                   [yylocationp])dnl
+    b4_symbol_case_([$1])[]dnl
+b4_syncline([b4_symbol([$1], [$2_line])], ["b4_symbol([$1], [$2_file])"])
+      b4_symbol([$1], [$2])
+b4_syncline([@oline@], [@ofile@])
+        break;
 
+b4_dollar_popdef[]dnl
+])])
+m4_define([b4_symbol_actions],
+[m4_pushdef([b4_actions_], m4_expand([b4_symbol_foreach([b4_symbol_$1])]))dnl
+m4_ifval(m4_defn([b4_actions_]),
+[switch (m4_default([$2], [yytype]))
+    {
+      m4_defn([b4_actions_])
+      default:
+        break;
+    }dnl
+],
+[])dnl
+m4_popdef([b4_actions_])dnl
+])
+[
+  // Release the memory associated to this symbol
+  private final void yydestruct ( String yymsg, int yytype, ]b4_yystype[ yyvaluep]dnl
+b4_locations_if([, ]b4_location_type[ yylocationp])[]dnl
+[ )
+  {
+    if (yymsg == null)
+      yymsg = "Deleting";
+    if (yydebug > 0)
+      yy_symbol_print( yymsg, yytype, yyvaluep]b4_locations_if([, yylocationp])[ );
+
+    ]b4_symbol_actions([destructor])[
+  }]
+
+[
   /**
    * Whether the given <code>yypact_</code> value indicates a defaulted state.
    * @@param yyvalue   the value to check

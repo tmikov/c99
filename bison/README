@@ -1,0 +1,8 @@
+3.0.2/lalr1.java
+  unmodified Bison 3.0.2 skeleton
+lalr1.java
+  modified skeleton
+01-destructor.patch
+  Patch with the modification
+calc.y, Position.java
+  Files to test if the skeleton compiles.
