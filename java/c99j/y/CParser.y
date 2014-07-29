@@ -132,9 +132,9 @@ identifier_opt
   : %empty | identifier
   ;
 
-// FIXME: merging??  
 string-literal
   : STRING_CONST
+  | string-literal STRING_CONST
   ;
 
 constant
