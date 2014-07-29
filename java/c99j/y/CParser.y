@@ -435,7 +435,8 @@ direct-abstract-declarator
   ;
 
 direct-abstract-declarator-elem
-  : "[" type-qualifier-list_opt assignment-expression_opt "]"
+  : "[" type-qualifier-list assignment-expression_opt "]"
+  | "[" assignment-expression_opt "]"
   | "[" STATIC type-qualifier-list_opt assignment-expression "]"
   | "[" type-qualifier-list STATIC assignment-expression "]"
   | "[" "*" "]"
