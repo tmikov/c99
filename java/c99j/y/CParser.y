@@ -429,20 +429,17 @@ abstract-declarator_opt
 
 // (6.7.7)
 direct-abstract-declarator
-  : "(" abstract-declarator ")" direct-abstract-declarator-tail_opt
-  | direct-abstract-declarator-tail
+  : "(" abstract-declarator ")"
+  | direct-abstract-declarator-elem
+  | direct-abstract-declarator direct-abstract-declarator-elem
   ;
 
-direct-abstract-declarator-tail
-  : "[" type-qualifier-list_opt assignment-expression_opt "]" direct-abstract-declarator-tail_opt
-  | "[" STATIC type-qualifier-list_opt assignment-expression "]" direct-abstract-declarator-tail_opt
-  | "[" type-qualifier-list STATIC assignment-expression "]" direct-abstract-declarator-tail_opt
-  | "[" "*" "]" direct-abstract-declarator-tail_opt
-  | "(" parameter-type-list_opt ")" direct-abstract-declarator-tail_opt
-  ;
-
-direct-abstract-declarator-tail_opt
-  : %empty | direct-abstract-declarator-tail
+direct-abstract-declarator-elem
+  : "[" type-qualifier-list_opt assignment-expression_opt "]"
+  | "[" STATIC type-qualifier-list_opt assignment-expression "]"
+  | "[" type-qualifier-list STATIC assignment-expression "]"
+  | "[" "*" "]"
+  | "(" parameter-type-list_opt ")"
   ;
 
 // (6.7.8)
