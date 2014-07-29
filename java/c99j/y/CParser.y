@@ -8,108 +8,111 @@
 
 %locations
 
-%token IDENT
-%token INT_NUMBER
-%token REAL_NUMBER
-%token CHAR_CONST
-%token WIDE_CHAR_CONST // uUL
-%token STRING_CONST
-%token WIDE_STRING_CONST // u8 u U L
+%token IDENT  "identifier"
+%token INT_NUMBER  "integer number"
+%token REAL_NUMBER "real number"
+%token CHAR_CONST   "character literal"
+%token WIDE_CHAR_CONST "wide character literal"
+%token STRING_CONST    "string literal"
+%token WIDE_STRING_CONST  "wide string literal"
 
-%token L_BRACKET R_BRACKET
-%token L_PAREN R_PAREN
-%token L_CURLY R_CURLY
-%token FULLSTOP
-%token MINUS_GREATER
+%token L_BRACKET   "["
+%token R_BRACKET   "]"
+%token L_PAREN   "("
+%token R_PAREN   ")"
+%token L_CURLY   "{"
+%token R_CURLY   "}"
+%token FULLSTOP   "."
+%token MINUS_GREATER   "->"
 
-%token PLUS_PLUS
-%token MINUS_MINUS
-%token AMPERSAND
-%token ASTERISK
-%token PLUS
-%token MINUS
-%token TILDE
-%token BANG
+%token PLUS_PLUS   "++"
+%token MINUS_MINUS   "--"
+%token AMPERSAND   "&"
+%token ASTERISK   "*"
+%token PLUS   "+"
+%token MINUS   "-"
+%token TILDE   "~"
+%token BANG   "!"
 
-%token SLASH
-%token PERCENT
-%token LESS_LESS
-%token GREATER_GREATER
-%token LESS
-%token GREATER
-%token LESS_EQUALS
-%token GREATER_EQUALS
-%token EQUALS_EQUALS
-%token BANG_EQUALS
-%token CARET
-%token VERTICAL
-%token AMPERSAND_AMPERSAND
-%token VERTICAL_VERTICAL
+%token SLASH   "/"
+%token PERCENT   "%"
+%token LESS_LESS   "<<"
+%token GREATER_GREATER   ">>"
+%token LESS   "<"
+%token GREATER   ">"
+%token LESS_EQUALS   "<="
+%token GREATER_EQUALS   ">="
+%token EQUALS_EQUALS   "=="
+%token BANG_EQUALS   "!="
+%token CARET   "^"
+%token VERTICAL   "|"
+%token AMPERSAND_AMPERSAND   "&&"
+%token VERTICAL_VERTICAL   "||"
 
-%token QUESTION
-%token COLON
-%token SEMICOLON
-%token ELLIPSIS
+%token QUESTION   "?"
+%token COLON   ":"
+%token SEMICOLON   ";"
+%token ELLIPSIS   "..."
 
-%token EQUALS
-%token ASTERISK_EQUALS
-%token SLASH_EQUALS
-%token PERCENT_EQUALS
-%token PLUS_EQUALS
-%token MINUS_EQUALS
-%token LESS_LESS_EQUALS
-%token GREATER_GREATER_EQUALS
-%token AMPERSAND_EQUALS
-%token CARET_EQUALS
-%token VERTICAL_EQUALS
+%token EQUALS   "="
+%token ASTERISK_EQUALS   "*="
+%token SLASH_EQUALS   "/="
+%token PERCENT_EQUALS   "%="
+%token PLUS_EQUALS   "+="
+%token MINUS_EQUALS   "-="
+%token LESS_LESS_EQUALS   "<<="
+%token GREATER_GREATER_EQUALS   ">>="
+%token AMPERSAND_EQUALS   "&="
+%token CARET_EQUALS   "^="
+%token VERTICAL_EQUALS   "|="
 
-%token COMMA
+%token COMMA   ","
 
-// Parser-only
-%token AUTO
-%token BREAK
-%token CASE
-%token CHAR
-%token CONST
-%token CONTINUE
-%token DEFAULT
-%token DO
-%token DOUBLE
-%token ELSE
-%token ENUM
-%token EXTERN
-%token FLOAT
-%token FOR
-%token GOTO
-%token IF
-%token INLINE
-%token INT
-%token LONG
-%token REGISTER
-%token RESTRICT
-%token RETURN
-%token SHORT
-%token SIGNED
-%token SIZEOF
-%token STATIC
-%token STRUCT
-%token SWITCH
-%token TYPEDEF
-%token UNION
-%token UNSIGNED
-%token VOID
-%token VOLATILE
-%token WHILE
-%token _ALIGNAS
-%token _ALIGNOF
-%token _ATOMIC
-%token _BOOL
-%token _COMPLEX
-%token _GENERIC
-%token _IMAGINARY
-%token _NORETURN
-%token _STATIC_ASSERT
-%token _THREAD_LOCAL
+
+%token AUTO   "auto"
+%token BREAK   "break"
+%token CASE   "case"
+%token CHAR   "char"
+%token CONST   "const"
+%token CONTINUE   "continue"
+%token DEFAULT   "default"
+%token DO   "do"
+%token DOUBLE   "double"
+%token ELSE   "else"
+%token ENUM   "enum"
+%token EXTERN   "extern"
+%token FLOAT   "float"
+%token FOR   "for"
+%token GOTO   "goto"
+%token IF   "if"
+%token INLINE   "INLINE"
+%token INT   "int"
+%token LONG   "long"
+%token REGISTER   "register"
+%token RESTRICT   "restrict"
+%token RETURN   "return"
+%token SHORT   "short"
+%token SIGNED   "signed"
+%token SIZEOF   "sizeof"
+%token STATIC   "static"
+%token STRUCT   "struct"
+%token SWITCH   "switch"
+%token TYPEDEF   "typedef"
+%token UNION   "union"
+%token UNSIGNED   "unsigned"
+%token VOID   "void"
+%token VOLATILE   "volatile"
+%token WHILE   "while"
+%token _ALIGNAS   "_Alignas"
+%token _ALIGNOF   "_Alignof"
+%token _ATOMIC   "_Atomic"
+%token _BOOL   "_Bool"
+%token _COMPLEX   "_Complex"
+%token _GENERIC   "_Generic"
+%token _IMAGINARY   "_Imaginary"
+%token _NORETURN   "_Noreturn"
+%token _STATIC_ASSERT   "_Static_assert"
+%token _THREAD_LOCAL   "_Thread_local"
 
 %%
 
