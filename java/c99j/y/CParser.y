@@ -128,8 +128,17 @@ identifier
   : IDENT
   ;
 
-identifier_opt
+/*identifier_opt
   : %empty | identifier
+  ;*/
+
+any-identifier
+  : TYPENAME
+  | IDENT
+  ;
+
+any-identifier_opt
+  : %empty | any-identifier
   ;
 
 string-literal
@@ -142,10 +151,6 @@ constant
   | REAL_NUMBER
   | CHAR_CONST
 /*  | enumeration-constant*/
-  ;
-
-enumeration-constant
-  : identifier
   ;
 
 // A.2.4 External definitions
@@ -247,8 +252,8 @@ type-specifier
 
 // (6.7.2.1)
 struct-or-union-specifier
-  : struct-or-union identifier_opt "{" struct-declaration-list "}"
-  | struct-or-union identifier
+  : struct-or-union any-identifier_opt "{" struct-declaration-list "}"
+  | struct-or-union any-identifier
   ;
 
 // (6.7.2.1)
@@ -297,9 +302,9 @@ struct-declarator
 
 // (6.7.2.2)
 enum-specifier
-  : ENUM identifier_opt "{" enumerator-list "}"
-  | ENUM identifier_opt "{" enumerator-list "," "}"
-  | ENUM identifier
+  : ENUM any-identifier_opt "{" enumerator-list "}"
+  | ENUM any-identifier_opt "{" enumerator-list "," "}"
+  | ENUM any-identifier
   ;
 
 // (6.7.2.2)
@@ -312,6 +317,10 @@ enumerator-list
 enumerator
   : enumeration-constant
   | enumeration-constant "=" constant-expression
+  ;
+
+enumeration-constant
+  : any-identifier
   ;
 
 // (6.7.2.4)
@@ -402,10 +411,17 @@ parameter-declaration
   | declaration-specifiers abstract-declarator_opt
   ;
 
+/*
+  In a identifier list (old-style parameter list)
+  all but the first identifier cannot redefine a typedef.
+  (6.9.1-6)
+  (If the first one was a typedef then we would assume that this
+  is a new style declaration).
+*/
 // (6.7.6)
 identifier-list
   : identifier
-  | identifier-list "," identifier
+  | identifier-list "," any-identifier
   ;
 
 identifier-list_opt
@@ -479,7 +495,9 @@ designator-list
 // (6.7.9)
 designator
   : "[" constant-expression "]"
-  | "." identifier
+  | "." any-identifier
+// GNU C extension
+  | "[" constant-expression "..." constant-expression "]"
   ;
 
 // (6.7.10)
@@ -502,9 +520,11 @@ statement
 
 // (6.8.1)
 labeled-statement
-  : identifier ":" statement
+  : any-identifier ":" statement
   | CASE constant-expression ":" statement
   | DEFAULT ":" statement
+// GNU C Extension
+  | CASE constant-expression "..." constant-expression ":" statement
   ;
 
 // (6.8.2)
@@ -550,7 +570,7 @@ iteration-statement
 
 // (6.8.6)
 jump-statement
-  : GOTO identifier ";"
+  : GOTO any-identifier ";"
   | CONTINUE ";"
   | BREAK ";"
   | RETURN expression_opt ";"
@@ -589,8 +609,8 @@ postfix-expression
   : primary-expression
   | postfix-expression "[" expression "]"
   | postfix-expression "(" argument-expression-list_opt ")"
-  | postfix-expression "." identifier
-  | postfix-expression "->" identifier
+  | postfix-expression "." any-identifier
+  | postfix-expression "->" any-identifier
   | postfix-expression "++"
   | postfix-expression "--"
   | "(" type-name ")" "{" initializer-list "}"
@@ -616,6 +636,8 @@ unary-expression
   | SIZEOF unary-expression
   | SIZEOF "(" type-name ")"
   | _ALIGNOF "(" type-name ")"
+// GNU C extension
+  | "&&" any-identifier
   ;
 
 // (6.5.3)
