@@ -20,13 +20,14 @@ public static void main ( String[] args )
     Preprocessor.main(Arrays.copyOfRange(args, 1, args.length));
     return;
   }
-  
+
   try
   {
     String fileName = null;
 
     CompilerOptions opts = new CompilerOptions();
     SearchPathFactory incSearch = new SearchPathFactory();
+    int debugLevel = 0;
 
     for ( int i = 0; i < args.length; ++i )
     {
@@ -34,6 +35,8 @@ public static void main ( String[] args )
 
       if ("--nostdinc".equals( arg ))
         opts.noStdInc = true;
+      if ("--debug".equals( arg ))
+        debugLevel = 1;
       else if (arg.startsWith("-I") || arg.startsWith("-i"))
       {
         String tmp = arg.substring( 2 );
@@ -75,6 +78,7 @@ public static void main ( String[] args )
                           fileName, new FileInputStream( fileName ), symTable );
     BisonLexer lex = new BisonLexer(reporter, symTable, pp);
     CParser parser = new CParser(lex);
+    parser.setDebugLevel( debugLevel );
     parser.parse();
   }
   catch (Exception e)
