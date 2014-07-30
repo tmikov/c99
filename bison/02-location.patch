@@ -1,0 +1,22 @@
+diff --git a/bison/lalr1.java b/bison/lalr1.java
+index b296860..e776ae8 100644
+--- a/bison/lalr1.java
++++ b/bison/lalr1.java
+@@ -133,7 +133,7 @@ b4_locations_if([[
+    * Locations represent a part of the input through the beginning
+    * and ending positions.
+    */
+-  public class ]b4_location_type[ {
++  public static final class ]b4_location_type[ {
+     /**
+      * The first, inclusive, position in the range.
+      */
+@@ -169,6 +169,8 @@ b4_locations_if([[
+      * method.
+      */
+     public String toString () {
++      if (begin == null)
++        return "";
+       if (begin.equals (end))
+         return begin.toString ();
+       else

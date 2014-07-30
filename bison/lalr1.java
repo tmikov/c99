@@ -133,7 +133,7 @@ b4_locations_if([[
    * Locations represent a part of the input through the beginning
    * and ending positions.
    */
-  public class ]b4_location_type[ {
+  public static final class ]b4_location_type[ {
     /**
      * The first, inclusive, position in the range.
      */
@@ -169,6 +169,8 @@ b4_locations_if([[
      * method.
      */
     public String toString () {
+      if (begin == null)
+        return "";
       if (begin.equals (end))
         return begin.toString ();
       else
