@@ -4,6 +4,7 @@ public enum Code
 {
 EOF,
 IDENT,
+TYPENAME,
 INT_NUMBER,
 REAL_NUMBER,
 CHAR_CONST,

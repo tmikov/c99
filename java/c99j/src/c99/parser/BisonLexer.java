@@ -86,7 +86,16 @@ public int yylex () throws IOException
         if (kw != null)
           code = kw;
         else
-          m_yylval = ppt.symbol();
+        {
+          // TYPENAME dectection hack for parser testing. Upper case symbols are assumed
+          // to be types
+          Symbol sym = ppt.symbol();
+          char c = sym.name.charAt( 0 );
+          if (c >= 'A' && c <= 'Z')
+            code = Code.TYPENAME;
+          else
+            m_yylval = sym;
+        }
         break;
 
       case EOF:

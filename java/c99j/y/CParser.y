@@ -9,6 +9,7 @@
 %locations
 
 %token IDENT  "identifier"
+%token TYPENAME "typedef name"
 %token INT_NUMBER  "integer number"
 %token REAL_NUMBER "real number"
 %token CHAR_CONST   "character literal"
@@ -113,8 +114,6 @@
 %token _NORETURN   "_Noreturn"
 %token _STATIC_ASSERT   "_Static_assert"
 %token _THREAD_LOCAL   "_Thread_local"
-
-%token TYPENAME
 
 // Set precedences to avoid IF-ELSE `shift'/reduce conflict
 %precedence IF
@@ -361,12 +360,16 @@ declarator_opt
 direct-declarator
   : identifier
   | "(" declarator ")"
-  | direct-declarator "[" type-qualifier-list_opt assignment-expression_opt "]"
-  | direct-declarator "[" STATIC type-qualifier-list_opt assignment-expression "]"
-  | direct-declarator "[" type-qualifier-list STATIC assignment-expression "]"
-  | direct-declarator "[" type-qualifier-list_opt ASTERISK "]"
-  | direct-declarator "(" parameter-type-list ")"
-  | direct-declarator "(" identifier-list_opt ")"
+  | direct-declarator direct-declarator-elem
+  ;
+
+direct-declarator-elem
+  : "[" type-qualifier-list_opt assignment-expression_opt "]"
+  | "[" STATIC type-qualifier-list_opt assignment-expression "]"
+  | "[" type-qualifier-list STATIC assignment-expression "]"
+  | "[" type-qualifier-list_opt ASTERISK "]"
+  | "(" parameter-type-list ")"
+  | "(" identifier-list_opt ")"
   ;
 
 // (6.7.6)
