@@ -123,30 +123,30 @@
 
 %%
 
-identifier
-  : IDENT
+identifier:
+    IDENT
   ;
 
-/*identifier_opt
-  : %empty | identifier
+/*identifier_opt:
+    %empty | identifier
   ;*/
 
-any-identifier
-  : TYPENAME
+any-identifier:
+    TYPENAME
   | IDENT
   ;
 
-any-identifier_opt
-  : %empty | any-identifier
+any-identifier_opt:
+    %empty | any-identifier
   ;
 
-string-literal
-  : STRING_CONST
+string-literal:
+    STRING_CONST
   | string-literal STRING_CONST
   ;
 
-constant
-  : INT_NUMBER
+constant:
+    INT_NUMBER
   | REAL_NUMBER
   | CHAR_CONST
 /*  | enumeration-constant*/
@@ -156,73 +156,73 @@ constant
 //
 
 // (6.9)
-translation-unit
-  : %empty
+translation-unit:
+    %empty
   | translation-unit external-declaration
   ;
 
 // (6.9)
-external-declaration
-  : function-definition
+external-declaration:
+    function-definition
   | declaration
   ;
 
 // (6.9.1)
-function-definition
-  : declaration-specifiers declarator declaration-list_opt compound-statement
+function-definition:
+    declaration-specifiers declarator declaration-list_opt compound-statement
   ;
 
 // (6.9.1)
-declaration-list
-  : declaration
+declaration-list:
+    declaration
   | declaration-list declaration
   ;
 
-declaration-list_opt
-  : %empty | declaration-list
+declaration-list_opt:
+    %empty | declaration-list
   ;
 
 // A.2.2. Declarations
 //
 
 // (6.7)
-declaration
-  : declaration-specifiers init-declarator-list_opt ";"
+declaration:
+    declaration-specifiers init-declarator-list_opt ";"
   | static_assert-declaration
   ;
 
 // (6.7)
-declaration-specifiers
-  : storage-class-specifier declaration-specifiers_opt
+declaration-specifiers:
+    storage-class-specifier declaration-specifiers_opt
   | type-specifier declaration-specifiers_opt
   | type-qualifier declaration-specifiers_opt
   | function-specifier declaration-specifiers_opt
   | alignment-specifier declaration-specifiers_opt
   ;
 
-declaration-specifiers_opt
-  : %empty | declaration-specifiers
+declaration-specifiers_opt:
+    %empty | declaration-specifiers
   ;
 
 // (6.7)
-init-declarator-list
-  : init-declarator
+init-declarator-list:
+    init-declarator
   | init-declarator-list "," init-declarator
   ;
 
-init-declarator-list_opt
-  : %empty | init-declarator-list
+init-declarator-list_opt:
+    %empty | init-declarator-list
   ;
 
 // (6.7)
-init-declarator
-  : declarator
+init-declarator:
+    declarator
   | declarator "=" initializer
   ;
 
 // (6.7.1)
-storage-class-specifier
-  : TYPEDEF
+storage-class-specifier:
+    TYPEDEF
   | EXTERN
   | STATIC
   | _THREAD_LOCAL
@@ -231,8 +231,8 @@ storage-class-specifier
   ;
 
 // (6.7.2)
-type-specifier
-  : VOID
+type-specifier:
+    VOID
   | CHAR
   | SHORT
   | INT
@@ -250,121 +250,121 @@ type-specifier
   ;
 
 // (6.7.2.1)
-struct-or-union-specifier
-  : struct-or-union any-identifier_opt "{" struct-declaration-list "}"
+struct-or-union-specifier:
+    struct-or-union any-identifier_opt "{" struct-declaration-list "}"
   | struct-or-union any-identifier
   ;
 
 // (6.7.2.1)
-struct-or-union
-  : STRUCT
+struct-or-union:
+    STRUCT
   | UNION
   ;
 
 // (6.7.2.1)
-struct-declaration-list
-  : struct-declaration
+struct-declaration-list:
+    struct-declaration
   | struct-declaration-list struct-declaration
   ;
 
 // (6.7.2.1)
-struct-declaration
-  : specifier-qualifier-list struct-declarator-list_opt ";"
+struct-declaration:
+    specifier-qualifier-list struct-declarator-list_opt ";"
   | static_assert-declaration
   ;
 
 // (6.7.2.1)
-specifier-qualifier-list
-  : type-specifier specifier-qualifier-list_opt
+specifier-qualifier-list:
+    type-specifier specifier-qualifier-list_opt
   | type-qualifier specifier-qualifier-list_opt
   ;
 
-specifier-qualifier-list_opt
-  : %empty | specifier-qualifier-list
+specifier-qualifier-list_opt:
+    %empty | specifier-qualifier-list
   ;
 
 // (6.7.2.1)
-struct-declarator-list
-  : struct-declarator
+struct-declarator-list:
+    struct-declarator
   | struct-declarator-list "," struct-declarator
   ;
 
-struct-declarator-list_opt
-  : %empty | struct-declarator-list
+struct-declarator-list_opt:
+    %empty | struct-declarator-list
   ;
 
 // (6.7.2.1)
-struct-declarator
-  : declarator
+struct-declarator:
+    declarator
   | declarator_opt ":" constant-expression
   ;
 
 // (6.7.2.2)
-enum-specifier
-  : ENUM any-identifier_opt "{" enumerator-list "}"
+enum-specifier:
+    ENUM any-identifier_opt "{" enumerator-list "}"
   | ENUM any-identifier_opt "{" enumerator-list "," "}"
   | ENUM any-identifier
   ;
 
 // (6.7.2.2)
-enumerator-list
-  : enumerator
+enumerator-list:
+    enumerator
   | enumerator-list "," enumerator
   ;
 
 // (6.7.2.2)
-enumerator
-  : enumeration-constant
+enumerator:
+    enumeration-constant
   | enumeration-constant "=" constant-expression
   ;
 
-enumeration-constant
-  : any-identifier
+enumeration-constant:
+    any-identifier
   ;
 
 // (6.7.2.4)
-atomic-type-specifier
-  : _ATOMIC "(" type-name ")"
+atomic-type-specifier:
+    _ATOMIC "(" type-name ")"
   ;
 
 // (6.7.3)
-type-qualifier
-  : CONST
+type-qualifier:
+    CONST
   | RESTRICT
   | VOLATILE
   | _ATOMIC
   ;
 
 // (6.7.4)
-function-specifier
-  : INLINE
+function-specifier:
+    INLINE
   | _NORETURN
   ;
 
 // (6.7.5)
-alignment-specifier
-  : _ALIGNAS "(" type-name ")"
+alignment-specifier:
+    _ALIGNAS "(" type-name ")"
   | _ALIGNAS "(" constant-expression ")"
   ;
 
 // (6.7.6)
-declarator
-  : pointer_opt direct-declarator
+declarator:
+    pointer_opt direct-declarator
   ;
 
-declarator_opt
-  : %empty | declarator
+declarator_opt:
+    %empty | declarator
   ;
 
 // (6.7.6)
-direct-declarator
-  : identifier
+direct-declarator:
+    identifier
   | "(" declarator ")"
   | direct-declarator direct-declarator-elem
   ;
 
-direct-declarator-elem
-  : "[" type-qualifier-list_opt assignment-expression_opt "]"
+direct-declarator-elem:
+    "[" type-qualifier-list_opt assignment-expression_opt "]"
   | "[" STATIC type-qualifier-list_opt assignment-expression "]"
   | "[" type-qualifier-list STATIC assignment-expression "]"
   | "[" type-qualifier-list_opt ASTERISK "]"
@@ -373,44 +373,44 @@ direct-declarator-elem
   ;
 
 // (6.7.6)
-pointer
-  : "*" type-qualifier-list_opt
+pointer:
+    "*" type-qualifier-list_opt
   | "*" type-qualifier-list_opt pointer
   ;
 
-pointer_opt
-  : %empty | pointer
+pointer_opt:
+    %empty | pointer
   ;
 
 // (6.7.6)
-type-qualifier-list
-  : type-qualifier
+type-qualifier-list:
+    type-qualifier
   | type-qualifier-list type-qualifier
   ;
 
-type-qualifier-list_opt
-  : %empty | type-qualifier-list
+type-qualifier-list_opt:
+    %empty | type-qualifier-list
   ;
 
 // (6.7.6)
-parameter-type-list
-  : parameter-list
+parameter-type-list:
+    parameter-list
   | parameter-list "," "..."
   ;
 
-parameter-type-list_opt
-  : %empty | parameter-type-list
+parameter-type-list_opt:
+    %empty | parameter-type-list
   ;
 
 // (6.7.6)
-parameter-list
-  : parameter-declaration
+parameter-list:
+    parameter-declaration
   | parameter-list "," parameter-declaration
   ;
 
 // (6.7.6)
-parameter-declaration
-  : declaration-specifiers declarator
+parameter-declaration:
+    declaration-specifiers declarator
   | declaration-specifiers abstract-declarator_opt
   ;
 
@@ -422,39 +422,39 @@ parameter-declaration
   is a new style declaration).
 */
 // (6.7.6)
-identifier-list
-  : identifier
+identifier-list:
+    identifier
   | identifier-list "," any-identifier
   ;
 
-identifier-list_opt
-  : %empty | identifier-list
+identifier-list_opt:
+    %empty | identifier-list
   ;
 
 // (6.7.7)
-type-name
-  : specifier-qualifier-list abstract-declarator_opt
+type-name:
+    specifier-qualifier-list abstract-declarator_opt
   ;
   
 // (6.7.7)
-abstract-declarator
-  : pointer
+abstract-declarator:
+    pointer
   | pointer_opt direct-abstract-declarator
   ;
 
-abstract-declarator_opt
-  : %empty | abstract-declarator
+abstract-declarator_opt:
+    %empty | abstract-declarator
   ;
 
 // (6.7.7)
-direct-abstract-declarator
-  : "(" abstract-declarator ")"
+direct-abstract-declarator:
+    "(" abstract-declarator ")"
   | direct-abstract-declarator-elem
   | direct-abstract-declarator direct-abstract-declarator-elem
   ;
 
-direct-abstract-declarator-elem
-  : "[" type-qualifier-list assignment-expression_opt "]"
+direct-abstract-declarator-elem:
+    "[" type-qualifier-list assignment-expression_opt "]"
   | "[" assignment-expression_opt "]"
   | "[" STATIC type-qualifier-list_opt assignment-expression "]"
   | "[" type-qualifier-list STATIC assignment-expression "]"
@@ -463,57 +463,57 @@ direct-abstract-declarator-elem
   ;
 
 // (6.7.8)
-typedef-name
-  : TYPENAME
+typedef-name:
+    TYPENAME
   ;
 
 // (6.7.9)
-initializer
-  : assignment-expression
+initializer:
+    assignment-expression
   | "{" initializer-list "}"
   | "{" initializer-list "," "}"
   ;
 
 // (6.7.9)
-initializer-list
-  : designation_opt initializer
+initializer-list:
+    designation_opt initializer
   | initializer-list "," designation_opt initializer
   ;
 
 // (6.7.9)
-designation
-  : designator-list "="
+designation:
+    designator-list "="
   ;
 
-designation_opt
-  : %empty | designation
+designation_opt:
+    %empty | designation
   ;
   
 // (6.7.9)
-designator-list
-  : designator
+designator-list:
+    designator
   | designator-list designator
   ;
 
 // (6.7.9)
-designator
-  : "[" constant-expression "]"
+designator:
+    "[" constant-expression "]"
   | "." any-identifier
 // GNU C extension
   | "[" constant-expression "..." constant-expression "]"
   ;
 
 // (6.7.10)
-static_assert-declaration
-  : _STATIC_ASSERT "(" constant-expression "," string-literal ")" ";"
+static_assert-declaration:
+    _STATIC_ASSERT "(" constant-expression "," string-literal ")" ";"
   ;
 
 
 // A.2.3 Statements
 
 
-statement
-  : labeled-statement
+statement:
+    labeled-statement
   | compound-statement
   | expression-statement
   | selection-statement
@@ -522,8 +522,8 @@ statement
   ;
 
 // (6.8.1)
-labeled-statement
-  : any-identifier ":" statement
+labeled-statement:
+    any-identifier ":" statement
   | CASE constant-expression ":" statement
   | DEFAULT ":" statement
 // GNU C Extension
@@ -531,49 +531,49 @@ labeled-statement
   ;
 
 // (6.8.2)
-compound-statement
-  : "{" block-item-list_opt "}"
+compound-statement:
+    "{" block-item-list_opt "}"
   ;
 
 // (6.8.2)
-block-item-list
-  : block-item
+block-item-list:
+    block-item
   | block-item-list block-item
   ;
 
-block-item-list_opt
-  : %empty | block-item-list
+block-item-list_opt:
+    %empty | block-item-list
   ;
 
 // (6.8.2)
-block-item
-  : declaration
+block-item:
+    declaration
   | statement
   ;
 
 // (6.8.3)
-expression-statement
-  : expression_opt ";"
+expression-statement:
+    expression_opt ";"
   ;
 
 // (6.8.4)
-selection-statement
-  : IF "(" expression ")" statement  %prec IF
+selection-statement:
+    IF "(" expression ")" statement  %prec IF
   | IF "(" expression ")" statement ELSE statement  %prec ELSE
   | SWITCH "(" expression ")" statement
   ;
 
 // (6.8.5)
-iteration-statement
-  : WHILE "(" expression ")" statement
+iteration-statement:
+    WHILE "(" expression ")" statement
   | DO statement WHILE "(" expression ")" ";"
   | FOR "(" expression_opt ";" expression_opt ";" expression_opt ")" statement
   | FOR "(" declaration expression_opt ";" expression_opt ")" statement
   ;
 
 // (6.8.6)
-jump-statement
-  : GOTO any-identifier ";"
+jump-statement:
+    GOTO any-identifier ";"
   | CONTINUE ";"
   | BREAK ";"
   | RETURN expression_opt ";"
@@ -582,8 +582,8 @@ jump-statement
 // A.2.1 Expressions
 
 // (6.5.1)
-primary-expression
-  : identifier
+primary-expression:
+    identifier
   | constant
   | string-literal
   | "(" expression ")"
@@ -591,25 +591,25 @@ primary-expression
   ;
 
 // (6.5.1.1)
-generic-selection
-  : _GENERIC "(" assignment-expression "," generic-assoc-list ")"
+generic-selection:
+    _GENERIC "(" assignment-expression "," generic-assoc-list ")"
   ;
 
 // (6.5.1.1)
-generic-assoc-list
-  : generic-association
+generic-assoc-list:
+    generic-association
   | generic-assoc-list "," generic-association
   ;
 
 // (6.5.1.1)
-generic-association
-  : type-name ":" assignment-expression
+generic-association:
+    type-name ":" assignment-expression
   | DEFAULT ":" assignment-expression
   ;
 
 // (6.5.2)
-postfix-expression
-  : primary-expression
+postfix-expression:
+    primary-expression
   | postfix-expression "[" expression "]"
   | postfix-expression "(" argument-expression-list_opt ")"
   | postfix-expression "." any-identifier
@@ -621,18 +621,18 @@ postfix-expression
   ;
 
 // (6.5.2)
-argument-expression-list
-  : assignment-expression
+argument-expression-list:
+    assignment-expression
   | argument-expression-list "," assignment-expression
   ;
 
-argument-expression-list_opt
-  : %empty | argument-expression-list
+argument-expression-list_opt:
+    %empty | argument-expression-list
   ;
 
 // (6.5.3)
-unary-expression
-  : postfix-expression
+unary-expression:
+    postfix-expression
   | "++" unary-expression
   | "--" unary-expression
   | unary-operator cast-expression
@@ -644,8 +644,8 @@ unary-expression
   ;
 
 // (6.5.3)
-unary-operator
-  : "&"
+unary-operator:
+    "&"
   | "*"
   | "+"
   | "-"
@@ -654,36 +654,36 @@ unary-operator
   ;
 
 // (6.5.4)
-cast-expression
-  : unary-expression
+cast-expression:
+    unary-expression
   | "(" type-name ")" cast-expression
   ;
 
 // (6.5.5)
-multiplicative-expression
-  : cast-expression
+multiplicative-expression:
+    cast-expression
   | multiplicative-expression "*" cast-expression
   | multiplicative-expression "/" cast-expression
   | multiplicative-expression "%" cast-expression
   ;
 
 // (6.5.6)
-additive-expression
-  : multiplicative-expression
+additive-expression:
+    multiplicative-expression
   | additive-expression "+" multiplicative-expression
   | additive-expression "-" multiplicative-expression
   ;
 
 // (6.5.7)
-shift-expression
-  : additive-expression
+shift-expression:
+    additive-expression
   | shift-expression "<<" additive-expression
   | shift-expression ">>" additive-expression
   ;
 
 // (6.5.8)
-relational-expression
-  : shift-expression
+relational-expression:
+    shift-expression
   | relational-expression "<" shift-expression
   | relational-expression ">" shift-expression
   | relational-expression "<=" shift-expression
@@ -691,61 +691,61 @@ relational-expression
   ;
 
 // (6.5.9)
-equality-expression
-  : relational-expression
+equality-expression:
+    relational-expression
   | equality-expression "==" relational-expression
   | equality-expression "!=" relational-expression
   ;
 
 // (6.5.10)
-AND-expression
-  : equality-expression
+AND-expression:
+    equality-expression
   | AND-expression "&" equality-expression
   ;
 
 // (6.5.11)
-exclusive-OR-expression
-  : AND-expression
+exclusive-OR-expression:
+    AND-expression
   | exclusive-OR-expression "^" AND-expression
   ;
 
 // (6.5.12)
-inclusive-OR-expression
-  : exclusive-OR-expression
+inclusive-OR-expression:
+    exclusive-OR-expression
   | inclusive-OR-expression "|" exclusive-OR-expression
   ;
 
 // (6.5.13)
-logical-AND-expression
-  : inclusive-OR-expression
+logical-AND-expression:
+    inclusive-OR-expression
   | logical-AND-expression "&&" inclusive-OR-expression
   ;
 
 // (6.5.14)
-logical-OR-expression
-  : logical-AND-expression
+logical-OR-expression:
+    logical-AND-expression
   | logical-OR-expression "||" logical-AND-expression
   ;
 
 // (6.5.15)
-conditional-expression
-  : logical-OR-expression
+conditional-expression:
+    logical-OR-expression
   | logical-OR-expression "?" expression ":" conditional-expression
   ;
 
 // (6.5.16)
-assignment-expression
-  : conditional-expression
+assignment-expression:
+    conditional-expression
   | unary-expression assignment-operator assignment-expression
   ;
 
-assignment-expression_opt
-  : %empty | assignment-expression
+assignment-expression_opt:
+    %empty | assignment-expression
   ;
 
 // (6.5.16)
-assignment-operator
-  : "="
+assignment-operator:
+    "="
   | "*="
   | "/="
   | "%="
@@ -759,16 +759,16 @@ assignment-operator
   ;
 
 // (6.5.17)
-expression
-  : assignment-expression
+expression:
+    assignment-expression
   | expression "," assignment-expression
   ;
 
-expression_opt
-  : %empty | expression
+expression_opt:
+    %empty | expression
   ;
 
 // (6.6)
-constant-expression
-  : conditional-expression
+constant-expression:
+    conditional-expression
   ;
