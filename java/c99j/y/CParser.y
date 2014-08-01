@@ -217,20 +217,24 @@ declaration-specifiers : "blaa" ;
 
 declaration:
     static_assert-declaration
-  | specifier-nots declaration-nots
-  | type-specifier declaration-ts
+  | declaration-specifiers-nots init-declarator-list-notyp_opt ";"
+  | declaration-specifiers-ts init-declarator-list_opt ";"
   ;
 
-declaration-nots:
-    init-declarator-list-notyp_opt ";"
-  | specifier-nots declaration-nots
-  | type-specifier declaration-ts
+declaration-specifiers-nots:
+    specifier-nots
+  | specifier-nots declaration-specifiers-nots
   ;
 
-declaration-ts:
-    init-declarator-list_opt ";"
-  | specifier-nots declaration-ts
-  | type-specifier-notyp declaration-ts
+declaration-specifiers-ts:
+    type-specifier declaration-specifiers-ts-rest
+  | specifier-nots declaration-specifiers-ts
+  ;
+
+declaration-specifiers-ts-rest:
+    %empty
+  | type-specifier-notyp declaration-specifiers-ts-rest
+  | specifier-nots declaration-specifiers-ts-rest
   ;
 
 specifier-nots:
