@@ -75,16 +75,19 @@ public int yylex () throws IOException
     m_endPos.line = ppt.line2;
     m_endPos.col = ppt.col2;
 
-    m_yylval = null;
+    Code code = ppt.code();
+    //m_yylval = null;
+    m_yylval = code;
 
-    Code code;
-
-    switch (code = ppt.code())
+    switch (code)
     {
       case IDENT:
         Code kw = ppt.symbol().keyword;
         if (kw != null)
+        {
           code = kw;
+          m_yylval = code;
+        }
         else
         {
           // TYPENAME dectection hack for parser testing. Upper case symbols are assumed
@@ -92,7 +95,10 @@ public int yylex () throws IOException
           Symbol sym = ppt.symbol();
           char c = sym.name.charAt( 0 );
           if (c >= 'A' && c <= 'Z')
+          {
             code = Code.TYPENAME;
+            m_yylval = sym;
+          }
           else
             m_yylval = sym;
         }
