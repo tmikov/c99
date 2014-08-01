@@ -185,23 +185,59 @@ declaration-list_opt:
 // A.2.2. Declarations
 //
 
+// The conflict is as follows:
+//    first-part TYPENAME
+// Is TYPENAME part of the declaration specifiers, or is it the identifier that is being re-defined?
+//
+// The rule is that if we have encountered a <type-specifier> or another TYPENAME in "first-part", then this
+// TYPENAME is just an identifier. If we haven't, then this TYPENAME is part of the type specifier.
+//
+// "first-part-without-TYPENAME-and-type-specifier" TYPENAME-as-type
+// "first-part-with-TYPENAME-or-type-specifier" TYPENAME-as-ident
+
 // (6.7)
+//declaration:
+//    declaration-specifiers init-declarator-list_opt ";"
+//  | static_assert-declaration
+//  ;
+
+// (6.7)
+//declaration-specifiers:
+//    storage-class-specifier declaration-specifiers_opt
+//  | type-specifier declaration-specifiers_opt
+//  | type-qualifier declaration-specifiers_opt
+//  | function-specifier declaration-specifiers_opt
+//  | alignment-specifier declaration-specifiers_opt
+//  ;
+
+//declaration-specifiers_opt:
+//    %empty | declaration-specifiers
+//  ;
+declaration-specifiers : "blaa" ;
+
 declaration:
-    declaration-specifiers init-declarator-list_opt ";"
-  | static_assert-declaration
+    static_assert-declaration
+  | specifier-nots declaration-nots
+  | type-specifier declaration-ts
   ;
 
-// (6.7)
-declaration-specifiers:
-    storage-class-specifier declaration-specifiers_opt
-  | type-specifier declaration-specifiers_opt
-  | type-qualifier declaration-specifiers_opt
-  | function-specifier declaration-specifiers_opt
-  | alignment-specifier declaration-specifiers_opt
+declaration-nots:
+    init-declarator-list-notyp_opt ";"
+  | specifier-nots declaration-nots
+  | type-specifier declaration-ts
   ;
 
-declaration-specifiers_opt:
-    %empty | declaration-specifiers
+declaration-ts:
+    init-declarator-list_opt ";"
+  | specifier-nots declaration-ts
+  | type-specifier-notyp declaration-ts
+  ;
+
+specifier-nots:
+    storage-class-specifier
+  | type-qualifier
+  | function-specifier
+  | alignment-specifier
   ;
 
 // (6.7)
@@ -214,10 +250,24 @@ init-declarator-list_opt:
     %empty | init-declarator-list
   ;
 
+init-declarator-list-notyp:
+    init-declarator-notyp
+  | init-declarator-list-notyp "," init-declarator
+  ;
+
+init-declarator-list-notyp_opt:
+    %empty | init-declarator-list-notyp
+  ;
+
 // (6.7)
 init-declarator:
     declarator
   | declarator "=" initializer
+  ;
+
+init-declarator-notyp:
+    declarator-notyp
+  | declarator-notyp "=" initializer
   ;
 
 // (6.7.1)
@@ -232,6 +282,11 @@ storage-class-specifier:
 
 // (6.7.2)
 type-specifier:
+    type-specifier-notyp
+  | typedef-name
+  ;
+
+type-specifier-notyp:
     VOID
   | CHAR
   | SHORT
@@ -246,7 +301,6 @@ type-specifier:
   | atomic-type-specifier
   | struct-or-union-specifier
   | enum-specifier
-  | typedef-name
   ;
 
 // (6.7.2.1)
@@ -269,8 +323,21 @@ struct-declaration-list:
 
 // (6.7.2.1)
 struct-declaration:
-    specifier-qualifier-list struct-declarator-list_opt ";"
-  | static_assert-declaration
+    static_assert-declaration
+  | type-qualifier struct-declaration-nots
+  | type-specifier struct-declaration-ts
+  ;
+
+struct-declaration-nots:
+    struct-declarator-list-notyp_opt ";"
+  | type-qualifier struct-declaration-nots
+  | type-specifier struct-declaration-ts
+  ;
+
+struct-declaration-ts:
+    struct-declarator-list_opt ";"
+  | type-qualifier struct-declaration-ts
+  | type-specifier-notyp struct-declaration-ts
   ;
 
 // (6.7.2.1)
@@ -293,10 +360,24 @@ struct-declarator-list_opt:
     %empty | struct-declarator-list
   ;
 
+struct-declarator-list-notyp:
+    struct-declarator-notyp
+  | struct-declarator-list-notyp "," struct-declarator
+  ;
+
+struct-declarator-list-notyp_opt:
+    %empty | struct-declarator-list-notyp
+  ;
+
 // (6.7.2.1)
 struct-declarator:
     declarator
   | declarator_opt ":" constant-expression
+  ;
+
+struct-declarator-notyp:
+    declarator-notyp
+  | declarator-notyp_opt ":" constant-expression
   ;
 
 // (6.7.2.2)
@@ -356,11 +437,26 @@ declarator_opt:
     %empty | declarator
   ;
 
+declarator-notyp:
+    pointer direct-declarator
+  | direct-declarator-notyp
+  ;
+
+declarator-notyp_opt:
+    %empty | declarator-notyp
+  ;
+
 // (6.7.6)
 direct-declarator:
-    identifier
+    any-identifier
   | "(" declarator ")"
   | direct-declarator direct-declarator-elem
+  ;
+
+direct-declarator-notyp:
+    identifier
+  | "(" declarator ")"
+  | direct-declarator-notyp direct-declarator-elem
   ;
 
 direct-declarator-elem:
