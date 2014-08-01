@@ -169,7 +169,8 @@ external-declaration:
 
 // (6.9.1)
 function-definition:
-    declaration-specifiers declarator declaration-list_opt compound-statement
+    declaration-specifiers-nots declarator-notyp declaration-list_opt compound-statement
+  | declaration-specifiers-ts declarator declaration-list_opt compound-statement
   ;
 
 // (6.9.1)
@@ -213,7 +214,6 @@ declaration-list_opt:
 //declaration-specifiers_opt:
 //    %empty | declaration-specifiers
 //  ;
-declaration-specifiers : "blaa" ;
 
 declaration:
     static_assert-declaration
