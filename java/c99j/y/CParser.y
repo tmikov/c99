@@ -30,12 +30,12 @@
 
 %token PLUS_PLUS   "++"
 %token MINUS_MINUS   "--"
-%token AMPERSAND   "&"
+%token<Code> AMPERSAND   "&"
 %token<Code> ASTERISK   "*"
-%token PLUS   "+"
-%token MINUS   "-"
-%token TILDE   "~"
-%token BANG   "!"
+%token<Code> PLUS   "+"
+%token<Code> MINUS   "-"
+%token<Code> TILDE   "~"
+%token<Code> BANG   "!"
 
 %token SLASH   "/"
 %token PERCENT   "%"
@@ -182,10 +182,41 @@
 %type<Tree> designator
 %type<Tree> static_assert-declaration
 
+%type<Tree> statement
+%type<Tree> labeled-statement
 %type<Tree> compound-statement
-%type<Tree> constant-expression
-%type<Tree> assignment-expression assignment-expression_opt
+%type<Tree> block-item-list block-item-list_opt
+%type<Tree> block-item
+%type<Tree> expression-statement
+%type<Tree> selection-statement
+%type<Tree> iteration-statement
+%type<Tree> jump-statement
 
+%type<Tree> primary-expression
+%type<Tree> generic-selection
+%type<Tree> generic-assoc-list
+%type<Tree> generic-association
+%type<Tree> postfix-expression
+%type<Tree> argument-expression-list
+%type<Tree> argument-expression-list_opt
+%type<Tree> unary-expression
+%type<String> unary-operator
+%type<Tree> cast-expression
+%type<Tree> multiplicative-expression
+%type<Tree> additive-expression
+%type<Tree> shift-expression
+%type<Tree> relational-expression
+%type<Tree> equality-expression
+%type<Tree> AND-expression
+%type<Tree> exclusive-OR-expression
+%type<Tree> inclusive-OR-expression
+%type<Tree> logical-AND-expression
+%type<Tree> logical-OR-expression
+%type<Tree> conditional-expression
+%type<Tree> assignment-expression assignment-expression_opt
+%type<String> assignment-operator
+%type<Tree> expression expression_opt
+%type<Tree> constant-expression
 
 %start translation-unit
 
@@ -720,60 +751,61 @@ statement:
 
 // (6.8.1)
 labeled-statement:
-    any-identifier ":" statement
-  | CASE constant-expression ":" statement
-  | DEFAULT ":" statement
+    any-identifier ":" statement                { $$ = tree("label", $statement); }
+  | CASE constant-expression ":" statement      { $$ = tree("case", $[constant-expression], $statement); }
+  | DEFAULT ":" statement                       { $$ = tree("default", null, $statement); }
 // GNU C Extension
-  | CASE constant-expression "..." constant-expression ":" statement
+  | CASE constant-expression[ce1] "..." constant-expression[ce2] ":" statement { $$ = tree("case-range", $ce1, $ce2, $statement); }
   ;
 
 // (6.8.2)
 compound-statement:
-    "{" block-item-list_opt "}" { $$ = null; }
+    "{" block-item-list_opt "}" { $$ = tree("compound-statement",$[block-item-list_opt]); }
   ;
 
 // (6.8.2)
 block-item-list:
-    block-item
-  | block-item-list block-item
+    block-item                  { $$ = tree("block-item-list",$1); }
+  | block-item-list block-item  { $$ = treeAppend($1,$2); }
   ;
 
 block-item-list_opt:
-    %empty | block-item-list
+    %empty { $$ = null; }
+  | block-item-list
   ;
 
 // (6.8.2)
 block-item:
-    declaration
+    declaration { $$ = tree("declaration-statement",$1); }
   | statement
   ;
 
 // (6.8.3)
 expression-statement:
-    expression_opt ";"
+    expression_opt ";" { $$ = tree("expression-statement",$1); }
   ;
 
 // (6.8.4)
 selection-statement:
-    IF "(" expression ")" statement  %prec IF
-  | IF "(" expression ")" statement ELSE statement  %prec ELSE
-  | SWITCH "(" expression ")" statement
+    IF "(" expression ")" statement                         %prec IF   { $$ = tree("if",$expression,$statement,null); }
+  | IF "(" expression ")" statement[s1] ELSE statement[s2]  %prec ELSE { $$ = tree("if",$expression,$s1,$s2); }
+  | SWITCH "(" expression ")" statement                                { $$ = tree("switch",$expression,$statement); }
   ;
 
 // (6.8.5)
 iteration-statement:
-    WHILE "(" expression ")" statement
-  | DO statement WHILE "(" expression ")" ";"
-  | FOR "(" expression_opt ";" expression_opt ";" expression_opt ")" statement
-  | FOR "(" declaration expression_opt ";" expression_opt ")" statement
+    WHILE "(" expression ")" statement           { $$ = tree("while",$expression,$statement); }
+  | DO statement WHILE "(" expression ")" ";"    { $$ = tree("do",$statement,$expression); }
+  | FOR "(" expression_opt[e1] ";" expression_opt[e2] ";" expression_opt[e3] ")" statement { $$ = tree("for",$e1,$e2,$e3); }
+  | FOR "(" declaration[dcl] expression_opt[e2] ";" expression_opt[e3] ")" statement       { $$ = tree("for",$dcl,$e2,$e3); }
   ;
 
 // (6.8.6)
 jump-statement:
-    GOTO any-identifier ";"
-  | CONTINUE ";"
-  | BREAK ";"
-  | RETURN expression_opt ";"
+    GOTO any-identifier ";"   { $$ = tree("goto",$[any-identifier]); }
+  | CONTINUE ";"              { $$ = tree("continue"); }
+  | BREAK ";"                 { $$ = tree("break"); }
+  | RETURN expression_opt ";" { $$ = tree("return", $expression_opt); }
   ;
 
 // A.2.1 Expressions
@@ -783,157 +815,158 @@ primary-expression:
     identifier
   | constant
   | string-literal
-  | "(" expression ")"
+  | "(" expression ")"  { $$ = $expression; }
   | generic-selection
   ;
 
 // (6.5.1.1)
 generic-selection:
-    _GENERIC "(" assignment-expression "," generic-assoc-list ")"
+    _GENERIC "(" assignment-expression "," generic-assoc-list ")" { $$ = tree("_Generic",$[assignment-expression],$[generic-assoc-list]); }
   ;
 
 // (6.5.1.1)
 generic-assoc-list:
-    generic-association
-  | generic-assoc-list "," generic-association
+    generic-association                         { $$ = tree("generic-assoc-list",$1); }
+  | generic-assoc-list "," generic-association  { $$ = treeAppend($1,$3); }
   ;
 
 // (6.5.1.1)
 generic-association:
-    type-name ":" assignment-expression
-  | DEFAULT ":" assignment-expression
+    type-name ":" assignment-expression         { $$ = tree("generic-type-name-assoc",$[type-name],$[assignment-expression]); }
+  | DEFAULT ":" assignment-expression           { $$ = tree("generic-default-assoc",null,$[assignment-expression]); }
   ;
 
 // (6.5.2)
 postfix-expression:
     primary-expression
-  | postfix-expression "[" expression "]"
-  | postfix-expression "(" argument-expression-list_opt ")"
-  | postfix-expression "." any-identifier
-  | postfix-expression "->" any-identifier
-  | postfix-expression "++"
-  | postfix-expression "--"
-  | "(" type-name ")" "{" initializer-list "}"
-  | "(" type-name ")" "{" initializer-list "," "}"
+  | postfix-expression "[" expression "]"                    { $$ = tree("subscript",$1,$expression); }
+  | postfix-expression "(" argument-expression-list_opt ")"  { $$ = tree("call",$1,$[argument-expression-list_opt]); }
+  | postfix-expression "." any-identifier                    { $$ = tree("select",$1,$[any-identifier]); }
+  | postfix-expression "->" any-identifier                   { $$ = tree("ptr-select",$1,$[any-identifier]); }
+  | postfix-expression "++"                                  { $$ = tree("post-inc",$1); }
+  | postfix-expression "--"                                  { $$ = tree("post-dec",$1); }
+  | "(" type-name ")" "{" initializer-list "}"               { $$ = tree("compound-literal", $[type-name], $[initializer-list]); }
+  | "(" type-name ")" "{" initializer-list "," "}"           { $$ = tree("compound-literal", $[type-name], $[initializer-list]); }
   ;
 
 // (6.5.2)
 argument-expression-list:
-    assignment-expression
-  | argument-expression-list "," assignment-expression
+    assignment-expression                               { $$ = tree("argument-expression-list",$1); }
+  | argument-expression-list "," assignment-expression  { $$ = treeAppend($1,$3); }
   ;
 
 argument-expression-list_opt:
-    %empty | argument-expression-list
+    %empty { $$ = null; }
+  | argument-expression-list
   ;
 
 // (6.5.3)
 unary-expression:
     postfix-expression
-  | "++" unary-expression
-  | "--" unary-expression
-  | unary-operator cast-expression
-  | SIZEOF unary-expression
-  | SIZEOF "(" type-name ")"
-  | _ALIGNOF "(" type-name ")"
+  | "++" unary-expression               { $$ = tree("pre-inc", $2); }
+  | "--" unary-expression               { $$ = tree("pre-dec", $2); }
+  | unary-operator cast-expression      { $$ = tree($[unary-operator], $[cast-expression]); }
+  | SIZEOF unary-expression             { $$ = tree("sizeof-expr",$2); }
+  | SIZEOF "(" type-name ")"            { $$ = tree("sizeof-type",$[type-name]); }
+  | _ALIGNOF "(" type-name ")"          { $$ = tree("_Alignof",$[type-name]); }
 // GNU C extension
-  | "&&" any-identifier
+  | "&&" any-identifier                 { $$ = tree("address-label",$[any-identifier]); }
   ;
 
 // (6.5.3)
 unary-operator:
-    "&"
-  | "*"
-  | "+"
-  | "-"
-  | "~"
-  | "!"
+    "&" { $$ = "address-of"; }
+  | "*" { $$ = "deref"; }
+  | "+" { $$ = "u-plus"; }
+  | "-" { $$ = "u-minus"; }
+  | "~" { $$ = "binary-not"; }
+  | "!" { $$ = "logical-not"; }
   ;
 
 // (6.5.4)
 cast-expression:
     unary-expression
-  | "(" type-name ")" cast-expression
+  | "(" type-name ")" cast-expression   { $$ = tree("cast",$[type-name],$4); }
   ;
 
 // (6.5.5)
 multiplicative-expression:
     cast-expression
-  | multiplicative-expression "*" cast-expression
-  | multiplicative-expression "/" cast-expression
-  | multiplicative-expression "%" cast-expression
+  | multiplicative-expression "*" cast-expression  { $$ = tree("mul",$1,$3); }
+  | multiplicative-expression "/" cast-expression  { $$ = tree("div",$1,$3); }
+  | multiplicative-expression "%" cast-expression  { $$ = tree("rem",$1,$3); }
   ;
 
 // (6.5.6)
 additive-expression:
     multiplicative-expression
-  | additive-expression "+" multiplicative-expression
-  | additive-expression "-" multiplicative-expression
+  | additive-expression "+" multiplicative-expression { $$ = tree("add",$1,$3); }
+  | additive-expression "-" multiplicative-expression { $$ = tree("sub",$1,$3); }
   ;
 
 // (6.5.7)
 shift-expression:
     additive-expression
-  | shift-expression "<<" additive-expression
-  | shift-expression ">>" additive-expression
+  | shift-expression "<<" additive-expression        { $$ = tree("shl",$1,$3); }
+  | shift-expression ">>" additive-expression        { $$ = tree("shr",$1,$3); }
   ;
 
 // (6.5.8)
 relational-expression:
     shift-expression
-  | relational-expression "<" shift-expression
-  | relational-expression ">" shift-expression
-  | relational-expression "<=" shift-expression
-  | relational-expression ">=" shift-expression
+  | relational-expression "<" shift-expression       { $$ = tree("lt",$1,$3); }
+  | relational-expression ">" shift-expression       { $$ = tree("gt",$1,$3); }
+  | relational-expression "<=" shift-expression      { $$ = tree("le",$1,$3); }
+  | relational-expression ">=" shift-expression      { $$ = tree("ge",$1,$3); }
   ;
 
 // (6.5.9)
 equality-expression:
     relational-expression
-  | equality-expression "==" relational-expression
-  | equality-expression "!=" relational-expression
+  | equality-expression "==" relational-expression   { $$ = tree("eq",$1,$3); }
+  | equality-expression "!=" relational-expression   { $$ = tree("ne",$1,$3); }
   ;
 
 // (6.5.10)
 AND-expression:
     equality-expression
-  | AND-expression "&" equality-expression
+  | AND-expression "&" equality-expression           { $$ = tree("binary-and",$1,$3); }
   ;
 
 // (6.5.11)
 exclusive-OR-expression:
     AND-expression
-  | exclusive-OR-expression "^" AND-expression
+  | exclusive-OR-expression "^" AND-expression       { $$ = tree("binary-xor",$1,$3); }
   ;
 
 // (6.5.12)
 inclusive-OR-expression:
     exclusive-OR-expression
-  | inclusive-OR-expression "|" exclusive-OR-expression
+  | inclusive-OR-expression "|" exclusive-OR-expression { $$ = tree("binary-or",$1,$3); }
   ;
 
 // (6.5.13)
 logical-AND-expression:
     inclusive-OR-expression
-  | logical-AND-expression "&&" inclusive-OR-expression
+  | logical-AND-expression "&&" inclusive-OR-expression  { $$ = tree("logical-and",$1,$3); }
   ;
 
 // (6.5.14)
 logical-OR-expression:
     logical-AND-expression
-  | logical-OR-expression "||" logical-AND-expression
+  | logical-OR-expression "||" logical-AND-expression    { $$ = tree("logical-or",$1,$3); }
   ;
 
 // (6.5.15)
 conditional-expression:
     logical-OR-expression
-  | logical-OR-expression "?" expression ":" conditional-expression
+  | logical-OR-expression[e1] "?" expression[e2] ":" conditional-expression[e3] { $$ = tree("conditional",$e1,$e2,$e3); }
   ;
 
 // (6.5.16)
 assignment-expression:
-    conditional-expression                                      {}
-  | unary-expression assignment-operator assignment-expression  {}
+    conditional-expression
+  | unary-expression assignment-operator assignment-expression  { $$ = tree($[assignment-operator],$1,$3); }
   ;
 
 assignment-expression_opt:
@@ -943,30 +976,31 @@ assignment-expression_opt:
 
 // (6.5.16)
 assignment-operator:
-    "="
-  | "*="
-  | "/="
-  | "%="
-  | "+="
-  | "-="
-  | "<<="
-  | ">>="
-  | "&="
-  | "^="
-  | "|="
+    "="   { $$ = "assign"; }
+  | "*="  { $$ = "assign-mul"; }
+  | "/="  { $$ = "assign-div"; }
+  | "%="  { $$ = "assign-rem"; }
+  | "+="  { $$ = "assign-add"; }
+  | "-="  { $$ = "assign-sub"; }
+  | "<<=" { $$ = "assign-shl"; }
+  | ">>=" { $$ = "assign-shr"; }
+  | "&="  { $$ = "assign-binary-and"; }
+  | "^="  { $$ = "assign-binary-xor"; }
+  | "|="  { $$ = "assign-binary-or"; }
   ;
 
 // (6.5.17)
 expression:
     assignment-expression
-  | expression "," assignment-expression
+  | expression "," assignment-expression        { $$ = tree("comma",$1,$3); }
   ;
 
 expression_opt:
-    %empty | expression
+    %empty { $$ = null; }
+  | expression
   ;
 
 // (6.6)
 constant-expression:
-    conditional-expression      {}
+    conditional-expression
   ;
