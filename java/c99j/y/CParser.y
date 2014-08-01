@@ -510,8 +510,18 @@ parameter-list:
 
 // (6.7.6)
 parameter-declaration:
-    declaration-specifiers declarator
-  | declaration-specifiers abstract-declarator_opt
+    declaration-specifiers-nots
+  | declaration-specifiers-ts
+  | declaration-specifiers-nots pointer
+  | declaration-specifiers-ts pointer
+  | declaration-specifiers-nots pointer direct-declarator
+  | declaration-specifiers-ts pointer direct-declarator
+  | declaration-specifiers-nots direct-declarator-notyp
+  | declaration-specifiers-ts direct-declarator
+  | declaration-specifiers-nots pointer direct-abstract-declarator
+  | declaration-specifiers-ts pointer direct-abstract-declarator
+  | declaration-specifiers-nots direct-abstract-declarator
+  | declaration-specifiers-ts direct-abstract-declarator
   ;
 
 /*
