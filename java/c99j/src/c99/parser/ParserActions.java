@@ -102,6 +102,21 @@ public final Tree constant ( Constant.ArithC v )
   return new Tree0( "const:"+ v.toString() );
 }
 
+public final Tree seqAppend ( Tree seq, Tree newNode )
+{
+  if (seq == null)
+    return newNode;
+  if (newNode == null)
+    return seq;
+
+  Tree cur = seq, ch;
+  int ind;
+  while ( (ch = cur.child(ind = cur.childCount()-1)) != null)
+    cur = ch;
+  cur.setChild( ind, newNode );
+  return seq;
+}
+
 public void print ( Tree t )
 {
   if (t != null)

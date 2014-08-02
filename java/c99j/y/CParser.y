@@ -167,7 +167,7 @@
 %type<Tree> direct-declarator-elem
 %type<Tree> pointer pointer_opt
 %type<Tree> type-qualifier-list type-qualifier-list_opt
-%type<Tree> parameter-type-list parameter-type-list_opt
+%type<Tree> parameter-type-list
 %type<Tree> parameter-list
 %type<Tree> parameter-declaration
 %type<Tree> identifier-list identifier-list_opt
@@ -549,7 +549,7 @@ alignment-specifier:
 
 // (6.7.6)
 declarator:
-    pointer_opt direct-declarator       { $$ = tree( "declarator", $pointer_opt, $[direct-declarator] ); }
+    pointer_opt direct-declarator       { $$ = seqAppend($[direct-declarator],$pointer_opt); }
   ;
 
 declarator_opt:
@@ -558,8 +558,8 @@ declarator_opt:
   ;
 
 declarator-notyp:
-    pointer direct-declarator           { $$ = tree( "declarator", $pointer, $[direct-declarator] ); }
-  | direct-declarator-notyp             { $$ = tree( "declarator", null, $[direct-declarator-notyp] ); }
+    pointer direct-declarator           { $$ = seqAppend($[direct-declarator],$pointer); }
+  | direct-declarator-notyp             { $$ = $[direct-declarator-notyp]; }
   ;
 
 declarator-notyp_opt:
@@ -569,30 +569,36 @@ declarator-notyp_opt:
 
 // (6.7.6)
 direct-declarator:
-    any-identifier                              { $$ = tree( "direct-declarator", $[any-identifier] ); }
-  | "(" declarator ")"                          { $$ = tree( "direct-declarator", $declarator ); }
-  | direct-declarator direct-declarator-elem    { $$ = treeAppend( $1, $2 ); }
+    any-identifier                              { $$ = tree( "direct-declarator", $[any-identifier], null ); }
+  | "(" declarator ")"                          { $$ = $declarator; }
+  | direct-declarator direct-declarator-elem    { $$ = seqAppend($1,$[direct-declarator-elem]); }
   ;
 
 direct-declarator-notyp:
-    identifier                                  { $$ = tree( "direct-declarator", $[identifier] ); }
-  | "(" declarator ")"                          { $$ = tree( "direct-declarator", $declarator ); }
-  | direct-declarator-notyp direct-declarator-elem  { $$ = treeAppend( $1, $2 ); }
+    identifier                                      { $$ = tree( "direct-declarator", $[identifier], null ); }
+  | "(" declarator ")"                              { $$ = $declarator; }
+  | direct-declarator-notyp direct-declarator-elem  { $$ = seqAppend($1,$[direct-declarator-elem]); }
   ;
 
 direct-declarator-elem:
-    "[" type-qualifier-list_opt assignment-expression_opt "]"    { $$ = tree( "array-decl", null, $[type-qualifier-list_opt], $[assignment-expression_opt] ); }
-  | "[" STATIC type-qualifier-list_opt assignment-expression "]" { $$ = tree( "array-decl", tree($STATIC), $[type-qualifier-list_opt], $[assignment-expression] ); }
-  | "[" type-qualifier-list STATIC assignment-expression "]"     { $$ = tree( "array-decl", tree($STATIC), $[type-qualifier-list], $[assignment-expression] ); }
-  | "[" type-qualifier-list_opt ASTERISK "]"                     { $$ = tree( "array-decl", null, $[type-qualifier-list_opt], tree($ASTERISK) ); }
-  | "(" parameter-type-list ")"                                  { $$ = tree( "func-declarator", $[parameter-type-list] ); }
-  | "(" identifier-list_opt ")"                                  { $$ = tree( "old-func-declarator", $[identifier-list_opt] ); }
+    "[" type-qualifier-list_opt assignment-expression_opt "]"
+        { $$ = tree("qual",$[type-qualifier-list_opt],tree("array",null,$[assignment-expression_opt],null)); }
+  | "[" STATIC type-qualifier-list_opt assignment-expression "]"
+        { $$ = tree("qual",$[type-qualifier-list_opt],tree("array",tree($STATIC),$[assignment-expression],null)); }
+  | "[" type-qualifier-list STATIC assignment-expression "]"
+        { $$ = tree("qual",$[type-qualifier-list],tree("array",tree($STATIC),$[assignment-expression],null)); }
+  | "[" type-qualifier-list_opt ASTERISK "]"
+        { $$ = tree("qual",$[type-qualifier-list_opt],tree("array",null,tree($ASTERISK),null)); }
+  | "(" parameter-type-list ")"
+        { $$ = tree("qual",null,tree("func",$[parameter-type-list])); }
+  | "(" identifier-list_opt ")"
+        { $$ = tree("qual",null,tree("old-func",$[identifier-list_opt])); }
   ;
 
 // (6.7.6)
 pointer:
-    "*" type-qualifier-list_opt         { $$ = tree( "pointer", $2, null ); }
-  | "*" type-qualifier-list_opt pointer { $$ = tree( "pointer", $2, $3 ); }
+                  "*" type-qualifier-list_opt  { $$ = tree("qual", $[type-qualifier-list_opt], tree("pointer",null)); }
+  | pointer[left] "*" type-qualifier-list_opt  { $$ = tree("qual", $[type-qualifier-list_opt], tree("pointer",$left)); }
   ;
 
 pointer_opt:
@@ -602,7 +608,7 @@ pointer_opt:
 
 // (6.7.6)
 type-qualifier-list:
-    type-qualifier                      { $$ = tree( "type-qualifier-list", $1 ); }
+    type-qualifier                      { $$ = tree( "qual-list", $1 ); }
   | type-qualifier-list type-qualifier  { $$ = treeAppend( $1, $2 ); }
   ;
 
@@ -617,11 +623,6 @@ parameter-type-list:
   | parameter-list "," "..."            { $$ = treeAppend( $1, tree($3) ); }
   ;
 
-parameter-type-list_opt:
-    %empty { $$ = null; }
-  | parameter-type-list
-  ;
-
 // (6.7.6)
 parameter-list:
     parameter-declaration                       { $$ = tree("parameter-list", $1); }
@@ -630,18 +631,18 @@ parameter-list:
 
 // (6.7.6)
 parameter-declaration:
-    declaration-specifiers-nots                                     { $$ = tree("parameter-declaration",$1,null,null); }
-  | declaration-specifiers-ts                                       { $$ = tree("parameter-declaration",$1,null,null); }
-  | declaration-specifiers-nots pointer                             { $$ = tree("parameter-declaration",$1,$2,null); }
-  | declaration-specifiers-ts   pointer                             { $$ = tree("parameter-declaration",$1,$2,null); }
-  | declaration-specifiers-nots pointer direct-declarator           { $$ = tree("parameter-declaration",$1,$2,$3); }
-  | declaration-specifiers-ts   pointer direct-declarator           { $$ = tree("parameter-declaration",$1,$2,$3); }
-  | declaration-specifiers-nots         direct-declarator-notyp     { $$ = tree("parameter-declaration",$1,null,$2); }
-  | declaration-specifiers-ts           direct-declarator           { $$ = tree("parameter-declaration",$1,null,$2); }
-  | declaration-specifiers-nots pointer direct-abstract-declarator  { $$ = tree("parameter-declaration",$1,$2,$3); }
-  | declaration-specifiers-ts   pointer direct-abstract-declarator  { $$ = tree("parameter-declaration",$1,$2,$3); }
-  | declaration-specifiers-nots         direct-abstract-declarator  { $$ = tree("parameter-declaration",$1,null,$2); }
-  | declaration-specifiers-ts           direct-abstract-declarator  { $$ = tree("parameter-declaration",$1,null,$2); }
+    declaration-specifiers-nots                                     { $$ = tree("parameter-declaration",$1,null); }
+  | declaration-specifiers-ts                                       { $$ = tree("parameter-declaration",$1,null); }
+  | declaration-specifiers-nots pointer                             { $$ = tree("parameter-declaration",$1,$2); }
+  | declaration-specifiers-ts   pointer                             { $$ = tree("parameter-declaration",$1,$2); }
+  | declaration-specifiers-nots pointer direct-declarator           { $$ = tree("parameter-declaration",$1,seqAppend($3,$2)); }
+  | declaration-specifiers-ts   pointer direct-declarator           { $$ = tree("parameter-declaration",$1,seqAppend($3,$2)); }
+  | declaration-specifiers-nots         direct-declarator-notyp     { $$ = tree("parameter-declaration",$1,$2); }
+  | declaration-specifiers-ts           direct-declarator           { $$ = tree("parameter-declaration",$1,$2); }
+  | declaration-specifiers-nots pointer direct-abstract-declarator  { $$ = tree("parameter-declaration",$1,seqAppend($3,$2)); }
+  | declaration-specifiers-ts   pointer direct-abstract-declarator  { $$ = tree("parameter-declaration",$1,seqAppend($3,$2)); }
+  | declaration-specifiers-nots         direct-abstract-declarator  { $$ = tree("parameter-declaration",$1,$2); }
+  | declaration-specifiers-ts           direct-abstract-declarator  { $$ = tree("parameter-declaration",$1,$2); }
   ;
 
 /*
@@ -669,8 +670,8 @@ type-name:
   
 // (6.7.7)
 abstract-declarator:
-    pointer                                     { $$ = tree( "abstract-declarator", $pointer, null ); }
-  | pointer_opt direct-abstract-declarator      { $$ = tree( "abstract-declarator", $pointer_opt, $[direct-abstract-declarator] ); }
+    pointer                                     { $$ = seqAppend(tree("direct-abstract-declarator"), $pointer); }
+  | pointer_opt direct-abstract-declarator      { $$ = seqAppend($[direct-abstract-declarator], $pointer_opt); }
   ;
 
 abstract-declarator_opt:
@@ -680,18 +681,26 @@ abstract-declarator_opt:
 
 // (6.7.7)
 direct-abstract-declarator:
-    "(" abstract-declarator ")"                 { $$ = tree( "direct-abstract-declarator", $[abstract-declarator] ); }
-  | direct-abstract-declarator-elem             { $$ = tree( "direct-abstract-declarator", $[direct-abstract-declarator-elem] ); }
-  | direct-abstract-declarator direct-abstract-declarator-elem { $$ = treeAppend( $1, $2 ); }
+    "(" abstract-declarator ")"                                { $$ = $[abstract-declarator]; }
+  | direct-abstract-declarator-elem                            { $$ = tree("direct-abstract-declarator", $[direct-abstract-declarator-elem]); }
+  | direct-abstract-declarator direct-abstract-declarator-elem { $$ = seqAppend($1, $[direct-abstract-declarator-elem]); }
   ;
 
 direct-abstract-declarator-elem:
-    "[" type-qualifier-list assignment-expression_opt "]"        { $$ = tree( "array-decl", null, $[type-qualifier-list], $[assignment-expression_opt] ); }
-  | "[" assignment-expression_opt "]"                            { $$ = tree( "array-decl", null, null, $[assignment-expression_opt] ); }
-  | "[" STATIC type-qualifier-list_opt assignment-expression "]" { $$ = tree( "array-decl", tree($STATIC), $[type-qualifier-list_opt], $[assignment-expression] ); }
-  | "[" type-qualifier-list STATIC assignment-expression "]"     { $$ = tree( "array-decl", tree($STATIC), $[type-qualifier-list], $[assignment-expression] ); }
-  | "[" ASTERISK "]"                                             { $$ = tree( "array-decl", null, null, tree($ASTERISK) ); }
-  | "(" parameter-type-list_opt ")"                              { $$ = tree( "func-declarator", $[parameter-type-list_opt] ); }
+    "[" type-qualifier-list assignment-expression_opt "]"
+        { $$ = tree("qual",$[type-qualifier-list],tree("array",null,$[assignment-expression_opt],null)); }
+  | "[" assignment-expression_opt "]"
+        { $$ = tree("qual",null,tree("array",null,$[assignment-expression_opt],null)); }
+  | "[" STATIC type-qualifier-list_opt assignment-expression "]"
+        { $$ = tree("qual",$[type-qualifier-list_opt],tree("array",tree($STATIC),$[assignment-expression],null)); }
+  | "[" type-qualifier-list STATIC assignment-expression "]"
+        { $$ = tree("qual",$[type-qualifier-list],tree("array",tree($STATIC),$[assignment-expression],null)); }
+  | "[" ASTERISK "]"
+        { $$ = tree("qual",null,tree("array",null,tree($ASTERISK),null)); }
+  | "(" parameter-type-list ")"
+        { $$ = tree("qual",null,tree("func",$[parameter-type-list])); }
+  | "(" ")"
+        { $$ = tree("qual",null,tree("old-func",null)); }
   ;
 
 // (6.7.9)
