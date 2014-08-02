@@ -2,7 +2,7 @@ package c99.parser;
 
 public class Tree1 extends Tree
 {
-public final Tree a;
+private Tree a;
 
 public Tree1 ( final String name, final Tree a )
 {
@@ -21,5 +21,12 @@ public Tree child ( final int n )
 {
   assert n == 0;
   return a;
+}
+
+@Override
+public void setChild ( final int n, final Tree ch )
+{
+  assert n == 0;
+  this.a = ch;
 }
 } // class

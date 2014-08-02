@@ -2,7 +2,7 @@ package c99.parser;
 
 public class TreeN extends Tree
 {
-public final Tree ch[];
+private final Tree ch[];
 
 public TreeN ( final String name, final Tree... ch )
 {
@@ -20,5 +20,11 @@ public int childCount ()
 public Tree child ( final int n )
 {
   return ch[n];
+}
+
+@Override
+public void setChild ( final int n, final Tree v )
+{
+  this.ch[n] = v;
 }
 } // class

@@ -2,7 +2,7 @@ package c99.parser;
 
 public class Tree4 extends Tree
 {
-public final Tree a, b, c, d;
+private Tree a, b, c, d;
 
 public Tree4 ( final String name, final Tree a, final Tree b, final Tree c, final Tree d )
 {
@@ -31,5 +31,18 @@ public Tree child ( final int n )
   }
   assert false;
   return null;
+}
+
+@Override
+public void setChild ( final int n, final Tree ch )
+{
+  switch (n)
+  {
+    case 0: this.a = ch; break;
+    case 1: this.b = ch; break;
+    case 2: this.c = ch; break;
+    case 3: this.d = ch; break;
+    default: assert false;
+  }
 }
 } // class

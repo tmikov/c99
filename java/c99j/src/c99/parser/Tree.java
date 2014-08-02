@@ -13,6 +13,7 @@ protected Tree ( final String name )
 
 public abstract int childCount ();
 public abstract Tree child ( int n );
+public abstract void setChild ( int n, Tree ch );
 
 @Override
 public String toString ()
@@ -37,6 +38,7 @@ private static final int INDENT_STEP = 4;
 private static final Tree s_nullChild = new Tree("<null>"){
   @Override public int childCount () { return 0; }
   @Override public Tree child ( final int n ) { assert false; return null; }
+  @Override public void setChild ( final int n, final Tree ch ) { assert false; }
 };
 
 private final Tree getChild ( int n )

@@ -19,4 +19,10 @@ public Tree child ( final int n )
   assert false;
   return null;
 }
+
+@Override
+public void setChild ( final int n, final Tree ch )
+{
+  assert false;
+}
 } // class
