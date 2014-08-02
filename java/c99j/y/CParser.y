@@ -218,6 +218,7 @@
 %type<Tree> expression expression_opt
 %type<Tree> constant-expression
 
+%expect 3
 %start translation-unit
 
 %%
