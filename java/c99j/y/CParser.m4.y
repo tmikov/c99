@@ -125,7 +125,6 @@
 %type<Tree> any-identifier any-identifier_opt
 %type<Tree> string-literal
 %type<Tree> constant
-%type<Tree> function-definition
 %type<Tree> declaration-list declaration-list_opt
 %type<Tree> declaration
 %type<Tree> declaration-specifiers-nots
@@ -264,11 +263,14 @@ external-declaration:
   ;
 
 // (6.9.1)
-function-definition:
-    declaration-specifiers-nots declarator-notyp declaration-list_opt compound-statement
-        { $$ = tree("function-definition", $1, $2, $3, $4); }
-  | declaration-specifiers-ts   declarator       declaration-list_opt compound-statement
-        { $$ = tree("function-definition", $1, $2, $3, $4); }
+rule(<Tree>,function-definition):
+    specified-declarator declaration-list_opt {} compound-statement
+        { $$ = tree("function-definition", $[specified-declarator], $[declaration-list_opt], $[compound-statement]); }
+  ;
+
+rule(<Tree>,specified-declarator):
+    declaration-specifiers-nots declarator-notyp  { $$ = seqAppend($[declarator-notyp], $[declaration-specifiers-nots]); }
+  | declaration-specifiers-ts   declarator        { $$ = seqAppend($[declarator],       $[declaration-specifiers-ts]); }
   ;
 
 // (6.9.1)
