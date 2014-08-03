@@ -1,7 +1,7 @@
 m4_divert(-1)m4_dnl
 m4_define(`dnl',`m4_dnl')
 
-m4_define(`Push0',`{ yyval = $<Object>0; }')
+m4_define(`_PUSH0',`{ yyval = $<Object>0; }')
 
 m4_define(`rule',`dnl
 m4_ifelse(`$1',`',``'',`m4_divert(1)%type$1 $2`'m4_ifelse($3,`opt',` $2_opt')
