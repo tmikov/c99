@@ -132,10 +132,6 @@
 %type<Tree> declaration-specifiers-ts
 %type<Tree> declaration-specifiers-ts-rest
 %type<Tree> specifier-nots
-%type<Tree> init-declarator-list init-declarator-list_opt
-%type<Tree> init-declarator-list-notyp init-declarator-list-notyp_opt
-%type<Tree> init-declarator
-%type<Tree> init-declarator-notyp
 %type<Tree> storage-class-specifier
 %type<Tree> type-specifier
 %type<Tree> type-specifier-notyp
@@ -221,6 +217,7 @@
 %expect 3
 %start translation-unit
 
+start_grammar
 %%
 
 identifier:
@@ -321,8 +318,8 @@ declaration-list_opt:
 
 declaration:
     static_assert-declaration
-  | declaration-specifiers-nots init-declarator-list-notyp_opt ";" { $$ = tree("declaration", $1, $2); }
-  | declaration-specifiers-ts   init-declarator-list_opt ";"       { $$ = tree("declaration", $1, $2); }
+  | declaration-specifiers-nots init-declarator-list-notyp_opt ";" { $$ = tree("declaration", $2); }
+  | declaration-specifiers-ts   init-declarator-list_opt ";"       { $$ = tree("declaration", $2); }
   ;
 
 declaration-specifiers-nots:
@@ -349,33 +346,23 @@ specifier-nots:
   ;
 
 // (6.7)
-init-declarator-list:
-    init-declarator                             { $$ = tree("init-declarator-list", $1); }
-  | init-declarator-list "," init-declarator    { $$ = treeAppend($1, $3); }
+rule(<Tree>,init-declarator-list,opt,declaration-specifiers):
+    init-declarator                                 { $$ = tree("init-declarator-list", $[init-declarator]); }
+  | init-declarator-list "," Push0 init-declarator  { $$ = treeAppend($1, $[init-declarator]); }
   ;
 
-init-declarator-list_opt:
-    %empty { $$ = null; }
-  | init-declarator-list
-  ;
-
-init-declarator-list-notyp:
-    init-declarator-notyp                          { $$ = tree("init-declarator-list", $1); }
-  | init-declarator-list-notyp "," init-declarator { $$ = treeAppend($1, $3); }
-  ;
-
-init-declarator-list-notyp_opt:
-    %empty { $$ = null; }
-  | init-declarator-list-notyp
+rule(<Tree>,init-declarator-list-notyp,opt,declaration-specifiers):
+    init-declarator-notyp                                { $$ = tree("init-declarator-list", $[init-declarator-notyp]); }
+  | init-declarator-list-notyp "," Push0 init-declarator { $$ = treeAppend($1, $[init-declarator]); }
   ;
 
 // (6.7)
-init-declarator:
-    declarator                  { $$ = tree( "init-declarator", $declarator, null ); }
-  | declarator "=" initializer  { $$ = tree( "init-declarator", $declarator, $initializer ); }
+rule(<Tree>,init-declarator,,declaration-specifiers):
+    declarator                  { $$ = tree("init-declarator", seqAppend($declarator,$<Tree>0), null); }
+  | declarator "=" initializer  { $$ = tree("init-declarator", seqAppend($declarator,$<Tree>0), $initializer); }
   ;
 
-init-declarator-notyp:
+rule(<Tree>,init-declarator-notyp,,declaration-specifiers):
     declarator-notyp                  { $$ = tree( "init-declarator", $[declarator-notyp], null ); }
   | declarator-notyp "=" initializer  { $$ = tree( "init-declarator", $[declarator-notyp], $initializer ); }
   ;
@@ -1014,3 +1001,5 @@ expression_opt:
 constant-expression:
     conditional-expression
   ;
+
+end_grammar
