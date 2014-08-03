@@ -117,6 +117,11 @@ public final Tree seqAppend ( Tree seq, Tree newNode )
   return seq;
 }
 
+public final Tree specifyDecl ( Tree decl, Tree specs )
+{
+  return seqAppend( decl, specs );
+}
+
 public void print ( Tree t )
 {
   if (t != null)

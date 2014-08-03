@@ -263,8 +263,8 @@ rule(<Tree>,function-definition):
   ;
 
 rule(<Tree>,specified-declarator):
-    declaration-specifiers-nots declarator-notyp  { $$ = seqAppend($[declarator-notyp], $[declaration-specifiers-nots]); }
-  | declaration-specifiers-ts   declarator        { $$ = seqAppend($[declarator],       $[declaration-specifiers-ts]); }
+    declaration-specifiers-nots declarator-notyp  { $$ = specifyDecl($[declarator-notyp], $[declaration-specifiers-nots]); }
+  | declaration-specifiers-ts   declarator        { $$ = specifyDecl($[declarator],       $[declaration-specifiers-ts]); }
   ;
 
 // (6.9.1)
@@ -352,8 +352,8 @@ rule(<Tree>,init-declarator-list-notyp,opt,declaration-specifiers):
 
 // (6.7)
 rule(<Tree>,init-declarator,,declaration-specifiers):
-    declarator                  { $$ = tree("init-declarator", seqAppend($declarator,$<Tree>0), null); }
-  | declarator "=" initializer  { $$ = tree("init-declarator", seqAppend($declarator,$<Tree>0), $initializer); }
+    declarator                  { $$ = tree("init-declarator", specifyDecl($declarator,$<Tree>0), null); }
+  | declarator "=" initializer  { $$ = tree("init-declarator", specifyDecl($declarator,$<Tree>0), $initializer); }
   ;
 
 rule(<Tree>,init-declarator-notyp,,declaration-specifiers):
@@ -445,13 +445,13 @@ rule(<Tree>,struct-declarator-list-notyp,opt):
 
 // (6.7.2.1)
 rule(<Tree>,struct-declarator):
-    declarator                              { $$ = tree( "struct-declarator", seqAppend($[declarator],$<Tree>0) ); }
-  | declarator_opt ":" constant-expression  { $$ = tree( "bitfield-declarator", seqAppend($[declarator_opt],$<Tree>0), $[constant-expression] ); }
+    declarator                              { $$ = tree( "struct-declarator", specifyDecl($[declarator],$<Tree>0) ); }
+  | declarator_opt ":" constant-expression  { $$ = tree( "bitfield-declarator", specifyDecl($[declarator_opt],$<Tree>0), $[constant-expression] ); }
   ;
 
 rule(<Tree>,struct-declarator-notyp):
-    declarator-notyp                               { $$ = tree( "struct-declarator", seqAppend($[declarator-notyp],$<Tree>0) ); }
-  | declarator-notyp_opt ":" constant-expression   { $$ = tree( "bitfield-declarator", seqAppend($[declarator-notyp_opt],$<Tree>0), $[constant-expression] ); }
+    declarator-notyp                               { $$ = tree( "struct-declarator", specifyDecl($[declarator-notyp],$<Tree>0) ); }
+  | declarator-notyp_opt ":" constant-expression   { $$ = tree( "bitfield-declarator", specifyDecl($[declarator-notyp_opt],$<Tree>0), $[constant-expression] ); }
   ;
 
 // (6.7.2.2)
@@ -587,21 +587,21 @@ parameter-list:
 // (6.7.6)
 rule(<Tree>,parameter-declaration):
     declaration-specifiers-nots pointer direct-declarator
-        { $$ = tree("param-decl",seqAppend(seqAppend($[direct-declarator],$pointer),$[declaration-specifiers-nots])); }
+        { $$ = tree("param-decl",specifyDecl(seqAppend($[direct-declarator],$pointer),$[declaration-specifiers-nots])); }
   | declaration-specifiers-ts   pointer direct-declarator
-        { $$ = tree("param-decl",seqAppend(seqAppend($[direct-declarator],$pointer),$[declaration-specifiers-ts])); }
+        { $$ = tree("param-decl",specifyDecl(seqAppend($[direct-declarator],$pointer),$[declaration-specifiers-ts])); }
   | declaration-specifiers-nots         direct-declarator-notyp
-        { $$ = tree("param-decl",seqAppend($[direct-declarator-notyp],$[declaration-specifiers-nots])); }
+        { $$ = tree("param-decl",specifyDecl($[direct-declarator-notyp],$[declaration-specifiers-nots])); }
   | declaration-specifiers-ts           direct-declarator                
-        { $$ = tree("param-decl",seqAppend($[direct-declarator],$[declaration-specifiers-ts])); }
+        { $$ = tree("param-decl",specifyDecl($[direct-declarator],$[declaration-specifiers-ts])); }
   | declaration-specifiers-nots pointer direct-abstract-declarator_opt   
-        { $$ = tree("param-decl",seqAppend(seqAppend($[direct-abstract-declarator_opt],$pointer),$[declaration-specifiers-nots])); }
+        { $$ = tree("param-decl",specifyDecl(seqAppend($[direct-abstract-declarator_opt],$pointer),$[declaration-specifiers-nots])); }
   | declaration-specifiers-ts   pointer direct-abstract-declarator_opt   
-        { $$ = tree("param-decl",seqAppend(seqAppend($[direct-abstract-declarator_opt],$pointer),$[declaration-specifiers-ts])); }
+        { $$ = tree("param-decl",specifyDecl(seqAppend($[direct-abstract-declarator_opt],$pointer),$[declaration-specifiers-ts])); }
   | declaration-specifiers-nots         direct-abstract-declarator_opt   
-        { $$ = tree("param-decl",seqAppend($[direct-abstract-declarator_opt],$[declaration-specifiers-nots])); }
+        { $$ = tree("param-decl",specifyDecl($[direct-abstract-declarator_opt],$[declaration-specifiers-nots])); }
   | declaration-specifiers-ts           direct-abstract-declarator_opt   
-        { $$ = tree("param-decl",seqAppend($[direct-abstract-declarator_opt],$[declaration-specifiers-ts])); }
+        { $$ = tree("param-decl",specifyDecl($[direct-abstract-declarator_opt],$[declaration-specifiers-ts])); }
   ;
 
 /*
