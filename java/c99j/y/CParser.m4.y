@@ -138,14 +138,8 @@
 %type<Code> struct-or-union
 %type<Tree> struct-declaration-list
 %type<Tree> struct-declaration
-%type<Tree> struct-declspecs-nots
-%type<Tree> struct-declspecs-ts
-%type<Tree> struct-declspecs-ts-rest
 %type<Tree> specifier-qualifier-list
 %type<Tree> specifier-or-qualifier
-%type<Tree> struct-declarator-list struct-declarator-list_opt
-%type<Tree> struct-declarator-list-notyp struct-declarator-list-notyp_opt
-%type<Tree> struct-declarator struct-declarator-notyp
 %type<Tree> enum-specifier
 %type<Tree> enumerator-list
 %type<Tree> enumerator
@@ -318,8 +312,8 @@ declaration-list_opt:
 
 declaration:
     static_assert-declaration
-  | declaration-specifiers-nots init-declarator-list-notyp_opt ";" { $$ = tree("declaration", $2); }
-  | declaration-specifiers-ts   init-declarator-list_opt ";"       { $$ = tree("declaration", $2); }
+  | declaration-specifiers-nots init-declarator-list-notyp_opt ";" { $$ = tree("declaration", $1, $2); }
+  | declaration-specifiers-ts   init-declarator-list_opt ";"       { $$ = tree("declaration", $1, $2); }
   ;
 
 declaration-specifiers-nots:
@@ -423,24 +417,8 @@ struct-declaration-list:
 // (6.7.2.1)
 struct-declaration:
     static_assert-declaration
-  | struct-declspecs-nots struct-declarator-list-notyp_opt ";" { $$ = tree( "struct-declaration", $1, $2 ); }
-  | struct-declspecs-ts   struct-declarator-list_opt ";"       { $$ = tree( "struct-declaration", $1, $2 ); }
-  ;
-
-struct-declspecs-nots:
-    type-qualifier                          { $$ = tree( "struct-declspec", $1 ); }
-  | type-qualifier struct-declspecs-nots    { $$ = leftAppend( $1, $2 ); }
-  ;
-
-struct-declspecs-ts:
-    type-specifier struct-declspecs-ts-rest { $$ = leftAppend( $1, $2 ); }
-  | type-qualifier struct-declspecs-ts      { $$ = leftAppend( $1, $2 ); }
-  ;
-
-struct-declspecs-ts-rest:
-    %empty                                        { $$ = tree("struct-declspecs"); }
-  | type-specifier-notyp struct-declspecs-ts-rest { $$ = leftAppend( $1, $2 ); }
-  | type-qualifier struct-declspecs-ts-rest       { $$ = leftAppend( $1, $2 ); }
+  | declaration-specifiers-nots struct-declarator-list-notyp_opt ";" { $$ = tree( "struct-declaration", $1, $2 ); }
+  | declaration-specifiers-ts   struct-declarator-list_opt ";"       { $$ = tree( "struct-declaration", $1, $2 ); }
   ;
 
 // (6.7.2.1)
@@ -455,35 +433,25 @@ specifier-or-qualifier:
   ;
 
 // (6.7.2.1)
-struct-declarator-list:
-    struct-declarator                                   { $$ = tree("struct-declarator-list", $1); }
-  | struct-declarator-list "," struct-declarator        { $$ = treeAppend($1,$3); }
+rule(<Tree>,struct-declarator-list,opt):
+    struct-declarator                                   { $$ = tree("struct-declarator-list", $[struct-declarator]); }
+  | struct-declarator-list "," _PUSH0 struct-declarator { $$ = treeAppend($1,$[struct-declarator]); }
   ;
 
-struct-declarator-list_opt:
-    %empty  { $$ = null; }
-  | struct-declarator-list
-  ;
-
-struct-declarator-list-notyp:
-    struct-declarator-notyp                             { $$ = tree("struct-declarator-list", $1); }
-  | struct-declarator-list-notyp "," struct-declarator  { $$ = treeAppend($1,$3); }
-  ;
-
-struct-declarator-list-notyp_opt:
-    %empty { $$ = null; }
-  | struct-declarator-list-notyp
+rule(<Tree>,struct-declarator-list-notyp,opt):
+    struct-declarator-notyp                                    { $$ = tree("struct-declarator-list", $[struct-declarator-notyp]); }
+  | struct-declarator-list-notyp "," _PUSH0 struct-declarator  { $$ = treeAppend($1,$[struct-declarator]); }
   ;
 
 // (6.7.2.1)
-struct-declarator:
-    declarator                              { $$ = tree( "struct-declarator", $[declarator] ); }
-  | declarator_opt ":" constant-expression  { $$ = tree( "bitfield-declarator", $[declarator_opt], $[constant-expression] ); }
+rule(<Tree>,struct-declarator):
+    declarator                              { $$ = tree( "struct-declarator", seqAppend($[declarator],$<Tree>0) ); }
+  | declarator_opt ":" constant-expression  { $$ = tree( "bitfield-declarator", seqAppend($[declarator_opt],$<Tree>0), $[constant-expression] ); }
   ;
 
-struct-declarator-notyp:
-    declarator-notyp                               { $$ = tree( "struct-declarator", $[declarator-notyp] ); }
-  | declarator-notyp_opt ":" constant-expression   { $$ = tree( "bitfield-declarator", $[declarator-notyp_opt], $[constant-expression] ); }
+rule(<Tree>,struct-declarator-notyp):
+    declarator-notyp                               { $$ = tree( "struct-declarator", seqAppend($[declarator-notyp],$<Tree>0) ); }
+  | declarator-notyp_opt ":" constant-expression   { $$ = tree( "bitfield-declarator", seqAppend($[declarator-notyp_opt],$<Tree>0), $[constant-expression] ); }
   ;
 
 // (6.7.2.2)
