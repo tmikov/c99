@@ -1,14 +1,35 @@
 package c99.parser;
 
+import c99.SourceRange;
+
 import java.io.PrintStream;
 
-public abstract class Tree
+public abstract class Tree extends SourceRange
 {
 public final String name;
+public Object value;
+
+protected Tree ( final String name, final Object value )
+{
+  this.name = name;
+  this.value = value;
+}
 
 protected Tree ( final String name )
 {
-  this.name = name;
+  this( name, null );
+}
+
+public Tree location ( CParser.Location loc )
+{
+  BisonLexer.setLocation( this, loc );
+  return this;
+}
+
+public Tree value ( Object value )
+{
+  this.value = value;
+  return this;
 }
 
 public abstract int childCount ();

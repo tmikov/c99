@@ -1,6 +1,7 @@
 package c99.parser;
 
 import c99.IErrorReporter;
+import c99.ISourceRange;
 import c99.SourceRange;
 import c99.parser.pp.PPDefs;
 import c99.parser.pp.Prepr;
@@ -82,25 +83,24 @@ public int yylex () throws IOException
     switch (code)
     {
       case IDENT:
-        Code kw = ppt.symbol().keyword;
-        if (kw != null)
         {
-          code = kw;
-          m_yylval = code;
-        }
-        else
-        {
-          // TYPENAME dectection hack for parser testing. Upper case symbols are assumed
-          // to be types
           Symbol sym = ppt.symbol();
-          char c = sym.name.charAt( 0 );
-          if (c >= 'A' && c <= 'Z')
+          Code kw = sym.keyword;
+          if (kw != null)
           {
-            code = Code.TYPENAME;
-            m_yylval = sym;
+            code = kw;
+            m_yylval = code;
           }
           else
-            m_yylval = sym;
+          {
+            if (sym.topDecl != null && sym.topDecl.sclass == Code.TYPEDEF)
+            {
+              code = Code.TYPENAME;
+              m_yylval = sym.topDecl;
+            }
+            else
+              m_yylval = sym;
+          }
         }
         break;
 
@@ -143,10 +143,15 @@ public int yylex () throws IOException
   }
 }
 
+public static SourceRange setLocation ( SourceRange rng, CParser.Location loc )
+{
+  return rng.setRange( loc.begin.fileName, loc.begin.line, loc.begin.col,
+                       loc.end.fileName, loc.end.line, loc.end.col );
+}
+
 public static SourceRange fromLocation ( CParser.Location loc )
 {
-  return new SourceRange().setRange( loc.begin.fileName, loc.begin.line, loc.begin.col,
-                loc.end.fileName, loc.end.line, loc.end.col );
+  return setLocation(new SourceRange(), loc );
 }
 
 @Override

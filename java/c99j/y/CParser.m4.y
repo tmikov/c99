@@ -1,17 +1,26 @@
 %language "Java"
 
 %define package "c99.parser"
-%code imports { import c99.Constant; }
+%code imports {
+import c99.Constant;
+import c99.IErrorReporter;
+}
 %define public
 %define parser_class_name {CParser}
 %define extends {ParserActions}
+
+%parse-param { IErrorReporter reporter_ }
+%parse-param { SymTable symTab_ }
+%code init { super.init( reporter_, symTab_ ); pushScope(); }
 
 %define parse.error verbose
 
 %locations
 
+%destructor { popScope( (Scope)$$ ); } <Scope>
+
 %token<Symbol> IDENT  "identifier"
-%token<Symbol> TYPENAME "typedef name"
+%token<Decl> TYPENAME "typedef name"
 %token<Constant.IntC> INT_NUMBER  "integer number"
 %token<Constant.RealC> REAL_NUMBER "real number"
 %token<Constant.IntC> CHAR_CONST   "character literal"
@@ -212,7 +221,7 @@ start_grammar
 %%
 
 identifier:
-    IDENT       { $$ = ident( $IDENT ); }
+    IDENT       { $$ = ident( $IDENT, @IDENT ); }
   ;
 
 /*identifier_opt:
@@ -220,8 +229,8 @@ identifier:
   ;*/
 
 any-identifier:
-    TYPENAME    { $$ = ident( $TYPENAME ); }
-  | IDENT       { $$ = ident( $IDENT ); }
+    TYPENAME    { $$ = ident( $TYPENAME.symbol, @TYPENAME ); }
+  | IDENT       { $$ = ident( $IDENT, @IDENT ); }
   ;
 
 any-identifier_opt:
@@ -235,9 +244,9 @@ string-literal:
   ;
 
 constant:
-    INT_NUMBER                          { $$ = constant( $1 ); }
-  | REAL_NUMBER                         { $$ = constant( $1 ); }
-  | CHAR_CONST                          { $$ = constant( $1 ); }
+    INT_NUMBER                          { $$ = constant($1,@1); }
+  | REAL_NUMBER                         { $$ = constant($1,@1); }
+  | CHAR_CONST                          { $$ = constant($1,@1); }
 /*  | enumeration-constant*/
   ;
 
@@ -263,8 +272,8 @@ rule(<Tree>,function-definition):
   ;
 
 rule(<Tree>,specified-declarator):
-    declaration-specifiers-nots declarator-notyp  { $$ = specifyDecl($[declarator-notyp], $[declaration-specifiers-nots]); }
-  | declaration-specifiers-ts   declarator        { $$ = specifyDecl($[declarator],       $[declaration-specifiers-ts]); }
+    declaration-specifiers-nots declarator-notyp  { $$ = declare($[declarator-notyp], $[declaration-specifiers-nots]); }
+  | declaration-specifiers-ts   declarator        { $$ = declare($[declarator],       $[declaration-specifiers-ts]); }
   ;
 
 // (6.9.1)
@@ -352,8 +361,8 @@ rule(<Tree>,init-declarator-list-notyp,opt,declaration-specifiers):
 
 // (6.7)
 rule(<Tree>,init-declarator,,declaration-specifiers):
-    declarator                  { $$ = tree("init-declarator", specifyDecl($declarator,$<Tree>0), null); }
-  | declarator "=" initializer  { $$ = tree("init-declarator", specifyDecl($declarator,$<Tree>0), $initializer); }
+    declarator                  { $$ = tree("init-declarator", declare($declarator,$<Tree>0), null); }
+  | declarator "=" initializer  { $$ = tree("init-declarator", declare($declarator,$<Tree>0), $initializer); }
   ;
 
 rule(<Tree>,init-declarator-notyp,,declaration-specifiers):
@@ -363,32 +372,32 @@ rule(<Tree>,init-declarator-notyp,,declaration-specifiers):
 
 // (6.7.1)
 storage-class-specifier:
-    TYPEDEF                    { $$ = tree($1); }
-  | EXTERN                     { $$ = tree($1); }
-  | STATIC                     { $$ = tree($1); }
-  | _THREAD_LOCAL              { $$ = tree($1); }
-  | AUTO                       { $$ = tree($1); }
-  | REGISTER                   { $$ = tree($1); }
+    TYPEDEF                    { $$ = tree($1,@1); }
+  | EXTERN                     { $$ = tree($1,@1); }
+  | STATIC                     { $$ = tree($1,@1); }
+  | _THREAD_LOCAL              { $$ = tree($1,@1); }
+  | AUTO                       { $$ = tree($1,@1); }
+  | REGISTER                   { $$ = tree($1,@1); }
   ;
 
 // (6.7.2)
 type-specifier:
     type-specifier-notyp
-  | TYPENAME                    { $$ = ident($1); }
+  | TYPENAME                    { $$ = ident($TYPENAME.symbol,@TYPENAME); }
   ;
 
 type-specifier-notyp:
-    VOID                        { $$ = tree($1); }
-  | CHAR                        { $$ = tree($1); }
-  | SHORT                       { $$ = tree($1); }
-  | INT                         { $$ = tree($1); }
-  | LONG                        { $$ = tree($1); }
-  | FLOAT                       { $$ = tree($1); }
-  | DOUBLE                      { $$ = tree($1); }
-  | SIGNED                      { $$ = tree($1); }
-  | UNSIGNED                    { $$ = tree($1); }
-  | _BOOL                       { $$ = tree($1); }
-  | _COMPLEX                    { $$ = tree($1); }
+    VOID                        { $$ = tree($1,@1); }
+  | CHAR                        { $$ = tree($1,@1); }
+  | SHORT                       { $$ = tree($1,@1); }
+  | INT                         { $$ = tree($1,@1); }
+  | LONG                        { $$ = tree($1,@1); }
+  | FLOAT                       { $$ = tree($1,@1); }
+  | DOUBLE                      { $$ = tree($1,@1); }
+  | SIGNED                      { $$ = tree($1,@1); }
+  | UNSIGNED                    { $$ = tree($1,@1); }
+  | _BOOL                       { $$ = tree($1,@1); }
+  | _COMPLEX                    { $$ = tree($1,@1); }
   | atomic-type-specifier
   | struct-or-union-specifier
   | enum-specifier
@@ -396,8 +405,8 @@ type-specifier-notyp:
 
 // (6.7.2.1)
 struct-or-union-specifier:
-    struct-or-union any-identifier_opt "{" struct-declaration-list "}"
-      { $$ = tree( $[struct-or-union], $[any-identifier_opt], $[struct-declaration-list] ); }
+    struct-or-union any-identifier_opt "{" PushScope struct-declaration-list "}"
+      { $$ = tree( $[struct-or-union], $[any-identifier_opt], $[struct-declaration-list] ); popScope($PushScope); }
   | struct-or-union any-identifier
       { $$ = tree( $[struct-or-union], $[any-identifier], null ); }
   ;
@@ -445,13 +454,13 @@ rule(<Tree>,struct-declarator-list-notyp,opt):
 
 // (6.7.2.1)
 rule(<Tree>,struct-declarator):
-    declarator                              { $$ = tree( "struct-declarator", specifyDecl($[declarator],$<Tree>0) ); }
-  | declarator_opt ":" constant-expression  { $$ = tree( "bitfield-declarator", specifyDecl($[declarator_opt],$<Tree>0), $[constant-expression] ); }
+    declarator                              { $$ = tree( "struct-declarator", declare($[declarator],$<Tree>0) ); }
+  | declarator_opt ":" constant-expression  { $$ = tree( "bitfield-declarator", declare($[declarator_opt],$<Tree>0), $[constant-expression] ); }
   ;
 
 rule(<Tree>,struct-declarator-notyp):
-    declarator-notyp                               { $$ = tree( "struct-declarator", specifyDecl($[declarator-notyp],$<Tree>0) ); }
-  | declarator-notyp_opt ":" constant-expression   { $$ = tree( "bitfield-declarator", specifyDecl($[declarator-notyp_opt],$<Tree>0), $[constant-expression] ); }
+    declarator-notyp                               { $$ = tree( "struct-declarator", declare($[declarator-notyp],$<Tree>0) ); }
+  | declarator-notyp_opt ":" constant-expression   { $$ = tree( "bitfield-declarator", declare($[declarator-notyp_opt],$<Tree>0), $[constant-expression] ); }
   ;
 
 // (6.7.2.2)
@@ -544,8 +553,8 @@ direct-declarator-elem:
         { $$ = tree("qual",$[type-qualifier-list],tree("array",tree($STATIC),$[assignment-expression],null)); }
   | "[" type-qualifier-list_opt ASTERISK "]"
         { $$ = tree("qual",$[type-qualifier-list_opt],tree("array",null,tree($ASTERISK),null)); }
-  | "(" parameter-type-list ")"
-        { $$ = tree("qual",null,tree("func",$[parameter-type-list],null)); }
+  | "(" PushScope parameter-type-list ")"
+        { $$ = tree("qual",null,tree("func",$[parameter-type-list],null)); popScope($PushScope); }
   | "(" identifier-list_opt ")"
         { $$ = tree("qual",null,tree("old-func",$[identifier-list_opt],null)); }
   ;
@@ -587,21 +596,21 @@ parameter-list:
 // (6.7.6)
 rule(<Tree>,parameter-declaration):
     declaration-specifiers-nots pointer direct-declarator
-        { $$ = tree("param-decl",specifyDecl(seqAppend($[direct-declarator],$pointer),$[declaration-specifiers-nots])); }
+        { $$ = tree("param-decl",declare(seqAppend($[direct-declarator],$pointer),$[declaration-specifiers-nots])); }
   | declaration-specifiers-ts   pointer direct-declarator
-        { $$ = tree("param-decl",specifyDecl(seqAppend($[direct-declarator],$pointer),$[declaration-specifiers-ts])); }
+        { $$ = tree("param-decl",declare(seqAppend($[direct-declarator],$pointer),$[declaration-specifiers-ts])); }
   | declaration-specifiers-nots         direct-declarator-notyp
-        { $$ = tree("param-decl",specifyDecl($[direct-declarator-notyp],$[declaration-specifiers-nots])); }
+        { $$ = tree("param-decl",declare($[direct-declarator-notyp],$[declaration-specifiers-nots])); }
   | declaration-specifiers-ts           direct-declarator                
-        { $$ = tree("param-decl",specifyDecl($[direct-declarator],$[declaration-specifiers-ts])); }
+        { $$ = tree("param-decl",declare($[direct-declarator],$[declaration-specifiers-ts])); }
   | declaration-specifiers-nots pointer direct-abstract-declarator_opt   
-        { $$ = tree("param-decl",specifyDecl(seqAppend($[direct-abstract-declarator_opt],$pointer),$[declaration-specifiers-nots])); }
+        { $$ = tree("param-decl",declare(seqAppend($[direct-abstract-declarator_opt],$pointer),$[declaration-specifiers-nots])); }
   | declaration-specifiers-ts   pointer direct-abstract-declarator_opt   
-        { $$ = tree("param-decl",specifyDecl(seqAppend($[direct-abstract-declarator_opt],$pointer),$[declaration-specifiers-ts])); }
+        { $$ = tree("param-decl",declare(seqAppend($[direct-abstract-declarator_opt],$pointer),$[declaration-specifiers-ts])); }
   | declaration-specifiers-nots         direct-abstract-declarator_opt   
-        { $$ = tree("param-decl",specifyDecl($[direct-abstract-declarator_opt],$[declaration-specifiers-nots])); }
+        { $$ = tree("param-decl",declare($[direct-abstract-declarator_opt],$[declaration-specifiers-nots])); }
   | declaration-specifiers-ts           direct-abstract-declarator_opt   
-        { $$ = tree("param-decl",specifyDecl($[direct-abstract-declarator_opt],$[declaration-specifiers-ts])); }
+        { $$ = tree("param-decl",declare($[direct-abstract-declarator_opt],$[declaration-specifiers-ts])); }
   ;
 
 /*
@@ -734,8 +743,12 @@ labeled-statement:
 
 // (6.8.2)
 compound-statement:
-    "{" block-item-list_opt "}" { $$ = tree("compound-statement",$[block-item-list_opt]); }
+    "{" PushScope block-item-list_opt "}"
+        { $$ = tree("compound-statement",$[block-item-list_opt]); popScope($PushScope); }
   ;
+
+rule(<Scope>,PushScope):
+    %empty { $$ = pushScope(); }
 
 // (6.8.2)
 block-item-list:
@@ -770,8 +783,10 @@ selection-statement:
 iteration-statement:
     WHILE "(" expression ")" statement           { $$ = tree("while",$expression,$statement); }
   | DO statement WHILE "(" expression ")" ";"    { $$ = tree("do",$statement,$expression); }
-  | FOR "(" expression_opt[e1] ";" expression_opt[e2] ";" expression_opt[e3] ")" statement { $$ = tree("for",$e1,$e2,$e3); }
-  | FOR "(" declaration[dcl] expression_opt[e2] ";" expression_opt[e3] ")" statement       { $$ = tree("for",$dcl,$e2,$e3); }
+  | FOR "(" expression_opt[e1] ";" expression_opt[e2] ";" expression_opt[e3] ")" statement
+      { $$ = tree("for",$e1,$e2,$e3); }
+  | FOR "(" PushScope declaration[dcl] expression_opt[e2] ";" expression_opt[e3] ")" statement
+      { $$ = tree("for",$dcl,$e2,$e3); popScope($PushScope); }
   ;
 
 // (6.8.6)

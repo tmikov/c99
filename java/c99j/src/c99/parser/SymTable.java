@@ -100,6 +100,5 @@ private static int calcHashCode( byte val[], int off, int len )
   return h;
 }
 
-
 } // class
 

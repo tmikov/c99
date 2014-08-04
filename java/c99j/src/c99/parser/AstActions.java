@@ -8,17 +8,22 @@ public class AstActions
 
 public final Tree tree ( Code code )
 {
-  return new Tree0( code.name() );
+  return new Tree0( code.name() ).value(code);
+}
+
+public final Tree tree ( Code code, CParser.Location loc )
+{
+  return new Tree0( code.name() ).value(code).location(loc);
 }
 
 public final Tree tree ( Code code, Tree a )
 {
-  return new Tree1( code.name(), a );
+  return new Tree1( code.name(), a ).value(code);
 }
 
 public final Tree tree ( Code code, Tree a, Tree b )
 {
-  return new Tree2( code.name(), a, b );
+  return new Tree2( code.name(), a, b ).value(code);
 }
 
 public final Tree tree ( String name )
@@ -48,7 +53,7 @@ public final Tree tree ( String name, Tree a, Tree b, Tree c, Tree d )
 
 public final Tree stringLiteral ( byte[] value )
 {
-  return new Tree1( "<string-literal>", new Tree0( Utils.asciiString( value ) ) );
+  return new Tree1( "<string-literal>", new Tree0( Utils.asciiString( value ) ).value(value) );
 }
 
 public final Tree treeAppend ( Tree t, Tree newChild )
@@ -74,32 +79,32 @@ public final Tree leftAppend ( Tree newChild, Tree t )
   final int chCount = t.childCount();
   switch (chCount)
   {
-    case 0: return new Tree1( t.name, newChild );
-    case 1: return new Tree2( t.name, newChild, t.child( 0 ) );
-    case 2: return new Tree3( t.name, newChild, t.child( 0 ), t.child( 1 ) );
-    case 3: return new Tree4( t.name, newChild, t.child( 0 ), t.child( 1 ), t.child( 2 ) );
+    case 0: return new Tree1( t.name, newChild ).value(t.value);
+    case 1: return new Tree2( t.name, newChild, t.child( 0 ) ).value(t.value);
+    case 2: return new Tree3( t.name, newChild, t.child( 0 ), t.child( 1 ) ).value(t.value);
+    case 3: return new Tree4( t.name, newChild, t.child( 0 ), t.child( 1 ), t.child( 2 ) ).value(t.value);
     default:
       Tree[] children = new Tree[chCount + 1];
       for ( int i = 0; i < chCount; ++i )
         children[i+1] = t.child( i );
       children[0] = newChild;
-      return new TreeN( t.name, children );
+      return new TreeN( t.name, children ).value(t.value);
   }
 }
 
 public final Tree stringLiteral ( Tree lit, byte[] value )
 {
-  return treeAppend( lit, stringLiteral( value ) );
+  return treeAppend( lit, stringLiteral( value ) ).value(value);
 }
 
-public final Tree ident ( Symbol sym )
+public final Tree ident ( Symbol sym, CParser.Location loc )
 {
-  return new Tree0( "ident:" + sym.name );
+  return new Tree0( "ident:" + sym.name ).value(sym).location(loc);
 }
 
-public final Tree constant ( Constant.ArithC v )
+public final Tree constant ( Constant.ArithC v, CParser.Location loc )
 {
-  return new Tree0( "const:"+ v.toString() );
+  return new Tree0( "const:"+ v.toString() ).value(v).location( loc );
 }
 
 public final Tree seqAppend ( Tree seq, Tree newNode )
@@ -115,11 +120,6 @@ public final Tree seqAppend ( Tree seq, Tree newNode )
     cur = ch;
   cur.setChild( ind, newNode );
   return seq;
-}
-
-public final Tree specifyDecl ( Tree decl, Tree specs )
-{
-  return seqAppend( decl, specs );
 }
 
 public void print ( Tree t )

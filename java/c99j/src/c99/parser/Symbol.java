@@ -13,6 +13,8 @@ public PPSymCode ppCode;
 public Object ppDecl;
 public Code   keyword;
 
+public Decl topDecl;
+
 public Symbol ( byte bytes[], int hash )
 {
   this.bytes = bytes;
