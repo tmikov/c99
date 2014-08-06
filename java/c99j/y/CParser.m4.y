@@ -639,7 +639,7 @@ type-name:
   
 // (6.7.7)
 abstract-declarator:
-    pointer                                     { $$ = seqAppend(ast("direct-abstract-declarator"), $pointer); }
+    pointer                                     { $$ = seqAppend(ast("direct-abstract-declarator",null), $pointer); }
   | pointer_opt direct-abstract-declarator      { $$ = seqAppend($[direct-abstract-declarator], $pointer_opt); }
   ;
 
