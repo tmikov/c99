@@ -1,0 +1,34 @@
+commit 176abb92ec87657a0e4693780215f98defa9bd75
+Author: Tzvetan Mikov <tmikov@gmail.com>
+Date:   Wed Aug 6 12:39:55 2014 -0700
+
+    bison/lalr1.java: BUGFIX: yylen wasn't cleared after yyaction()
+    
+    The translation from the C parser missed a tiny detail: yylen is
+    passed to yyaction() as a parameter, so clearing it inside yyaction()
+    has no effect.
+    
+    So, we move the clearing outside.
+
+diff --git a/bison/lalr1.java b/bison/lalr1.java
+index 1060fb7..dfe60db 100644
+--- a/bison/lalr1.java
++++ b/bison/lalr1.java
+@@ -496,7 +496,7 @@ b4_define_state])[
+     yy_symbol_print ("-> $$ =", yyr1_[yyn], yyval]b4_locations_if([, yyloc])[);
+ 
+     yystack.pop (yylen);
+-    yylen = 0;
++    // yylen = 0;
+ 
+     /* Shift the result of the reduction.  */
+     int yystate = yy_lr_goto_state_ (yystack.stateAt (0), yyr1_[yyn]);
+@@ -723,6 +723,8 @@ b4_dollar_popdef[]dnl
+       case YYREDUCE:
+         yylen = yyr2_[yyn];
+         label = yyaction (yyn, yystack, yylen);
++        if (label == YYNEWSTATE)
++          yylen = 0;
+         yystate = yystack.stateAt (0);
+         break;
+ 
