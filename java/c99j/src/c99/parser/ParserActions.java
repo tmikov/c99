@@ -1,6 +1,8 @@
 package c99.parser;
 
 import c99.IErrorReporter;
+import c99.parser.ast.Ast;
+import c99.parser.ast.AstN;
 
 import java.util.Arrays;
 import java.util.Comparator;
@@ -31,42 +33,42 @@ private static boolean isStorageClass ( Code code )
       return false;
   }
 }
-private static boolean isStorageClass ( Tree t )
+private static boolean isStorageClass ( Ast t )
 {
   return (t.value instanceof Code) && isStorageClass((Code) t.value);
 }
 
-private static final Comparator<Tree> s_specComp = new Comparator<Tree>()
+private static final Comparator<Ast> s_specComp = new Comparator<Ast>()
 {
   @Override
-  public int compare ( final Tree o1, final Tree o2 )
+  public int compare ( final Ast o1, final Ast o2 )
   {
     int r1 = isStorageClass(o1) ? 0 : 1;
     int r2 = isStorageClass(o2) ? 0 : 1;
     return r1 - r2;
   }
 };
-private Tree sort ( Tree declspecs )
+private Ast sort ( Ast declspecs )
 {
   final int chCount = declspecs.childCount();
-  Tree[] children = new Tree[chCount];
+  Ast[] children = new Ast[chCount];
   for ( int i = 0; i < chCount; ++i )
     children[i] = declspecs.child( i );
 
   Arrays.sort( children, s_specComp );
-  return new TreeN(declspecs.name, children).value(declspecs.value);
+  return new AstN(declspecs.name, children).value(declspecs.value);
 }
 
-public final Tree specifyDecl ( Tree decl, Tree specs )
+public final Ast specifyDecl ( Ast decl, Ast specs )
 {
   specs = sort( specs );
   return seqAppend( decl, specs );
 }
 
-public final Tree declare ( Tree decl, Tree specs )
+public final Ast declare ( Ast decl, Ast specs )
 {
   specs = sort( specs );
-  Tree c0 = specs.child(0);
+  Ast c0 = specs.child(0);
   Code sc;
   if (isStorageClass(c0))
     sc = (Code)c0.value;

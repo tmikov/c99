@@ -1,10 +1,10 @@
-package c99.parser;
+package c99.parser.ast;
 
-public class Tree4 extends Tree
+public class Ast4 extends Ast
 {
-private Tree a, b, c, d;
+private Ast a, b, c, d;
 
-public Tree4 ( final String name, final Tree a, final Tree b, final Tree c, final Tree d )
+public Ast4 ( final String name, final Ast a, final Ast b, final Ast c, final Ast d )
 {
   super( name );
   this.a = a;
@@ -20,7 +20,7 @@ public int childCount ()
 }
 
 @Override
-public Tree child ( final int n )
+public Ast child ( final int n )
 {
   switch (n)
   {
@@ -34,7 +34,7 @@ public Tree child ( final int n )
 }
 
 @Override
-public void setChild ( final int n, final Tree ch )
+public void setChild ( final int n, final Ast ch )
 {
   switch (n)
   {

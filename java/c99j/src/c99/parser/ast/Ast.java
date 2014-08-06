@@ -1,40 +1,42 @@
-package c99.parser;
+package c99.parser.ast;
 
 import c99.SourceRange;
+import c99.parser.BisonLexer;
+import c99.parser.CParser;
 
 import java.io.PrintStream;
 
-public abstract class Tree extends SourceRange
+public abstract class Ast extends SourceRange
 {
 public final String name;
 public Object value;
 
-protected Tree ( final String name, final Object value )
+protected Ast ( final String name, final Object value )
 {
   this.name = name;
   this.value = value;
 }
 
-protected Tree ( final String name )
+protected Ast ( final String name )
 {
   this( name, null );
 }
 
-public Tree location ( CParser.Location loc )
+public Ast location ( CParser.Location loc )
 {
   BisonLexer.setLocation( this, loc );
   return this;
 }
 
-public Tree value ( Object value )
+public Ast value ( Object value )
 {
   this.value = value;
   return this;
 }
 
 public abstract int childCount ();
-public abstract Tree child ( int n );
-public abstract void setChild ( int n, Tree ch );
+public abstract Ast child ( int n );
+public abstract void setChild ( int n, Ast ch );
 
 @Override
 public String toString ()
@@ -56,15 +58,15 @@ public static void printIndent ( int indent, PrintStream out )
 
 private static final int INDENT_STEP = 4;
 
-private static final Tree s_nullChild = new Tree("<null>"){
+private static final Ast s_nullChild = new Ast("<null>"){
   @Override public int childCount () { return 0; }
-  @Override public Tree child ( final int n ) { assert false; return null; }
-  @Override public void setChild ( final int n, final Tree ch ) { assert false; }
+  @Override public Ast child ( final int n ) { assert false; return null; }
+  @Override public void setChild ( final int n, final Ast ch ) { assert false; }
 };
 
-private final Tree getChild ( int n )
+private final Ast getChild ( int n )
 {
-  Tree ch;
+  Ast ch;
   if ((ch = child( n )) == null)
     ch = s_nullChild;
   return ch;
@@ -97,7 +99,7 @@ public final void print ( int indent, PrintStream out, int maxWidth )
 
   for ( int i = 0; i < chCount; ++i )
   {
-    final Tree ch = getChild( i );
+    final Ast ch = getChild( i );
 
     if (remWidth > 0 &&
         shortBuf != null /*redundant but helps verification*/)
