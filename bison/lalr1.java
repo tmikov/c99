@@ -496,7 +496,7 @@ b4_define_state])[
     yy_symbol_print ("-> $$ =", yyr1_[yyn], yyval]b4_locations_if([, yyloc])[);
 
     yystack.pop (yylen);
-    yylen = 0;
+    // yylen = 0;
 
     /* Shift the result of the reduction.  */
     int yystate = yy_lr_goto_state_ (yystack.stateAt (0), yyr1_[yyn]);
@@ -723,6 +723,8 @@ b4_dollar_popdef[]dnl
       case YYREDUCE:
         yylen = yyr2_[yyn];
         label = yyaction (yyn, yystack, yylen);
+        if (label == YYNEWSTATE)
+          yylen = 0;
         yystate = yystack.stateAt (0);
         break;
 
