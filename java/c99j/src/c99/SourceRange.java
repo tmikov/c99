@@ -13,7 +13,8 @@ public SourceRange ()
 
 public SourceRange ( ISourceRange rng )
 {
-  setRange( rng );
+  if (rng != null)
+    setRange( rng );
 }
 
 public final SourceRange setRange ( String fileName, int line1, int col1, String fileName2, int line2, int col2 )
