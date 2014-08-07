@@ -4,6 +4,7 @@ import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.HashMap;
 
+import c99.Ident;
 import c99.Utils;
 
 public class SymTable
@@ -70,7 +71,7 @@ private final Key m_dummyKey = new Key();
 
 public Symbol symbol ( byte val[], int offset, int len )
 {
-  m_dummyKey.setVal( calcHashCode( val, offset, len ), val, offset, len );
+  m_dummyKey.setVal( Ident.calcHashCode( val, offset, len ), val, offset, len );
 
   Symbol symbol = m_map.get( m_dummyKey );
   if (symbol == null)
@@ -89,15 +90,6 @@ public Symbol symbol ( String name )
 {
   byte[] bytes = name.getBytes( s_latin );
   return symbol( bytes, 0, bytes.length );
-}
-
-private static int calcHashCode( byte val[], int off, int len )
-{
-  int h = 0;
-  for (int i = 0; i < len; i++) {
-      h = 31*h + (val[off++] & 0xFF);
-  }
-  return h;
 }
 
 } // class
