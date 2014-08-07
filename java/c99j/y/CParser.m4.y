@@ -3,16 +3,22 @@
 %define package "c99.parser"
 %code imports {
 import c99.Constant;
+import c99.CompilerOptions;
 import c99.IErrorReporter;
 import c99.parser.ast.Ast;
+import c99.Types.*;
 }
 %define public
 %define parser_class_name {CParser}
 %define extends {ParserActions}
 
+%parse-param { CompilerOptions opts_ }
 %parse-param { IErrorReporter reporter_ }
 %parse-param { SymTable symTab_ }
-%code init { super.init( reporter_, symTab_ ); pushScope(); }
+%code init {
+  super.init( opts_, reporter_, symTab_ );
+  pushScope(Scope.Kind.FILE);
+}
 
 %define parse.error verbose
 
@@ -122,7 +128,7 @@ import c99.parser.ast.Ast;
 %token<Code> _BOOL   "_Bool"
 %token<Code> _COMPLEX   "_Complex"
 %token _GENERIC   "_Generic"
-%token _IMAGINARY   "_Imaginary"
+%token<Code> _IMAGINARY   "_Imaginary"
 %token<Code> _NORETURN   "_Noreturn"
 %token<Code> _STATIC_ASSERT   "_Static_assert"
 %token<Code> _THREAD_LOCAL   "_Thread_local"
@@ -131,47 +137,10 @@ import c99.parser.ast.Ast;
 %precedence IF
 %precedence ELSE
 
-%type<Ast> identifier
-%type<Ast> any-identifier any-identifier_opt
 %type<Ast> string-literal
 %type<Ast> constant
-%type<Ast> declaration-list declaration-list_opt
-%type<Ast> declaration
-%type<Ast> declaration-specifiers-nots
-%type<Ast> declaration-specifiers-ts
-%type<Ast> declaration-specifiers-ts-rest
-%type<Ast> specifier-nots
-%type<Ast> storage-class-specifier
-%type<Ast> type-specifier
-%type<Ast> type-specifier-notyp
-%type<Ast> struct-or-union-specifier
-%type<Code> struct-or-union
-%type<Ast> struct-declaration-list
-%type<Ast> struct-declaration
-%type<Ast> specifier-qualifier-list
-%type<Ast> specifier-or-qualifier
-%type<Ast> enum-specifier
 %type<Ast> enumerator-list
 %type<Ast> enumerator
-%type<Ast> enumeration-constant
-%type<Ast> atomic-type-specifier
-%type<Ast> type-qualifier
-%type<Ast> function-specifier
-%type<Ast> alignment-specifier
-%type<Ast> declarator
-%type<Ast> declarator_opt
-%type<Ast> declarator-notyp declarator-notyp_opt
-%type<Ast> direct-declarator
-%type<Ast> direct-declarator-notyp
-%type<Ast> direct-declarator-elem
-%type<Ast> pointer pointer_opt
-%type<Ast> type-qualifier-list type-qualifier-list_opt
-%type<Ast> parameter-type-list
-%type<Ast> parameter-list
-%type<Ast> identifier-list identifier-list_opt
-%type<Ast> type-name
-%type<Ast> abstract-declarator abstract-declarator_opt
-%type<Ast> direct-abstract-declarator-elem
 %type<Ast> initializer
 %type<Ast> initializer-list
 %type<Ast> designation designation_opt
@@ -183,7 +152,6 @@ import c99.parser.ast.Ast;
 %type<Ast> labeled-statement
 %type<Ast> compound-statement
 %type<Ast> block-item-list block-item-list_opt
-%type<Ast> block-item
 %type<Ast> expression-statement
 %type<Ast> selection-statement
 %type<Ast> iteration-statement
@@ -221,22 +189,13 @@ import c99.parser.ast.Ast;
 start_grammar
 %%
 
-identifier:
-    IDENT       { $$ = ident( $IDENT, @IDENT ); }
+rule(<Symbol>,identifier):
+    IDENT
   ;
 
-/*identifier_opt:
-    %empty | identifier
-  ;*/
-
-any-identifier:
-    TYPENAME    { $$ = ident( $TYPENAME.symbol, @TYPENAME ); }
-  | IDENT       { $$ = ident( $IDENT, @IDENT ); }
-  ;
-
-any-identifier_opt:
-    %empty              { $$ = null; }
-  | any-identifier
+rule(<Symbol>,any-identifier,opt):
+    TYPENAME    { $$ = $TYPENAME.symbol; }
+  | IDENT
   ;
 
 string-literal:
@@ -262,30 +221,26 @@ translation-unit:
 
 // (6.9)
 external-declaration:
-    function-definition       { print( $[function-definition] ); }
-  | declaration               { print( $[declaration] ); }
+    function-definition
+  | declaration
   ;
 
 // (6.9.1)
-rule(<Ast>,function-definition):
-    specified-declarator declaration-list_opt {} compound-statement
-        { $$ = ast("function-definition", $[specified-declarator], $[declaration-list_opt], $[compound-statement]); }
+function-definition:
+    specified-func-declarator compound-statement
+  | specified-func-declarator PushParamScope declaration-list {} compound-statement
+        { popScope($PushParamScope); FIXME(); }
   ;
 
-rule(<Ast>,specified-declarator):
-    declaration-specifiers-nots declarator-notyp  { $$ = declare($[declarator-notyp], $[declaration-specifiers-nots]); }
-  | declaration-specifiers-ts   declarator        { $$ = declare($[declarator],       $[declaration-specifiers-ts]); }
+rule(<Ast>,specified-func-declarator):
+    declaration-specifiers-nots[ds] func-declarator-notyp[decl]  { $$ = declare($decl,$ds,true); }
+  | declaration-specifiers-ts[ds]   func-declarator[decl]        { $$ = declare($decl,$ds,true); }
   ;
 
 // (6.9.1)
 declaration-list:
-    declaration                         { $$ = ast("declaration-list", $1); }
-  | declaration-list declaration        { $$ = astAppend($1, $2); }
-  ;
-
-declaration-list_opt:
-    %empty                              { $$ = null; }
-  | declaration-list
+    declaration
+  | declaration-list declaration
   ;
 
 // A.2.2. Declarations
@@ -322,27 +277,35 @@ declaration-list_opt:
 
 declaration:
     static_assert-declaration
-  | declaration-specifiers-nots init-declarator-list-notyp_opt ";" { $$ = ast("declaration", $1, $2); }
-  | declaration-specifiers-ts   init-declarator-list_opt ";"       { $$ = ast("declaration", $1, $2); }
+  | declaration-specifiers-nots init-declarator-list-notyp_opt ";"
+  | declaration-specifiers-ts   init-declarator-list_opt ";"
   ;
 
-declaration-specifiers-nots:
-    specifier-nots                              { $$ = ast( "declaration-specifiers", $1 ); }
-  | specifier-nots declaration-specifiers-nots  { $$ = leftAppend( $1, $2 ); }
+rule(<DeclSpec>,declaration-specifiers-nots):
+    _declaration-specifiers-nots { $$ = declSpec(@1,$1); }
   ;
 
-declaration-specifiers-ts:
-    type-specifier declaration-specifiers-ts-rest  { $$ = leftAppend( $1, $2 ); }
-  | specifier-nots declaration-specifiers-ts       { $$ = leftAppend( $1, $2 ); }
+rule(<DeclSpec>,declaration-specifiers-ts):
+    _declaration-specifiers-ts   { $$ = declSpec(@1,$1); }
   ;
 
-declaration-specifiers-ts-rest:
-    %empty                                               { $$ = ast("declaration-specifiers"); }
-  | type-specifier-notyp declaration-specifiers-ts-rest  { $$ = leftAppend( $1, $2 ); }
-  | specifier-nots declaration-specifiers-ts-rest        { $$ = leftAppend( $1, $2 ); }
+rule(<SpecNode>,_declaration-specifiers-nots):
+    specifier-nots
+  | specifier-nots _declaration-specifiers-nots  { $$ = append( $1, $2 ); }
   ;
 
-specifier-nots:
+rule(<SpecNode>,_declaration-specifiers-ts):
+    type-specifier declaration-specifiers-ts-rest  { $$ = append( $1, $2 ); }
+  | specifier-nots _declaration-specifiers-ts       { $$ = append( $1, $2 ); }
+  ;
+
+rule(<SpecNode>,declaration-specifiers-ts-rest):
+    %empty                                               { $$ = null; }
+  | type-specifier-notyp declaration-specifiers-ts-rest  { $$ = append( $1, $2 ); }
+  | specifier-nots declaration-specifiers-ts-rest        { $$ = append( $1, $2 ); }
+  ;
+
+rule(<SpecNode>,specifier-nots):
     storage-class-specifier
   | type-qualifier
   | function-specifier
@@ -362,113 +325,114 @@ rule(<Ast>,init-declarator-list-notyp,opt,declaration-specifiers):
 
 // (6.7)
 rule(<Ast>,init-declarator,,declaration-specifiers):
-    declarator                  { $$ = ast("init-declarator", declare($declarator,$<Ast>0), null); }
-  | declarator "=" initializer  { $$ = ast("init-declarator", declare($declarator,$<Ast>0), $initializer); }
+    declarator[decl]                  { $$ = FIXME(); declare($decl,$<DeclSpec>0,false); }
+  | declarator[decl] "=" initializer  { $$ = FIXME(); declare($decl,$<DeclSpec>0,true); }
   ;
 
 rule(<Ast>,init-declarator-notyp,,declaration-specifiers):
-    declarator-notyp                  { $$ = ast( "init-declarator", $[declarator-notyp], null ); }
-  | declarator-notyp "=" initializer  { $$ = ast( "init-declarator", $[declarator-notyp], $initializer ); }
+    declarator-notyp[decl]                  { $$ = FIXME(); declare($decl,$<DeclSpec>0,false); }
+  | declarator-notyp[decl] "=" initializer  { $$ = FIXME(); declare($decl,$<DeclSpec>0,true); }
   ;
 
 // (6.7.1)
-storage-class-specifier:
-    TYPEDEF                    { $$ = ast($1,@1); }
-  | EXTERN                     { $$ = ast($1,@1); }
-  | STATIC                     { $$ = ast($1,@1); }
-  | _THREAD_LOCAL              { $$ = ast($1,@1); }
-  | AUTO                       { $$ = ast($1,@1); }
-  | REGISTER                   { $$ = ast($1,@1); }
+rule(<SpecNode>,storage-class-specifier):
+    TYPEDEF                    { $$ = spec(@1,$1); }
+  | EXTERN                     { $$ = spec(@1,$1); }
+  | STATIC                     { $$ = spec(@1,$1); }
+  | _THREAD_LOCAL              { $$ = spec(@1,$1); }
+  | AUTO                       { $$ = spec(@1,$1); }
+  | REGISTER                   { $$ = spec(@1,$1); }
   ;
 
 // (6.7.2)
-type-specifier:
+rule(<SpecNode>,type-specifier):
     type-specifier-notyp
-  | TYPENAME                    { $$ = ident($TYPENAME.symbol,@TYPENAME); }
+  | TYPENAME                    { $$ = specTypename(@1,$1); }
   ;
 
-type-specifier-notyp:
-    VOID                        { $$ = ast($1,@1); }
-  | CHAR                        { $$ = ast($1,@1); }
-  | SHORT                       { $$ = ast($1,@1); }
-  | INT                         { $$ = ast($1,@1); }
-  | LONG                        { $$ = ast($1,@1); }
-  | FLOAT                       { $$ = ast($1,@1); }
-  | DOUBLE                      { $$ = ast($1,@1); }
-  | SIGNED                      { $$ = ast($1,@1); }
-  | UNSIGNED                    { $$ = ast($1,@1); }
-  | _BOOL                       { $$ = ast($1,@1); }
-  | _COMPLEX                    { $$ = ast($1,@1); }
+rule(<SpecNode>,type-specifier-notyp):
+    VOID                        { $$ = spec(@1,$1); }
+  | CHAR                        { $$ = spec(@1,$1); }
+  | SHORT                       { $$ = spec(@1,$1); }
+  | INT                         { $$ = spec(@1,$1); }
+  | LONG                        { $$ = spec(@1,$1); }
+  | FLOAT                       { $$ = spec(@1,$1); }
+  | DOUBLE                      { $$ = spec(@1,$1); }
+  | SIGNED                      { $$ = spec(@1,$1); }
+  | UNSIGNED                    { $$ = spec(@1,$1); }
+  | _BOOL                       { $$ = spec(@1,$1); }
+  | _COMPLEX                    { $$ = spec(@1,$1); }
+  | _IMAGINARY                  { $$ = spec(@1,$1); }
   | atomic-type-specifier
   | struct-or-union-specifier
   | enum-specifier
   ;
 
 // (6.7.2.1)
-struct-or-union-specifier:
-    struct-or-union any-identifier_opt "{" PushScope struct-declaration-list "}"
-      { $$ = ast( $[struct-or-union], $[any-identifier_opt], $[struct-declaration-list] ); popScope($PushScope); }
+rule(<SpecNode>,struct-or-union-specifier):
+    struct-or-union any-identifier_opt "{" PushAggScope struct-declaration-list "}"
+      { $$ = declareAgg(@[struct-or-union], $[struct-or-union], @[any-identifier_opt], $[any-identifier_opt], popScope($PushAggScope)); }
   | struct-or-union any-identifier
-      { $$ = ast( $[struct-or-union], $[any-identifier], null ); }
+      { $$ = specAgg(@[struct-or-union], $[struct-or-union], @[any-identifier], $[any-identifier]); }
   ;
 
 // (6.7.2.1)
-struct-or-union:
+rule(<Code>,struct-or-union):
     STRUCT
   | UNION
   ;
 
 // (6.7.2.1)
 struct-declaration-list:
-    struct-declaration                          { $$ = ast( "struct-declaration-list", $1 ); }
-  | struct-declaration-list struct-declaration  { $$ = astAppend( $1, $2 ); }
+    struct-declaration
+  | struct-declaration-list struct-declaration
   ;
 
 // (6.7.2.1)
 struct-declaration:
     static_assert-declaration
-  | declaration-specifiers-nots struct-declarator-list-notyp_opt ";" { $$ = ast( "struct-declaration", $1, $2 ); }
-  | declaration-specifiers-ts   struct-declarator-list_opt ";"       { $$ = ast( "struct-declaration", $1, $2 ); }
+  | declaration-specifiers-nots struct-declarator-list-notyp_opt ";"
+  | declaration-specifiers-ts   struct-declarator-list_opt ";"
   ;
 
 // (6.7.2.1)
-specifier-qualifier-list:
-    specifier-or-qualifier                              { $$ = ast("specifier-qualifier-list", $1); }
-  | specifier-qualifier-list specifier-or-qualifier     { $$ = astAppend($1,$2); }
+rule(<SpecNode>,specifier-qualifier-list):
+    specifier-or-qualifier
+  | specifier-qualifier-list specifier-or-qualifier     { $$ = append($1,$2); }
   ;
 
-specifier-or-qualifier:
+rule(<SpecNode>,specifier-or-qualifier):
     type-specifier
   | type-qualifier
   ;
 
 // (6.7.2.1)
-rule(<Ast>,struct-declarator-list,opt):
-    struct-declarator                                   { $$ = ast("struct-declarator-list", $[struct-declarator]); }
-  | struct-declarator-list "," _PUSH0 struct-declarator { $$ = astAppend($1,$[struct-declarator]); }
+rule(,struct-declarator-list,optn):
+    struct-declarator
+  | struct-declarator-list "," _PUSH0 struct-declarator
   ;
 
-rule(<Ast>,struct-declarator-list-notyp,opt):
-    struct-declarator-notyp                                    { $$ = ast("struct-declarator-list", $[struct-declarator-notyp]); }
-  | struct-declarator-list-notyp "," _PUSH0 struct-declarator  { $$ = astAppend($1,$[struct-declarator]); }
+rule(,struct-declarator-list-notyp,optn):
+    struct-declarator-notyp
+  | struct-declarator-list-notyp "," _PUSH0 struct-declarator
   ;
 
 // (6.7.2.1)
-rule(<Ast>,struct-declarator):
-    declarator                              { $$ = ast( "struct-declarator", declare($[declarator],$<Ast>0) ); }
-  | declarator_opt ":" constant-expression  { $$ = ast( "bitfield-declarator", declare($[declarator_opt],$<Ast>0), $[constant-expression] ); }
+struct-declarator:
+    declarator[decl]                              { declare($decl,$<DeclSpec>0); }
+  | declarator_opt ":" constant-expression        { FIXME(); }
   ;
 
-rule(<Ast>,struct-declarator-notyp):
-    declarator-notyp                               { $$ = ast( "struct-declarator", declare($[declarator-notyp],$<Ast>0) ); }
-  | declarator-notyp_opt ":" constant-expression   { $$ = ast( "bitfield-declarator", declare($[declarator-notyp_opt],$<Ast>0), $[constant-expression] ); }
+struct-declarator-notyp:
+    declarator-notyp[decl]                         { declare($decl,$<DeclSpec>0); }
+  | declarator-notyp_opt ":" constant-expression   { FIXME(); }
   ;
 
 // (6.7.2.2)
-enum-specifier:
-    ENUM any-identifier_opt "{" enumerator-list "}"     { $$ = ast( $ENUM, $[any-identifier_opt], $[enumerator-list] ); }
-  | ENUM any-identifier_opt "{" enumerator-list "," "}" { $$ = ast( $ENUM, $[any-identifier_opt], $[enumerator-list] ); }
-  | ENUM any-identifier                                 { $$ = ast( $ENUM, $[any-identifier],     null ); }
+rule(<SpecNode>,enum-specifier):
+    ENUM any-identifier_opt "{" enumerator-list "}"             { FIXME(); }
+  | ENUM any-identifier_opt "{" enumerator-list "," "}"         { FIXME(); }
+  | ENUM any-identifier                                         { FIXME(); }  
   ;
 
 // (6.7.2.2)
@@ -479,139 +443,193 @@ enumerator-list:
 
 // (6.7.2.2)
 enumerator:
-    enumeration-constant                          { $$ = ast( "enumerator", $[enumeration-constant], null ); }
-  | enumeration-constant "=" constant-expression  { $$ = ast( "enumerator", $[enumeration-constant], $[constant-expression] ); }
+    enumeration-constant                          { FIXME(); }
+  | enumeration-constant "=" constant-expression  { FIXME(); }
   ;
 
 enumeration-constant:
-    any-identifier    { $$ = ast( "enumeration-constant", $[any-identifier] ); }
+    any-identifier
   ;
 
 // (6.7.2.4)
-atomic-type-specifier:
-    _ATOMIC "(" type-name ")"	{ $$ = ast( $_ATOMIC, $[type-name] ); }
+rule(<SpecNode>,atomic-type-specifier):
+    _ATOMIC "(" type-name ")"  { FIXME(); }
   ;
 
 // (6.7.3)
-type-qualifier:
-    CONST       { $$ = ast( $1 ); }
-  | RESTRICT    { $$ = ast( $1 ); }
-  | VOLATILE    { $$ = ast( $1 ); }
-  | _ATOMIC     { $$ = ast( $1 ); }
+rule(<SpecNode>,type-qualifier):
+    CONST       { $$ = spec(@1,$1); }
+  | RESTRICT    { $$ = spec(@1,$1); }
+  | VOLATILE    { $$ = spec(@1,$1); }
+  | _ATOMIC     { $$ = spec(@1,$1); }
   ;
 
 // (6.7.4)
-function-specifier:
-    INLINE      { $$ = ast( $1 ); }
-  | _NORETURN   { $$ = ast( $1 ); }
+rule(<SpecNode>,function-specifier):
+    INLINE      { $$ = spec(@1,$1); }
+  | _NORETURN   { $$ = spec(@1,$1); }
   ;
 
 // (6.7.5)
-alignment-specifier:
-    _ALIGNAS "(" type-name ")"		 { $$ = ast( $_ALIGNAS, $[type-name] ); }
-  | _ALIGNAS "(" constant-expression ")" { $$ = ast( $_ALIGNAS, $[constant-expression] ); }
+rule(<SpecNode>,alignment-specifier):
+    _ALIGNAS "(" type-name ")"                  { FIXME(); }
+  | _ALIGNAS "(" constant-expression ")"        { FIXME(); }
   ;
 
 // (6.7.6)
-declarator:
-    pointer_opt direct-declarator       { $$ = seqAppend($[direct-declarator],$pointer_opt); }
+rule(<Declarator>,declarator):
+    nofunc-declarator
+  | func-declarator
+  ;
+rule(<Declarator>,declarator_opt):
+    declarator
+  | %empty                              { $$ = abstractDeclarator(yyloc); }
   ;
 
-declarator_opt:
-    %empty      { $$ = null; }
-  | declarator
+
+rule(<Declarator>,declarator-notyp):
+    nofunc-declarator-notyp
+  | func-declarator-notyp
+  ;
+rule(<Declarator>,declarator-notyp_opt):
+    declarator-notyp
+  | %empty                              { $$ = abstractDeclarator(yyloc); }
   ;
 
-declarator-notyp:
-    pointer direct-declarator           { $$ = seqAppend($[direct-declarator],$pointer); }
-  | direct-declarator-notyp             { $$ = $[direct-declarator-notyp]; }
+rule(<Declarator>,nofunc-declarator):
+    pointer_opt[ptr] direct-nofunc-declarator[decl]  { $$ = $decl.append($ptr); }
+  ;
+rule(<Declarator>,nofunc-declarator-notyp):
+    pointer[ptr] direct-nofunc-declarator[decl]      { $$ = $decl.append($ptr); }
+  |              direct-nofunc-declarator-notyp
   ;
 
-declarator-notyp_opt:
-    %empty      { $$ = null; }
-  | declarator-notyp
+rule(<Declarator>,func-declarator):
+    pointer_opt[ptr] direct-func-declarator[decl]    { $$ = $decl.append($ptr); }
   ;
+rule(<Declarator>,func-declarator-notyp):
+    pointer[ptr] direct-func-declarator[decl]        { $$ = $decl.append($ptr); }
+  |              direct-func-declarator-notyp
+  ;
+
+rule(<Declarator>,direct-func-declarator):
+    any-identifier[id] direct-declarator-elem-func[el] { $$ = declarator(@id,$id).append($el); }
+  | "(" func-declarator[decl] ")"                      { $$ = $decl; }  
+  | direct-func-declarator[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
+  ;
+rule(<Declarator>,direct-func-declarator-notyp):
+    identifier[id] direct-declarator-elem-func[el]     { $$ = declarator(@id,$id).append($el); }
+  | "(" func-declarator[decl] ")"                      { $$ = $decl; }  
+  | direct-func-declarator-notyp[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
+  ;
+
 
 // (6.7.6)
-direct-declarator:
-    any-identifier                              { $$ = ast( "direct-declarator", $[any-identifier], null ); }
-  | "(" declarator ")"                          { $$ = $declarator; }
-  | direct-declarator direct-declarator-elem    { $$ = seqAppend($1,$[direct-declarator-elem]); }
+rule(<Declarator>,d1):
+    any-identifier[id]                           { $$ = declarator(@id, $id); }
+  | "(" nofunc-declarator[decl] ")"              { $$ = $decl; }
+  ;
+rule(<Declarator>,d2):
+    d1[decl] direct-declarator-elem-nofunc[el]   { $$ = $decl.append($el); }
+  | d2[decl] direct-declarator-elem[el]          { $$ = $decl.append($el); }
+  ;
+rule(<Declarator>,direct-nofunc-declarator):
+    d1
+  | d2
+  ;
+rule(<Declarator>,direct-declarator):
+    direct-nofunc-declarator
+  | direct-func-declarator
   ;
 
-direct-declarator-notyp:
-    identifier                                      { $$ = ast( "direct-declarator", $[identifier], null ); }
-  | "(" declarator ")"                              { $$ = $declarator; }
-  | direct-declarator-notyp direct-declarator-elem  { $$ = seqAppend($1,$[direct-declarator-elem]); }
+rule(<Declarator>,d1-notyp):
+    identifier[id]                               { $$ = declarator(@id, $id); }
+  | "(" nofunc-declarator[decl] ")"              { $$ = $decl; }
+  ;
+rule(<Declarator>,d2-notyp):
+    d1-notyp[decl] direct-declarator-elem-nofunc[el] { $$ = $decl.append($el); }
+  | d2-notyp[decl] direct-declarator-elem[el]        { $$ = $decl.append($el); }
+  ;
+rule(<Declarator>,direct-nofunc-declarator-notyp):
+    d1-notyp
+  | d2-notyp
   ;
 
-direct-declarator-elem:
+rule(<Declarator>,direct-declarator-notyp):
+    direct-nofunc-declarator-notyp
+  | direct-func-declarator-notyp
+  ;
+
+rule(<DeclElem>,direct-declarator-elem):
+    direct-declarator-elem-nofunc
+  | direct-declarator-elem-func
+  ;
+
+rule(<DeclElem>,direct-declarator-elem-nofunc):
     "[" type-qualifier-list_opt assignment-expression_opt "]"
-        { $$ = ast("qual",$[type-qualifier-list_opt],ast("array",null,$[assignment-expression_opt],null)); }
+        { $$ = arrayDecl(@$,$[type-qualifier-list_opt],null,null,$[assignment-expression_opt]); }
   | "[" STATIC type-qualifier-list_opt assignment-expression "]"
-        { $$ = ast("qual",$[type-qualifier-list_opt],ast("array",ast($STATIC),$[assignment-expression],null)); }
+        { $$ = arrayDecl(@$,$[type-qualifier-list_opt],@STATIC,null,$[assignment-expression]); }
   | "[" type-qualifier-list STATIC assignment-expression "]"
-        { $$ = ast("qual",$[type-qualifier-list],ast("array",ast($STATIC),$[assignment-expression],null)); }
+        { $$ = arrayDecl(@$,$[type-qualifier-list],@STATIC,null,$[assignment-expression]); }
   | "[" type-qualifier-list_opt ASTERISK "]"
-        { $$ = ast("qual",$[type-qualifier-list_opt],ast("array",null,ast($ASTERISK),null)); }
-  | "(" PushScope parameter-type-list ")"
-        { $$ = ast("qual",null,ast("func",$[parameter-type-list],null)); popScope($PushScope); }
-  | "(" identifier-list_opt ")"
-        { $$ = ast("qual",null,ast("old-func",$[identifier-list_opt],null)); }
+        { $$ = arrayDecl(@$,$[type-qualifier-list_opt],null,@ASTERISK,null); }
+  ;
+
+rule(<DeclElem>,direct-declarator-elem-func):
+    newfunc-decl
+  | oldfunc-decl
+  ;
+
+rule(<DeclElem>,oldfunc-decl):
+    "(" identifier-list_opt ")" { $$ = oldFuncDecl(@$, $[identifier-list_opt]); }
+  ;
+rule(<DeclElem>,newfunc-decl):
+    "(" parameter-type-list ")" { $$ = funcDecl(@$, $[parameter-type-list]); }
   ;
 
 // (6.7.6)
-pointer:
-                  "*" type-qualifier-list_opt  { $$ = ast("qual", $[type-qualifier-list_opt], ast("pointer",null)); }
-  | pointer[left] "*" type-qualifier-list_opt  { $$ = ast("qual", $[type-qualifier-list_opt], ast("pointer",$left)); }
-  ;
-
-pointer_opt:
-    %empty      { $$ = null; }
-  | pointer
+rule(<DeclElem>,pointer,opt):
+                  "*"[p] type-qualifier-list_opt  { $$ = pointerDecl(@p,$[type-qualifier-list_opt], null); }
+  | pointer[left] "*"[p] type-qualifier-list_opt  { $$ = pointerDecl(@p,$[type-qualifier-list_opt], $left); }
   ;
 
 // (6.7.6)
-type-qualifier-list:
-    type-qualifier                      { $$ = ast( "qual-list", $1 ); }
-  | type-qualifier-list type-qualifier  { $$ = astAppend( $1, $2 ); }
-  ;
-
-type-qualifier-list_opt:
-    %empty              { $$ = null; }
-  | type-qualifier-list
+rule(<SpecNode>,type-qualifier-list,opt):
+    type-qualifier
+  | type-qualifier-list[left] type-qualifier  { $$ = append($left, $[type-qualifier]); }
   ;
 
 // (6.7.6)
-parameter-type-list:
+rule(<DeclList>,parameter-type-list):
     parameter-list
-  | parameter-list "," "..."            { $$ = astAppend( $1, ast($3) ); }
+  | parameter-list "," "..."            { $$ = $[parameter-list].setEllipsis(); }
   ;
 
 // (6.7.6)
-parameter-list:
-    parameter-declaration                       { $$ = ast("parameter-list", $1); }
-  | parameter-list "," parameter-declaration    { $$ = astAppend( $1, $3); }
+rule(<DeclList>,parameter-list):
+    parameter-declaration                           { $$ = declList(null,$[parameter-declaration]); }
+  | parameter-list[left] "," parameter-declaration  { $$ = declList($left,$[parameter-declaration]); }
   ;
 
 // (6.7.6)
-rule(<Ast>,parameter-declaration):
+rule(<DeclInfo>,parameter-declaration):
     declaration-specifiers-nots pointer direct-declarator
-        { $$ = ast("param-decl",declare(seqAppend($[direct-declarator],$pointer),$[declaration-specifiers-nots])); }
+        { $$ = declInfo($[direct-declarator].append($pointer), $[declaration-specifiers-nots]); }
   | declaration-specifiers-ts   pointer direct-declarator
-        { $$ = ast("param-decl",declare(seqAppend($[direct-declarator],$pointer),$[declaration-specifiers-ts])); }
+        { $$ = declInfo($[direct-declarator].append($pointer), $[declaration-specifiers-ts]); }
   | declaration-specifiers-nots         direct-declarator-notyp
-        { $$ = ast("param-decl",declare($[direct-declarator-notyp],$[declaration-specifiers-nots])); }
-  | declaration-specifiers-ts           direct-declarator                
-        { $$ = ast("param-decl",declare($[direct-declarator],$[declaration-specifiers-ts])); }
+        { $$ = declInfo($[direct-declarator-notyp], $[declaration-specifiers-nots]); }
+  | declaration-specifiers-ts           direct-declarator
+        { $$ = declInfo($[direct-declarator], $[declaration-specifiers-ts]); }
   | declaration-specifiers-nots pointer direct-abstract-declarator_opt   
-        { $$ = ast("param-decl",declare(seqAppend($[direct-abstract-declarator_opt],$pointer),$[declaration-specifiers-nots])); }
+        { $$ = declInfo($[direct-abstract-declarator_opt].append($pointer), $[declaration-specifiers-nots]); }
   | declaration-specifiers-ts   pointer direct-abstract-declarator_opt   
-        { $$ = ast("param-decl",declare(seqAppend($[direct-abstract-declarator_opt],$pointer),$[declaration-specifiers-ts])); }
+        { $$ = declInfo($[direct-abstract-declarator_opt].append($pointer), $[declaration-specifiers-ts]); }
   | declaration-specifiers-nots         direct-abstract-declarator_opt   
-        { $$ = ast("param-decl",declare($[direct-abstract-declarator_opt],$[declaration-specifiers-nots])); }
+        { $$ = declInfo($[direct-abstract-declarator_opt], $[declaration-specifiers-nots]); }
   | declaration-specifiers-ts           direct-abstract-declarator_opt   
-        { $$ = ast("param-decl",declare($[direct-abstract-declarator_opt],$[declaration-specifiers-ts])); }
+        { $$ = declInfo($[direct-abstract-declarator_opt], $[declaration-specifiers-ts]); }
   ;
 
 /*
@@ -622,59 +640,54 @@ rule(<Ast>,parameter-declaration):
   is a new style declaration).
 */
 // (6.7.6)
-identifier-list:
-    identifier                          { $$ = ast("identifier-list", $1 ); }
-  | identifier-list "," any-identifier  { $$ = astAppend( $1, $3 ); }
-  ;
-
-identifier-list_opt:
-    %empty              { $$ = null; }
-  | identifier-list
+rule(<IdentList>,identifier-list,opt):
+    identifier                                { $$ = identListAdd(@identifier, identList(), $identifier); }
+  | identifier-list[list] "," any-identifier  { $$ = identListAdd(@[any-identifier], $list, $[any-identifier]); }
   ;
 
 // (6.7.7)
-type-name:
-    specifier-qualifier-list abstract-declarator_opt    { $$ = ast("type-name", $1, $2); }
+rule(<Qual>,type-name):
+    specifier-qualifier-list[slist] abstract-declarator_opt
+        { $$ = mkTypeName($[abstract-declarator_opt], declSpec(@slist,$slist)); }
   ;
   
 // (6.7.7)
-abstract-declarator:
-    pointer                                     { $$ = seqAppend(ast("direct-abstract-declarator",null), $pointer); }
-  | pointer_opt direct-abstract-declarator      { $$ = seqAppend($[direct-abstract-declarator], $pointer_opt); }
+rule(<Declarator>,abstract-declarator):
+    pointer                                     { $$ = abstractDeclarator(@pointer).append($pointer); }
+  | pointer_opt direct-abstract-declarator      { $$ = $[direct-abstract-declarator].append($pointer_opt); }
   ;
 
-abstract-declarator_opt:
-    %empty      { $$ = null; }
-  | abstract-declarator
+rule(<Declarator>,abstract-declarator_opt):
+    abstract-declarator
+  | %empty                                      { $$ = abstractDeclarator(yyloc); }
   ;
 
 // (6.7.7)
-rule(<Ast>,direct-abstract-declarator):
-    "(" abstract-declarator ")"                                { $$ = $[abstract-declarator]; }
-  | direct-abstract-declarator-elem                            { $$ = ast("direct-abstract-declarator", $[direct-abstract-declarator-elem]); }
-  | direct-abstract-declarator direct-abstract-declarator-elem { $$ = seqAppend($1, $[direct-abstract-declarator-elem]); }
+rule(<Declarator>,direct-abstract-declarator):
+    "(" abstract-declarator ")"                                      { $$ = $[abstract-declarator]; }
+  | direct-abstract-declarator-elem[elem]                            { $$ = abstractDeclarator(@elem).append($elem); }
+  | direct-abstract-declarator direct-abstract-declarator-elem[elem] { $$ = $1.append($elem); }
   ;
 
-rule(<Ast>,direct-abstract-declarator_opt):
-    %empty { $$ = ast("direct-abstract-declarator",null); }
-  | direct-abstract-declarator
+rule(<Declarator>,direct-abstract-declarator_opt):
+    direct-abstract-declarator
+  | %empty                                     { $$ = abstractDeclarator(yyloc); }
   ;
 
-direct-abstract-declarator-elem:
+rule(<DeclElem>,direct-abstract-declarator-elem):
     "[" type-qualifier-list assignment-expression_opt "]"
-        { $$ = ast("qual",$[type-qualifier-list],ast("array",null,$[assignment-expression_opt],null)); }
+        { $$ = arrayDecl(@$,$[type-qualifier-list],null,null,$[assignment-expression_opt]); }
   | "[" assignment-expression_opt "]"
-        { $$ = ast("qual",null,ast("array",null,$[assignment-expression_opt],null)); }
+        { $$ = arrayDecl(@$,null,null,null,$[assignment-expression_opt]); }
   | "[" STATIC type-qualifier-list_opt assignment-expression "]"
-        { $$ = ast("qual",$[type-qualifier-list_opt],ast("array",ast($STATIC),$[assignment-expression],null)); }
+        { $$ = arrayDecl(@$,$[type-qualifier-list_opt],@STATIC,null,$[assignment-expression]); }
   | "[" type-qualifier-list STATIC assignment-expression "]"
-        { $$ = ast("qual",$[type-qualifier-list],ast("array",ast($STATIC),$[assignment-expression],null)); }
+        { $$ = arrayDecl(@$,$[type-qualifier-list],@STATIC,null,$[assignment-expression]); }
   | "[" ASTERISK "]"
-        { $$ = ast("qual",null,ast("array",null,ast($ASTERISK),null)); }
-  | "(" parameter-type-list ")"
-        { $$ = ast("qual",null,ast("func",$[parameter-type-list],null)); }
+        { $$ = arrayDecl(@$,null,null,@ASTERISK,null); }
+  | newfunc-decl
   | "(" ")"
-        { $$ = ast("qual",null,ast("old-func",null)); }
+        { $$ = oldFuncDecl(@$,null); }
   ;
 
 // (6.7.9)
@@ -709,7 +722,7 @@ designator-list:
 // (6.7.9)
 designator:
     "[" constant-expression "]"         { $$ = ast("designator-index",$[constant-expression]); }
-  | "." any-identifier                  { $$ = ast("designator-member",$[any-identifier]); }
+  | "." any-identifier                  { FIXME(); }
 // GNU C extension
   | "[" constant-expression[ce1] "..." constant-expression[ce2] "]" { $$ = ast("designator-range",$ce1,$ce2); }
   ;
@@ -744,17 +757,23 @@ labeled-statement:
 
 // (6.8.2)
 compound-statement:
-    "{" PushScope block-item-list_opt "}"
-        { $$ = ast("compound-statement",$[block-item-list_opt]); popScope($PushScope); }
+    "{" PushBlockScope block-item-list_opt "}"
+        { $$ = FIXME(); popScope($PushBlockScope); }
   ;
 
-rule(<Scope>,PushScope):
-    %empty { $$ = pushScope(); }
+rule(<Scope>,PushBlockScope):
+    %empty { $$ = pushScope(Scope.Kind.BLOCK); }
+
+rule(<Scope>,PushParamScope):
+    %empty { $$ = pushScope(Scope.Kind.PARAM); }
+
+rule(<Scope>,PushAggScope):
+    %empty { $$ = pushScope(Scope.Kind.AGGREGATE); }
 
 // (6.8.2)
 block-item-list:
-    block-item                  { $$ = ast("block-item-list",$1); }
-  | block-item-list block-item  { $$ = astAppend($1,$2); }
+    block-item                  { FIXME(); }
+  | block-item-list block-item  { FIXME(); }
   ;
 
 block-item-list_opt:
@@ -763,9 +782,9 @@ block-item-list_opt:
   ;
 
 // (6.8.2)
-block-item:
-    declaration { $$ = ast("declaration-statement",$1); }
-  | statement
+rule(<Ast>,block-item):
+    declaration { FIXME(); }
+  | statement   { FIXME(); }
   ;
 
 // (6.8.3)
@@ -785,14 +804,14 @@ iteration-statement:
     WHILE "(" expression ")" statement           { $$ = ast("while",$expression,$statement); }
   | DO statement WHILE "(" expression ")" ";"    { $$ = ast("do",$statement,$expression); }
   | FOR "(" expression_opt[e1] ";" expression_opt[e2] ";" expression_opt[e3] ")" statement
-      { $$ = ast("for",$e1,$e2,$e3); }
-  | FOR "(" PushScope declaration[dcl] expression_opt[e2] ";" expression_opt[e3] ")" statement
-      { $$ = ast("for",$dcl,$e2,$e3); popScope($PushScope); }
+      { FIXME(); }
+  | FOR "(" PushBlockScope declaration[dcl] expression_opt[e2] ";" expression_opt[e3] ")" statement
+      { FIXME(); popScope($PushBlockScope); }
   ;
 
 // (6.8.6)
 jump-statement:
-    GOTO any-identifier ";"   { $$ = ast("goto",$[any-identifier]); }
+    GOTO any-identifier ";"   { FIXME(); }
   | CONTINUE ";"              { $$ = ast("continue"); }
   | BREAK ";"                 { $$ = ast("break"); }
   | RETURN expression_opt ";" { $$ = ast("return", $expression_opt); }
@@ -802,7 +821,7 @@ jump-statement:
 
 // (6.5.1)
 primary-expression:
-    identifier
+    identifier          { $$ = ident($1,@1); }
   | constant
   | string-literal
   | "(" expression ")"  { $$ = $expression; }
@@ -811,19 +830,19 @@ primary-expression:
 
 // (6.5.1.1)
 generic-selection:
-    _GENERIC "(" assignment-expression "," generic-assoc-list ")" { $$ = ast("_Generic",$[assignment-expression],$[generic-assoc-list]); }
+    _GENERIC "(" assignment-expression "," generic-assoc-list ")" { FIXME(); }
   ;
 
 // (6.5.1.1)
 generic-assoc-list:
-    generic-association                         { $$ = ast("generic-assoc-list",$1); }
-  | generic-assoc-list "," generic-association  { $$ = astAppend($1,$3); }
+    generic-association                         { FIXME(); }
+  | generic-assoc-list "," generic-association  { FIXME(); }
   ;
 
 // (6.5.1.1)
 generic-association:
-    type-name ":" assignment-expression         { $$ = ast("generic-type-name-assoc",$[type-name],$[assignment-expression]); }
-  | DEFAULT ":" assignment-expression           { $$ = ast("generic-default-assoc",null,$[assignment-expression]); }
+    type-name ":" assignment-expression         { FIXME(); }
+  | DEFAULT ":" assignment-expression           { FIXME(); }
   ;
 
 // (6.5.2)
@@ -831,12 +850,12 @@ postfix-expression:
     primary-expression
   | postfix-expression "[" expression "]"                    { $$ = ast("subscript",$1,$expression); }
   | postfix-expression "(" argument-expression-list_opt ")"  { $$ = ast("call",$1,$[argument-expression-list_opt]); }
-  | postfix-expression "." any-identifier                    { $$ = ast("select",$1,$[any-identifier]); }
-  | postfix-expression "->" any-identifier                   { $$ = ast("ptr-select",$1,$[any-identifier]); }
+  | postfix-expression "." any-identifier                    { FIXME(); }
+  | postfix-expression "->" any-identifier                   { FIXME(); }
   | postfix-expression "++"                                  { $$ = ast("post-inc",$1); }
   | postfix-expression "--"                                  { $$ = ast("post-dec",$1); }
-  | "(" type-name ")" "{" initializer-list "}"               { $$ = ast("compound-literal", $[type-name], $[initializer-list]); }
-  | "(" type-name ")" "{" initializer-list "," "}"           { $$ = ast("compound-literal", $[type-name], $[initializer-list]); }
+  | "(" type-name ")" "{" initializer-list "}"               { FIXME(); }
+  | "(" type-name ")" "{" initializer-list "," "}"           { FIXME(); }
   ;
 
 // (6.5.2)
@@ -857,10 +876,10 @@ unary-expression:
   | "--" unary-expression               { $$ = ast("pre-dec", $2); }
   | unary-operator cast-expression      { $$ = ast($[unary-operator], $[cast-expression]); }
   | SIZEOF unary-expression             { $$ = ast("sizeof-expr",$2); }
-  | SIZEOF "(" type-name ")"            { $$ = ast("sizeof-type",$[type-name]); }
-  | _ALIGNOF "(" type-name ")"          { $$ = ast("_Alignof",$[type-name]); }
+  | SIZEOF "(" type-name ")"            { FIXME(); }
+  | _ALIGNOF "(" type-name ")"          { FIXME(); }
 // GNU C extension
-  | "&&" any-identifier                 { $$ = ast("address-label",$[any-identifier]); }
+  | "&&" any-identifier                 { FIXME(); }
   ;
 
 // (6.5.3)
@@ -876,7 +895,7 @@ unary-operator:
 // (6.5.4)
 cast-expression:
     unary-expression
-  | "(" type-name ")" cast-expression   { $$ = ast("cast",$[type-name],$4); }
+  | "(" type-name ")" cast-expression   { FIXME(); }
   ;
 
 // (6.5.5)

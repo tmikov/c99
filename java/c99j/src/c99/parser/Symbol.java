@@ -10,6 +10,8 @@ public Object ppDecl;
 public Code   keyword;
 
 public Decl topDecl;
+public Decl topTag;
+public Object label;
 
 public Symbol ( byte bytes[], int hash )
 {

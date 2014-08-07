@@ -77,7 +77,7 @@ public static void main ( String[] args )
     Prepr pp = new Prepr( opts, reporter, incSearch.finish( opts ),
                           fileName, new FileInputStream( fileName ), symTable );
     BisonLexer lex = new BisonLexer(reporter, symTable, pp);
-    CParser parser = new CParser(lex, reporter, symTable);
+    CParser parser = new CParser(lex, opts, reporter, symTable);
     parser.setDebugLevel( debugLevel );
     parser.parse();
   }

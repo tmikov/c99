@@ -32,6 +32,10 @@ public static enum TypeSpec
   DOUBLE(64, Double.MIN_VALUE, Double.MAX_VALUE),
   LDOUBLE(64, Double.MIN_VALUE, Double.MAX_VALUE),
 
+  ATOMIC(),
+  COMPLEX(),
+  IMAGINARY(),
+
   ENUM(),
 
   ARRAY(),
@@ -119,6 +123,257 @@ public static enum TypeSpec
   }
 }
 
+public static enum SClass
+{
+  NONE,
+  TYPEDEF,
+  EXTERN,
+  STATIC,
+  AUTO,
+  REGISTER,
+}
+
+public static final class Qual
+{
+  public boolean isConst;
+  public boolean isVolatile;
+  public boolean isRestrict;
+  public boolean isAtomic;
+
+  public Spec spec;
+
+  public Qual ( final Spec spec )
+  {
+    this.spec = spec;
+  }
+
+  public void combine ( Qual q )
+  {
+    this.isConst |= q.isConst;
+    this.isVolatile |= q.isVolatile;
+    this.isRestrict |= q.isRestrict;
+    this.isAtomic |= q.isAtomic;
+  }
+
+  public final boolean same ( Qual qual )
+  {
+    return this == qual ||
+           isAtomic == qual.isAtomic && isConst == qual.isConst && isRestrict == qual.isRestrict &&
+           isVolatile == qual.isVolatile &&
+           spec.same( qual.spec );
+  }
+}
+
+public static abstract class Spec
+{
+  public TypeSpec type;
+
+  public Spec ( final TypeSpec type ) { this.type = type; }
+
+  public abstract boolean isComplete ();
+  public abstract boolean same ( Spec o );
+}
+
+public static final class SimpleSpec extends Spec
+{
+  public SimpleSpec ( final TypeSpec type ) { super(type); }
+
+  @Override public boolean isComplete ()
+  {
+    return type != TypeSpec.VOID;
+  }
+
+  @Override public boolean same ( Spec o )
+  {
+    return this.type == o.type;
+  }
+}
+
+/** Complex, Imaginary, Atomic */
+public static final class BasedSpec extends Spec
+{
+  public final Spec on;
+
+  public BasedSpec ( TypeSpec type, Spec on )
+  {
+    super( type );
+    assert type == TypeSpec.COMPLEX || type == TypeSpec.IMAGINARY || type == TypeSpec.ATOMIC;
+    this.on = on;
+  }
+
+  @Override public boolean isComplete ()
+  {
+    return on != null && on.isComplete();
+  }
+
+  @Override public boolean same ( Spec o )
+  {
+    if (this == o) return true;
+    if (this.type != o.type) return false;
+    BasedSpec x = (BasedSpec)o;
+    return this.on.same( x.on );
+  }
+}
+
+public static abstract class DerivedSpec extends Spec
+{
+  public Qual of;
+
+  public DerivedSpec ( final TypeSpec type, Qual of ) { super( type ); this.of = of; }
+  public DerivedSpec ( final TypeSpec type ) { this( type, null ); }
+
+  @Override
+  public boolean same ( Spec o )
+  {
+    if (this == o) return true;
+    if (this.type != o.type) return false;
+    DerivedSpec x = (DerivedSpec)o;
+    return this.of.same( x.of );
+  }
+}
+
+public static final class PointerSpec extends DerivedSpec
+{
+  public Constant.IntC staticSize; // from ArraySpec.size and _static
+
+  public PointerSpec ( Qual of )
+  {
+    super( TypeSpec.POINTER, of );
+  }
+
+  public PointerSpec ()
+  {
+    this( null );
+  }
+
+  @Override public boolean isComplete ()
+  {
+    return true;
+  }
+}
+
+public static final class ArraySpec extends DerivedSpec
+{
+  public Constant.IntC size;
+  public boolean _static;
+  public boolean asterisk;
+
+  public ArraySpec () { super( TypeSpec.ARRAY ); }
+
+  @Override public boolean isComplete ()
+  {
+    return size != null && this.of != null && this.of.spec.isComplete();
+  }
+
+  @Override public boolean same ( Spec o )
+  {
+    return
+      super.same(o) &&
+      (this.size != null ? this.size.equals( ((ArraySpec)o).size ) : ((ArraySpec)o).size == null);
+  }
+}
+
+public static abstract class TagSpec extends DerivedSpec
+{
+  public final Ident name;
+
+  public TagSpec ( final TypeSpec type, final Ident name )
+  {
+    super( type );
+    this.name = name;
+  }
+
+  @Override public boolean same ( Spec o )
+  {
+    return this == o;
+  }
+}
+
+public static final class StructUnionSpec extends TagSpec
+{
+  public boolean error;
+  public Member[] fields;
+  public HashMap<Ident,Member> lookup;
+
+  public StructUnionSpec ( final TypeSpec type, final Ident name )
+  {
+    super( type, name );
+  }
+
+  @Override
+  public boolean isComplete ()
+  {
+    return this.fields != null;
+  }
+}
+
+public static final class EnumSpec extends TagSpec
+{
+  public SimpleSpec spec;
+
+  public EnumSpec ( final Ident name )
+  {
+    super( TypeSpec.ENUM, name );
+  }
+
+  @Override
+  public boolean isComplete ()
+  {
+    return spec != null && spec.isComplete();
+  }
+}
+
+public static final class FunctionSpec extends DerivedSpec
+{
+  public boolean oldStyle;
+  public Member[] params;
+
+  public FunctionSpec ()
+  {
+    super( TypeSpec.FUNCTION );
+  }
+  public FunctionSpec ( boolean oldStyle )
+  {
+    this();
+    this.oldStyle = oldStyle;
+  }
+
+  @Override
+  public boolean isComplete ()
+  {
+    return false;
+  }
+
+  @Override public boolean same ( Spec o )
+  {
+    if (o == this) return true;
+    if (!super.same( o )) return false;
+    FunctionSpec x = (FunctionSpec)o;
+    if (this.oldStyle != x.oldStyle) return false;
+    if (this.params == null) return x.params == null;
+    if (this.params.length != x.params.length) return false;
+
+    for ( int e = this.params.length, i = 0; i < e; ++i )
+      if (!this.params[i].type.same( x.params[i].type ))
+        return false;
+
+    return true;
+  }
+}
+
+public static class Member extends SourceRange
+{
+  public final Ident name;
+  public final Qual type;
+
+  public Member ( ISourceRange rng, final Ident name, final Qual type  )
+  {
+    super( rng );
+    this.name = name;
+    this.type = type;
+  }
+}
+
 public static TypeSpec integerPromotion ( TypeSpec spec )
 {
   // 6.3.1.1 [2]
@@ -183,58 +438,6 @@ public static TypeSpec usualArithmeticConversions ( TypeSpec s0, TypeSpec s1 )
   assert !lesserRank.signed;
 
   return greaterRank.toUnsigned();
-}
-
-public static class Qual
-{
-  public boolean isConst;
-  public boolean isVolatile;
-  public boolean isRestrict;
-  public boolean isAtomic;
-
-  public Spec spec;
-}
-
-public static class Spec
-{
-  public TypeSpec type;
-
-  boolean isComplete () { return true; }
-}
-
-public static class DerivedSpec extends Spec
-{
-  public Qual of;
-  public boolean complete;
-
-  boolean isComplete () { return this.complete; }
-}
-
-public static class StructUnionSpec extends DerivedSpec
-{
-  Member[] fields;
-  HashMap<String,Member> lookup;
-}
-
-public static class ArraySpec extends DerivedSpec
-{
-  Constant.IntC size;
-}
-
-public static class EnumSpec extends DerivedSpec
-{
-
-}
-
-public static class FunctionSpec extends DerivedSpec
-{
-  Member[] params;
-}
-
-public static class Member
-{
-  public String name;
-  public Qual type;
 }
 
 } // class

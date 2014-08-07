@@ -3,6 +3,7 @@ package c99.parser;
 import c99.IErrorReporter;
 import c99.ISourceRange;
 import c99.SourceRange;
+import c99.Types;
 import c99.parser.pp.PPDefs;
 import c99.parser.pp.Prepr;
 
@@ -89,7 +90,7 @@ public int yylex () throws IOException
           }
           else
           {
-            if (sym.topDecl != null && sym.topDecl.sclass == Code.TYPEDEF)
+            if (sym.topDecl != null && sym.topDecl.sclass == Types.SClass.TYPEDEF)
             {
               code = Code.TYPENAME;
               m_yylval = sym.topDecl;
@@ -147,7 +148,15 @@ public static SourceRange setLocation ( SourceRange rng, CParser.Location loc )
 
 public static SourceRange fromLocation ( CParser.Location loc )
 {
-  return setLocation(new SourceRange(), loc );
+  return setLocation( new SourceRange(), loc );
+}
+
+public static CParser.Location toLocation ( ISourceRange rng )
+{
+  return new CParser.Location(
+    new Position( rng.getFileName(), rng.getLine1(), rng.getCol1() ),
+    new Position( rng.getFileName2(), rng.getLine2(), rng.getCol2() )
+  );
 }
 
 @Override

@@ -1,22 +1,42 @@
 package c99.parser;
 
-import c99.parser.ast.Ast;
+import c99.ISourceRange;
+import c99.SourceRange;
+import c99.Types.*;
 
-public class Decl
+public class Decl extends SourceRange
 {
-public final Code sclass;
-public final Symbol symbol;
+
+public static enum Kind
+{
+  VAR,
+  ENUM_CONST,
+  TAG,
+}
+Decl prev;
+
+public final Kind kind;
 public final Scope scope;
-Decl prevDecl;
-Code storage;
-Ast type;
-Ast init;
-Ast body;
+public       SClass sclass;
+public final Linkage linkage;
+public final Symbol symbol;
+public final Qual type;
+public boolean defined;
+public boolean error;
 
-public Decl ( final Code sclass, final Symbol symbol, final Scope scope )
+
+public Decl (
+  ISourceRange rng, Kind kind, Scope scope, SClass sclass, Linkage linkage, Symbol symbol, Qual type,
+  boolean defined, boolean error
+)
 {
-  this.sclass = sclass;
-  this.symbol = symbol;
+  super(rng);
+  this.kind = kind;
   this.scope = scope;
+  this.sclass = sclass;
+  this.linkage = linkage;
+  this.symbol = symbol;
+  this.type = type;
+  this.error = error;
 }
 }

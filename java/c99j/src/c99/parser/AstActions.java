@@ -4,7 +4,7 @@ import c99.Constant;
 import c99.Utils;
 import c99.parser.ast.*;
 
-public class AstActions
+public class AstActions extends BaseActions
 {
 
 public final Ast ast ( Code code )
