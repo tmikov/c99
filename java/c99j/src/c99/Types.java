@@ -162,6 +162,18 @@ public static final class Qual
            isVolatile == qual.isVolatile &&
            spec.same( qual.spec );
   }
+
+  @Override public final String toString ()
+  {
+    StringBuilder buf = new StringBuilder();
+    if (isConst) buf.append( "const " );
+    if (isVolatile) buf.append( "volatile " );
+    if (isRestrict) buf.append( "restrict " );
+    if (isAtomic) buf.append(  "atomic " );
+    if (spec != null)
+      buf.append( spec.toString() );
+    return buf.toString();
+  }
 }
 
 public static abstract class Spec
@@ -172,6 +184,11 @@ public static abstract class Spec
 
   public abstract boolean isComplete ();
   public abstract boolean same ( Spec o );
+
+  @Override public String toString ()
+  {
+    return type.toString();
+  }
 }
 
 public static final class SimpleSpec extends Spec
@@ -213,6 +230,11 @@ public static final class BasedSpec extends Spec
     BasedSpec x = (BasedSpec)o;
     return this.on.same( x.on );
   }
+
+  @Override public final String toString ()
+  {
+    return type + " of " + on;
+  }
 }
 
 public static abstract class DerivedSpec extends Spec
@@ -229,6 +251,11 @@ public static abstract class DerivedSpec extends Spec
     if (this.type != o.type) return false;
     DerivedSpec x = (DerivedSpec)o;
     return this.of.same( x.of );
+  }
+
+  @Override public String toString ()
+  {
+    return type + " of " + of;
   }
 }
 
@@ -250,6 +277,11 @@ public static final class PointerSpec extends DerivedSpec
   {
     return true;
   }
+
+  @Override public final String toString ()
+  {
+    return staticSize != null ? "ptr to /static "+ staticSize+"/ "+ of : "ptr to "+ of;
+  }
 }
 
 public static final class ArraySpec extends DerivedSpec
@@ -270,6 +302,21 @@ public static final class ArraySpec extends DerivedSpec
     return
       super.same(o) &&
       (this.size != null ? this.size.equals( ((ArraySpec)o).size ) : ((ArraySpec)o).size == null);
+  }
+
+  @Override public final String toString ()
+  {
+    StringBuilder buf = new StringBuilder();
+    buf.append( "array[ " );
+    if (_static)
+      buf.append( "static" );
+    if (size != null)
+      buf.append( size.toString() );
+    if (asterisk)
+      buf.append( '*' );
+    buf.append( ']' );
+    buf.append( of.toString() );
+    return buf.toString();
   }
 }
 
@@ -358,6 +405,27 @@ public static final class FunctionSpec extends DerivedSpec
         return false;
 
     return true;
+  }
+
+  @Override public String toString ()
+  {
+    StringBuilder buf = new StringBuilder();
+    buf.append( oldStyle ? "oldfunc(" : "func(" );
+    if (params != null)
+      for ( int i = 0; i < params.length; ++i )
+      {
+        final Member param = params[i];
+        if (i > 0)
+          buf.append( ", " );
+        if (param.name != null)
+          buf.append( param.name.name );
+        buf.append( ':' );
+        if (param.type != null)
+          buf.append( param.type.toString() );
+      }
+    buf.append( ") returning " );
+    buf.append( of.toString() );
+    return buf.toString();
   }
 }
 
