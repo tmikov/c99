@@ -15,8 +15,8 @@ private final SymTable m_symTab;
 private final Prepr m_prepr;
 
 private Object m_yylval;
-private final Position m_startPos = new Position();
-private final Position m_endPos = new Position();
+private Position m_startPos = new Position();
+private Position m_endPos = new Position();
 
 public BisonLexer ( final IErrorReporter reporter, final SymTable symTab, final Prepr prepr )
 {
@@ -69,12 +69,8 @@ public int yylex () throws IOException
       ppt = m_prepr.nextToken();
     while (ppt.code() == Code.NEWLINE || ppt.code() == Code.WHITESPACE);
 
-    m_startPos.fileName = ppt.fileName;
-    m_startPos.line = ppt.line1;
-    m_startPos.col = ppt.col1;
-    m_endPos.fileName = ppt.fileName2 != null ? ppt.fileName2 : ppt.fileName;
-    m_endPos.line = ppt.line2;
-    m_endPos.col = ppt.col2;
+    m_startPos = new Position( ppt.fileName, ppt.line1, ppt.col1 );
+    m_endPos = new Position( ppt.fileName2 != null ? ppt.fileName2 : ppt.fileName, ppt.line2, ppt.col2 );
 
     Code code = ppt.code();
     //m_yylval = null;

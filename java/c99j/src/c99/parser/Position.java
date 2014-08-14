@@ -2,8 +2,8 @@ package c99.parser;
 
 public class Position
 {
-public String fileName;
-public int line, col;
+public final String fileName;
+public final int line, col;
 
 public Position ( final String fileName, final int line, final int col )
 {
@@ -14,6 +14,8 @@ public Position ( final String fileName, final int line, final int col )
 
 public Position ()
 {
+  this.fileName = null;
+  this.line = this.col = 0;
 }
 
 @Override
