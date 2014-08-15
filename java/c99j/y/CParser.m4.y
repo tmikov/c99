@@ -6,7 +6,8 @@ import c99.Constant;
 import c99.CompilerOptions;
 import c99.IErrorReporter;
 import c99.parser.ast.Ast;
-import c99.Types.*;
+import static c99.Types.*;
+import static c99.parser.Trees.*;
 }
 %define public
 %define parser_class_name {CParser}
@@ -143,7 +144,6 @@ import c99.Types.*;
 %precedence IF
 %precedence ELSE
 
-%type<Ast> string-literal
 %type<Ast> constant
 %type<Ast> enumerator-list
 %type<Ast> enumerator
@@ -204,9 +204,9 @@ rule(<Symbol>,any-identifier,opt):
   | IDENT
   ;
 
-string-literal:
-    STRING_CONST                        { $$ = stringLiteral( $STRING_CONST ); }
-  | string-literal STRING_CONST         { $$ = stringLiteral( $1, $STRING_CONST ); }
+rule(<TStringLiteral>,string-literal):
+    STRING_CONST[c]                     { $$ = stringLiteral(@$, $c); }
+  | string-literal[lit] STRING_CONST[c] { $$ = stringLiteral(@$, $lit, $c); }
   ;
 
 constant:
@@ -347,34 +347,34 @@ rule(,asm-label,optn):
     GCC_ASM "(" string-literal ")"
   ;
 
-gcc-attribute-specifier:
-    GCC_ATTRIBUTE "(" "(" gcc-attribute-list ")" ")"
+rule(<SpecNode>,gcc-attribute-specifier):
+    GCC_ATTRIBUTE "(" "(" gcc-attribute-list[list] ")" ")"      { $$ = specExtAttr(@$,$list); }
   ;
 
-gcc-attribute-list:
-    gcc-attribute_opt
-  | gcc-attribute-list "," gcc-attribute_opt
+rule(<TExtAttrList>,gcc-attribute-list):
+    gcc-attribute_opt[attr]                               { $$ = extAttrList(@$,null,$attr); }
+  | gcc-attribute-list[list] "," gcc-attribute_opt[attr]  { $$ = extAttrList(@$,$list,$attr); }
   ;
 
-rule(,gcc-attribute,optn):
-    gcc-attribute-name
-  | gcc-attribute-name "(" gcc-attribute-param-list ")"
+rule(<TExtAttr>,gcc-attribute,opt):
+    gcc-attribute-name[name]                                          { $$ = extAttr(@$,@name,$name,null); }
+  | gcc-attribute-name[name] "(" gcc-attribute-param-list[params] ")" { $$ = extAttr(@$,@name,$name,$params); }
   ;
 
-gcc-attribute-name:
-    any-identifier
-  | string-literal    // This is our own extension
+rule(<String>,gcc-attribute-name):
+    any-identifier     { $$ = $1.name; }
+  | string-literal     { $$ = stringLiteralString(@1,$1); }
   ;
 
-gcc-attribute-param-list:
-    gcc-attribute-param
-  | gcc-attribute-param-list "," gcc-attribute-param
+rule(<TreeList>,gcc-attribute-param-list):
+    gcc-attribute-param[param]                                    { $$ = treeList(null,$param); }
+  | gcc-attribute-param-list[list] "," gcc-attribute-param[param] { $$ = treeList($list,$param); }
   ;
 
-gcc-attribute-param:
-    any-identifier
-  | INT_NUMBER
-  | string-literal
+rule(<Tree>,gcc-attribute-param):
+    any-identifier    { $$ = symbolTree(@1,$1); }
+  | INT_NUMBER        { $$ = intNumber(@1,$1); }
+  | string-literal    { $$ = $1; }
   ;
 
 // (6.7.1)
@@ -777,7 +777,7 @@ designator:
 // (6.7.10)
 static_assert-declaration:
     _STATIC_ASSERT "(" constant-expression "," string-literal ")" ";"
-        { $$ = ast( $_STATIC_ASSERT, $[constant-expression], $[string-literal] ); }
+        { FIXME(); }
   ;
 
 
@@ -927,7 +927,7 @@ rule(,asm-labels,optn):
 primary-expression:
     identifier          { $$ = ident($1,@1); }
   | constant
-  | string-literal
+  | string-literal      { FIXME(); }
   | "(" expression ")"  { $$ = $expression; }
 // GCC extension
   | "(" compound-statement ")" { FIXME(); }

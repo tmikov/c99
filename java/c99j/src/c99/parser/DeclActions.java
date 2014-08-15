@@ -1,17 +1,23 @@
 package c99.parser;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
-import java.util.StringTokenizer;
 
 import c99.CompilerOptions;
+import c99.ExtAttr;
+import c99.ExtAttrDef;
+import c99.ExtAttributes;
 import c99.IErrorReporter;
 import c99.ISourceRange;
+import c99.Platform;
 import c99.SourceRange;
 import c99.Types.*;
 import c99.Utils;
 import c99.parser.ast.Ast;
+
+import static c99.parser.Trees.*;
 
 public class DeclActions extends AstActions
 {
@@ -22,11 +28,6 @@ public static class SpecNode extends SourceRange
   public final Code code;
   public SpecNode next;
 
-  public SpecNode ( CParser.Location loc, Code code )
-  {
-    this.code = code;
-    BisonLexer.setLocation( this, loc );
-  }
   public SpecNode ( ISourceRange rgn, Code code )
   {
     super(rgn);
@@ -34,15 +35,21 @@ public static class SpecNode extends SourceRange
   }
 }
 
+public static final class SpecAttrNode extends SpecNode
+{
+  public final TExtAttrList attrList;
+
+  public SpecAttrNode ( final ISourceRange rgn, final TExtAttrList attrList )
+  {
+    super(rgn, Code.GCC_ATTRIBUTE);
+    this.attrList = attrList;
+  }
+}
+
 public static final class SpecDeclNode extends SpecNode
 {
   public final Decl decl;
 
-  public SpecDeclNode ( CParser.Location loc, Code code, Decl decl )
-  {
-    super( loc, code );
-    this.decl = decl;
-  }
   public SpecDeclNode ( ISourceRange rng, Code code, Decl decl )
   {
     super( rng, code );
@@ -53,6 +60,7 @@ public static final class SpecDeclNode extends SpecNode
 public static final class DeclSpec
 {
   public SClass sc;
+  public final ExtAttributes scAttr;
   public final Qual qual;
   public SpecNode scNode;
   public SpecNode thread;
@@ -60,9 +68,10 @@ public static final class DeclSpec
   public SpecNode noreturn;
   public boolean error;
 
-  public DeclSpec ( final SClass sc, final Qual qual )
+  public DeclSpec ( final SClass sc, ExtAttributes scAttr, final Qual qual )
   {
     this.sc = sc;
+    this.scAttr = scAttr;
     this.qual = qual;
   }
 }
@@ -204,14 +213,57 @@ public Scope pushScope ( Scope.Kind kind )
   return m_topScope = new Scope( kind, m_topScope );
 }
 
+public final String stringLiteralString ( CParser.Location loc, TStringLiteral lit )
+{
+  return Utils.asciiString(lit.value);
+}
+
+public final TExtAttr extAttr (
+  CParser.Location locAll, CParser.Location locName, String name, TreeList params
+)
+{
+  ExtAttrDef def;
+  if ((def = Platform.findExtAttr(name)) == null)
+  {
+    error( locName, "unknown attribute '%s'", name );
+    return null;
+  }
+  SourceRange rngAll = BisonLexer.fromLocation(locAll);
+  ExtAttr extAttr = Platform.parseExtAttr(
+    m_reporter, rngAll, BisonLexer.fromLocation(locName), def, params
+  );
+  if (extAttr == null)
+    return null;
+  return new TExtAttr(rngAll, extAttr);
+}
+
+public final TExtAttrList extAttrList ( CParser.Location loc, TExtAttrList list, TExtAttr attr )
+{
+  if (attr != null)
+  {
+    if (list == null)
+      list = new TExtAttrList();
+    list.add( attr );
+  }
+  return list;
+}
+
+public final SpecNode specExtAttr ( CParser.Location loc, TExtAttrList attrList )
+{
+  if (attrList != null && attrList.size() > 0)
+    return BisonLexer.setLocation(new SpecAttrNode(null, attrList), loc);
+  else
+    return null;
+}
+
 public final SpecNode spec ( CParser.Location loc, Code code )
 {
-  return new SpecNode( loc, code );
+  return BisonLexer.setLocation(new SpecNode( null, code ), loc);
 }
 
 public final SpecNode specTypename ( CParser.Location loc, Decl decl )
 {
-  return new SpecDeclNode( loc, Code.TYPENAME, decl );
+  return BisonLexer.setLocation( new SpecDeclNode( null, Code.TYPENAME, decl ), loc );
 }
 
 public final SpecNode declareAgg (
@@ -332,6 +384,11 @@ public final SpecNode spec ( Ast ast )
 
 public final SpecNode append ( SpecNode a, SpecNode b )
 {
+  if (a == null)
+    return b;
+  if (b == null)
+    return a;
+
   SpecNode t = a;
   while (t.next != null)
     t = t.next;
@@ -362,13 +419,16 @@ private final class TypeHelper
   SpecNode complex = null;
   SpecNode sc = null;
   int len = 0; String lenStr = null; SpecNode lenSpec = null;
+  ExtAttributes scAttrs;
   SpecNode base = null;
   SpecNode signed = null;
+  ExtAttributes specAttrs;
 
   SpecNode _const = null;
   SpecNode _restrict = null;
   SpecNode _volatile = null;
   SpecNode _atomicQual = null;
+  ExtAttributes qualAttrs;
 
   void err ( ISourceRange rng, String a, String b )
   {
@@ -427,6 +487,25 @@ private final class TypeHelper
       case _BOOL: case CHAR: case INT: case VOID: case FLOAT: case DOUBLE: case TYPENAME:
       case STRUCT: case UNION: case ENUM:
         base = set( base, specNode ); break;
+
+      case GCC_ATTRIBUTE:
+        {
+          SpecAttrNode an = (SpecAttrNode) specNode;
+          for ( TExtAttr ea : an.attrList )
+          {
+            switch (ea.extAttr.def.disposition)
+            {
+            case SCLASS:
+              if (scAttrs == null) scAttrs = new ExtAttributes(); scAttrs.add( ea.extAttr ); break;
+            case QUAL:
+              if (qualAttrs == null) qualAttrs = new ExtAttributes(); qualAttrs.add( ea.extAttr ); break;
+            case SPEC:
+              if (specAttrs == null) specAttrs = new ExtAttributes(); specAttrs.add( ea.extAttr ); break;
+            default: assert false; break;
+            }
+          }
+        }
+        break;
 
       case SHORT:
         if (len == 0)
@@ -560,6 +639,7 @@ private final class TypeHelper
     q.isVolatile = _volatile != null;
     q.isRestrict = _restrict != null;
     q.isAtomic = _atomicQual != null;
+    q.extAttrs.transferFrom( qualAttrs );
 
     // Combine the qualifiers of the typedef
     if (base != null && base.code == Code.TYPENAME)
@@ -584,7 +664,7 @@ private final class TypeHelper
 
   DeclSpec mkDeclSpec ( SClass sclass, Qual qual )
   {
-    DeclSpec ds = new DeclSpec( sclass, qual );
+    DeclSpec ds = new DeclSpec( sclass, scAttrs, qual );
     ds.scNode = sc;
     ds.thread = thread;
     ds.inline = inline;

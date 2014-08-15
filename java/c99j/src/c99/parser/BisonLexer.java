@@ -140,10 +140,11 @@ public int yylex () throws IOException
   }
 }
 
-public static SourceRange setLocation ( SourceRange rng, CParser.Location loc )
+public static <T extends SourceRange> T setLocation ( T rng, CParser.Location loc )
 {
-  return rng.setRange( loc.begin.fileName, loc.begin.line, loc.begin.col,
-                       loc.end.fileName, loc.end.line, loc.end.col );
+  rng.setRange( loc.begin.fileName, loc.begin.line, loc.begin.col,
+                loc.end.fileName, loc.end.line, loc.end.col );
+  return rng;
 }
 
 public static SourceRange fromLocation ( CParser.Location loc )

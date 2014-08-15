@@ -8,5 +8,7 @@ public boolean gccExtensions = true;
 public boolean warnUndef = false;
 
 public boolean signedChar = false;
+
+public int maxAlign = 8;
 } // class
 

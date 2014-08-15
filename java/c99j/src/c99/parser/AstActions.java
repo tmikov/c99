@@ -52,11 +52,6 @@ public final Ast ast ( String name, Ast a, Ast b, Ast c, Ast d )
   return new Ast4( name, a, b, c, d );
 }
 
-public final Ast stringLiteral ( byte[] value )
-{
-  return new Ast1( "<string-literal>", new Ast0( Utils.asciiString( value ) ).value(value) );
-}
-
 public final Ast astAppend ( Ast t, Ast newChild )
 {
   final int chCount = t.childCount();
@@ -91,11 +86,6 @@ public final Ast leftAppend ( Ast newChild, Ast t )
       children[0] = newChild;
       return new AstN( t.name, children ).value(t.value);
   }
-}
-
-public final Ast stringLiteral ( Ast lit, byte[] value )
-{
-  return astAppend( lit, stringLiteral( value ) ).value(value);
 }
 
 public final Ast ident ( Symbol sym, CParser.Location loc )

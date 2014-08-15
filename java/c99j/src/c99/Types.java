@@ -6,11 +6,11 @@ public class Types
 {
 private Types () {}
 
-public static final int CHAR_BITS = 8;
-public static final int SHORT_BITS = 16;
-public static final int INT_BITS = 32;
-public static final int LONG_BITS = 32;
-public static final int LONGLONG_BITS = 64;
+public static final int CHAR_BITS = Platform.CHAR_BITS;
+public static final int SHORT_BITS = Platform.SHORT_BITS;
+public static final int INT_BITS = Platform.INT_BITS;
+public static final int LONG_BITS = Platform.LONG_BITS;
+public static final int LONGLONG_BITS = Platform.LONGLONG_BITS;
 
 public static enum TypeSpec
 {
@@ -46,9 +46,6 @@ public static enum TypeSpec
 
   ERROR();
 
-  public static final TypeSpec WCHAR_T = UINT;
-  public static final TypeSpec CHAR16_T = USHORT;
-  public static final TypeSpec CHAR32_T = ULONG;
   public static final TypeSpec INTMAX_T = SLLONG;
   public static final TypeSpec UINTMAX_T = ULLONG;
 
@@ -57,6 +54,7 @@ public static enum TypeSpec
   public final boolean integer;
   public final boolean signed;
   public final int width;
+  public final int sizeOf; //< sizeof()
   public final long longMask;
   public final long minValue;
   public final long maxValue;
@@ -70,6 +68,7 @@ public static enum TypeSpec
     this.integer = false;
     this.signed = false;
     this.width = 0;
+    this.sizeOf = 0;
     this.longMask = 0;
     this.minValue = 0;
     this.maxValue = 0;
@@ -85,6 +84,7 @@ public static enum TypeSpec
     this.integer = false;
     this.signed = true;
     this.width = width;
+    this.sizeOf = width / CHAR_BITS; assert width % CHAR_BITS == 0;
     this.longMask = this.width < 64 ? (1L << this.width) - 1 : ~0L;
     this.minValue = 0;
     this.maxValue = 0;
@@ -100,6 +100,7 @@ public static enum TypeSpec
     this.integer = true;
     this.signed = signed;
     this.width = width;
+    this.sizeOf = (width==1?8:width) / CHAR_BITS; assert (width==1?8:width) % CHAR_BITS == 0;
     this.longMask = this.width < 64 ? (1L << this.width) - 1 : ~0L;
 
     if (signed)
@@ -139,6 +140,8 @@ public static final class Qual
   public boolean isVolatile;
   public boolean isRestrict;
   public boolean isAtomic;
+  public int     align;
+  public final ExtAttributes extAttrs = new ExtAttributes();
 
   public Spec spec;
 
@@ -153,6 +156,7 @@ public static final class Qual
     this.isVolatile |= q.isVolatile;
     this.isRestrict |= q.isRestrict;
     this.isAtomic |= q.isAtomic;
+    this.extAttrs.combine( q.extAttrs );
   }
 
   public final boolean same ( Qual qual )
@@ -179,6 +183,7 @@ public static final class Qual
 public static abstract class Spec
 {
   public TypeSpec type;
+  public final ExtAttributes extAttrs = new ExtAttributes();
 
   public Spec ( final TypeSpec type ) { this.type = type; }
 
@@ -373,7 +378,7 @@ public static final class EnumSpec extends TagSpec
 public static final class FunctionSpec extends DerivedSpec
 {
   public boolean oldStyle;
-  public Member[] params;
+  public Param[] params;
 
   public FunctionSpec ()
   {
@@ -414,7 +419,7 @@ public static final class FunctionSpec extends DerivedSpec
     if (params != null)
       for ( int i = 0; i < params.length; ++i )
       {
-        final Member param = params[i];
+        final Param param = params[i];
         if (i > 0)
           buf.append( ", " );
         if (param.name != null)
@@ -429,17 +434,42 @@ public static final class FunctionSpec extends DerivedSpec
   }
 }
 
-public static class Member extends SourceRange
+public static class Param extends SourceRange
 {
   public final Ident name;
   public final Qual type;
+  public final ExtAttributes extAttrs = new ExtAttributes();
 
-  public Member ( ISourceRange rng, final Ident name, final Qual type  )
+  public Param ( ISourceRange rng, final Ident name, final Qual type  )
   {
     super( rng );
     this.name = name;
     this.type = type;
   }
+}
+
+public static class Member extends Param
+{
+  public int offset;
+
+  public Member ( final ISourceRange rng, final Ident name, final Qual type )
+  {
+    super(rng, name, type);
+  }
+}
+
+public static int sizeOf ( Qual qual )
+{
+  if (!qual.spec.isComplete())
+    return 0;
+  return 0;
+}
+
+public static int alignOf ( Qual qual )
+{
+  if (!qual.spec.isComplete())
+    return 0;
+  return 0;
 }
 
 public static TypeSpec integerPromotion ( TypeSpec spec )
