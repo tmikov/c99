@@ -37,5 +37,10 @@ public final void warning ( ISourceRange rng, String msg, Object... args )
   m_reporter.warning( rng, msg, args );
 }
 
+public final void pedWarning ( CParser.Location loc, String msg, Object... args )
+{
+  warning( loc, msg, args );
+}
+
 } // class
 
