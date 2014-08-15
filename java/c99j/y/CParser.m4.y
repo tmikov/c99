@@ -223,6 +223,7 @@ translation-unit:
 external-declaration:
     function-definition
   | declaration
+  | ";" { pedWarning( @1, "ANSI C disallows empty statement at file scope" ); }
   ;
 
 // (6.9.1)
