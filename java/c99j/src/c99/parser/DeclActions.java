@@ -247,7 +247,7 @@ public final SpecNode declareAgg (
     }
     else
     {
-      error( loc, "'%s %s' previously defined as a different kind of tag here: %s",
+      error( identLoc, "'%s %s' previously defined as a different kind of tag here: %s",
              tagCode.str, ident.name, SourceRange.formatRange( ident.topTag ) );
 
       // Error recovery: make the aggregate anonymous
