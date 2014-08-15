@@ -106,6 +106,10 @@ _IMAGINARY("_Imaginary"),
 _NORETURN("_Noreturn"),
 _STATIC_ASSERT("_Static_assert"),
 _THREAD_LOCAL("_Thread_local"),
+GCC_TYPEOF("__typeof__"),
+GCC_LABEL("__label__"),
+GCC_ALIGNOF("__alignof__"),
+GCC_ATTRIBUTE("__attribute__"),
 
 // Preprocessor-only
 HASH("#"),
@@ -124,6 +128,9 @@ CONCAT;
 
 public final byte[] printable;
 public final String str;
+
+public static final Code FIRST_KW = AUTO;
+public static final Code LAST_KW = GCC_ATTRIBUTE;
 
 Code ()
 {

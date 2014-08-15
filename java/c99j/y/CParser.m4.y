@@ -132,6 +132,10 @@ import c99.Types.*;
 %token<Code> _NORETURN   "_Noreturn"
 %token<Code> _STATIC_ASSERT   "_Static_assert"
 %token<Code> _THREAD_LOCAL   "_Thread_local"
+%token<Code> GCC_TYPEOF   "__typeof__"
+%token<Code> GCC_LABEL   "__label__"
+%token<Code> GCC_ALIGNOF   "__alignof__"
+%token<Code> GCC_ATTRIBUTE   "__attribute__"
 
 // Set precedences to avoid IF-ELSE `shift'/reduce conflict
 %precedence IF
@@ -367,6 +371,9 @@ rule(<SpecNode>,type-specifier-notyp):
   | atomic-type-specifier
   | struct-or-union-specifier
   | enum-specifier
+// GNU C extension
+  | GCC_TYPEOF "(" expression ")" { FIXME(); }
+  | GCC_TYPEOF "(" type-name ")"  { FIXME(); }
   ;
 
 // (6.7.2.1)
@@ -758,7 +765,7 @@ labeled-statement:
 
 // (6.8.2)
 compound-statement:
-    "{" PushBlockScope block-item-list_opt "}"
+    "{" PushBlockScope declare-labels-list_opt block-item-list_opt "}"
         { $$ = FIXME(); popScope($PushBlockScope); }
   ;
 
@@ -770,6 +777,18 @@ rule(<Scope>,PushParamScope):
 
 rule(<Scope>,PushAggScope):
     %empty { $$ = pushScope(Scope.Kind.AGGREGATE); }
+
+// EXT: This is a GNU C extension
+//
+rule(,declare-labels-list,optn):
+    declare-labels ";"
+  | declare-labels-list declare-labels ";"
+  ;
+
+declare-labels:
+    GCC_LABEL any-identifier
+  | declare-labels "," any-identifier
+  ;
 
 // (6.8.2)
 block-item-list:
@@ -882,6 +901,8 @@ unary-expression:
   | SIZEOF "(" type-name ")"            { FIXME(); }
   | _ALIGNOF "(" type-name ")"          { FIXME(); }
 // GNU C extension
+  | GCC_ALIGNOF unary-expression        { FIXME(); }
+  | GCC_ALIGNOF "(" type-name ")"       { FIXME(); }
   | "&&" any-identifier                 { FIXME(); }
   ;
 

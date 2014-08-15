@@ -30,7 +30,7 @@ public BisonLexer ( final IErrorReporter reporter, final SymTable symTab, final 
 
 private final void initKeywords ()
 {
-  for ( int i = Code.AUTO.ordinal(); i <= Code._THREAD_LOCAL.ordinal(); ++i )
+  for ( int i = Code.FIRST_KW.ordinal(); i <= Code.LAST_KW.ordinal(); ++i )
   {
     final Code c = Code.values()[i];
     m_symTab.symbol( c.str ).keyword = c;
