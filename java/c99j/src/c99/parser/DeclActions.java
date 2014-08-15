@@ -956,18 +956,23 @@ public final Decl declare ( DeclInfo di, boolean hasInit )
 redeclaration:
   if (prevDecl != null)
   {
-    if (!compareDeclTypes( prevDecl.type, type ))
+    // Get to the top declaration
+    Decl impDecl = prevDecl;
+    while (impDecl.importedDecl != null)
+      impDecl = impDecl.importedDecl;
+
+    if (!compareDeclTypes( impDecl.type, type ))
     {
       error( di, "'%s' redeclared differently; previous declaration here: %s",
-             di.ident.name, SourceRange.formatRange(prevDecl) );
+             di.ident.name, SourceRange.formatRange(impDecl) );
       haveError = true;
       break redeclaration;
     }
 
-    if (defined && prevDecl.defined)
+    if (defined && impDecl.defined)
     {
       error( di, "'%s': invalid redefinition; already defined here: %s",
-             di.ident.name, SourceRange.formatRange(prevDecl) );
+             di.ident.name, SourceRange.formatRange(impDecl) );
       haveError = true;
       break redeclaration;
     }
@@ -988,15 +993,22 @@ redeclaration:
 
     if (defined)
     {
-      if (prevDecl.sclass == SClass.EXTERN)
-        prevDecl.sclass = SClass.NONE;
-      if (!prevDecl.defined)
-        prevDecl.setRange( di );
-      prevDecl.defined = true;
+      if (impDecl.sclass == SClass.EXTERN)
+        impDecl.sclass = SClass.NONE;
+      if (!impDecl.defined)
+        impDecl.setRange( di );
+      impDecl.defined = true;
     }
     // Complete the array size, if it wasn't provided before
-    if (isArray( prevDecl.type ) && ((ArraySpec)prevDecl.type.spec).size == null)
-      ((ArraySpec)prevDecl.type.spec).size = ((ArraySpec)type.spec).size;
+    if (isArray( impDecl.type ) && ((ArraySpec)impDecl.type.spec).size == null)
+      ((ArraySpec)impDecl.type.spec).size = ((ArraySpec)type.spec).size;
+
+    if (prevDecl.scope != m_topScope)
+    {
+      Decl decl = new Decl( di, m_topScope, impDecl, haveError );
+      m_topScope.pushDecl( decl );
+      return decl;
+    }
 
     return prevDecl;
   }

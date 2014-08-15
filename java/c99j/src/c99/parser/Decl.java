@@ -15,6 +15,7 @@ public static enum Kind
 }
 Decl prev;
 
+public final Decl importedDecl;
 public final Kind kind;
 public final Scope scope;
 public       SClass sclass;
@@ -31,6 +32,7 @@ public Decl (
 )
 {
   super(rng);
+  this.importedDecl = null;
   this.kind = kind;
   this.scope = scope;
   this.sclass = sclass;
@@ -39,4 +41,22 @@ public Decl (
   this.type = type;
   this.error = error;
 }
+
+/** Import a declaration into the current scope */
+public Decl ( ISourceRange rng, Scope scope, Decl importedDecl, boolean error )
+{
+  super(rng);
+  assert importedDecl.scope != scope;
+  assert importedDecl.importedDecl == null;
+
+  this.importedDecl = importedDecl;
+  this.kind = importedDecl.kind;
+  this.scope = scope;
+  this.sclass = importedDecl.sclass;
+  this.linkage = importedDecl.linkage;
+  this.symbol = importedDecl.symbol;
+  this.type = importedDecl.type;
+  this.error = importedDecl.error | error;
+}
+
 }

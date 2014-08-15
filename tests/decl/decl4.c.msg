@@ -13,5 +13,5 @@ decl4.c(33)[20..22]: error: 'v8' redeclared differently; previous declaration he
 decl4.c(38)[5..7]: error: 'v9': invalid redefinition; already defined here: decl4.c(37)[5..7]
 decl4.c(40)[12..14]: error: 'v9': invalid redeclaration; previously declared here: decl4.c(37)[5..7]
 decl4.c(46)[15..18]: error: 'v10' redeclared differently; previous declaration here: decl4.c(42)[5..8]
-decl4.c(53)[7..10]: error: 'v11' redeclared differently; previous declaration here: decl4.c(52)[14..17]
+decl4.c(53)[7..10]: error: 'v11': invalid redeclaration; previously declared here: decl4.c(52)[14..17]
 decl4.c(57)[12..15]: error: 'v12': invalid redeclaration; previously declared here: decl4.c(56)[5..8]
