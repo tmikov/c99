@@ -825,6 +825,8 @@ primary-expression:
   | constant
   | string-literal
   | "(" expression ")"  { $$ = $expression; }
+// GCC extension
+  | "(" compound-statement ")" { FIXME(); }
   | generic-selection
   ;
 
