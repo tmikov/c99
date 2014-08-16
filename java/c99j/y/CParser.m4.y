@@ -132,6 +132,8 @@ import c99.Types.*;
 %token<Code> _NORETURN   "_Noreturn"
 %token<Code> _STATIC_ASSERT   "_Static_assert"
 %token<Code> _THREAD_LOCAL   "_Thread_local"
+%token<Code> GCC_ASM   "__asm__"
+%token<Code> GCC_VOLATILE   "__volatile__"
 %token<Code> GCC_TYPEOF   "__typeof__"
 %token<Code> GCC_LABEL   "__label__"
 %token<Code> GCC_ALIGNOF   "__alignof__"
@@ -228,6 +230,8 @@ external-declaration:
     function-definition
   | declaration
   | ";" { pedWarning( @1, "ANSI C disallows empty statement at file scope" ); }
+// GCC extension
+  | basic-asm ";"
   ;
 
 // (6.9.1)
@@ -783,6 +787,8 @@ statement:
   | selection-statement
   | iteration-statement
   | jump-statement
+// GCC extension
+  | asm-statement       { FIXME(); }
   ;
 
 // (6.8.1)
@@ -866,6 +872,49 @@ jump-statement:
   | CONTINUE ";"              { $$ = ast("continue"); }
   | BREAK ";"                 { $$ = ast("break"); }
   | RETURN expression_opt ";" { $$ = ast("return", $expression_opt); }
+  ;
+
+asm-statement:
+    basic-asm ";"
+  | extended-asm ";"
+  ;
+
+basic-asm:
+    GCC_ASM asm-volatile_opt "(" string-literal[templ] ")"
+  ;
+
+extended-asm:
+    GCC_ASM asm-volatile_opt "(" string-literal[templ] ":" asm-operands_opt[out] ")"
+  | GCC_ASM asm-volatile_opt "(" string-literal[templ] ":" asm-operands_opt[out] ":" asm-operands_opt[in] ")"
+  | GCC_ASM asm-volatile_opt
+      "(" string-literal[templ] ":" asm-operands_opt[out] ":" asm-operands_opt[in] ":" asm-clobbers[clob] ")"
+  | GCC_ASM asm-volatile_opt GOTO
+      "(" string-literal[templ] ":" asm-operands_opt[out] ":" asm-operands_opt[in] ":" asm-clobbers[clob] ":"
+          asm-labels_opt[labs] ")"
+  ;
+
+rule(,asm-volatile,optn):
+    GCC_VOLATILE
+  ;
+
+rule(,asm-operands,optn):
+    asm-operand
+  | asm-operands "," asm-operand
+  ;
+
+asm-operand:
+    string-literal "(" expression ")"
+  | "[" any-identifier "]" string-literal "(" expression ")"
+  ;
+
+asm-clobbers:
+    string-literal
+  | asm-clobbers "," string-literal
+  ;
+
+rule(,asm-labels,optn):
+    any-identifier
+  | asm-labels "," any-identifier
   ;
 
 // A.2.1 Expressions
