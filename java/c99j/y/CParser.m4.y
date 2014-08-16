@@ -339,6 +339,31 @@ rule(<Ast>,init-declarator-notyp,,declaration-specifiers):
   | declarator-notyp[decl] "=" initializer  { $$ = FIXME(); declare($decl,$<DeclSpec>0,true); }
   ;
 
+gcc-attribute-specifier:
+    GCC_ATTRIBUTE "(" "(" gcc-attribute-list ")" ")"
+  ;
+
+gcc-attribute-list:
+    gcc-attribute_opt
+  | gcc-attribute-list "," gcc-attribute_opt
+  ;
+
+rule(,gcc-attribute,optn):
+    any-identifier
+  | any-identifier "(" gcc-attribute-param-list ")"
+  ;
+
+gcc-attribute-param-list:
+    gcc-attribute-param
+  | gcc-attribute-param-list "," gcc-attribute-param
+  ;
+
+gcc-attribute-param:
+    any-identifier
+  | INT_NUMBER
+  | STRING_CONST
+  ;
+
 // (6.7.1)
 rule(<SpecNode>,storage-class-specifier):
     TYPEDEF                    { $$ = spec(@1,$1); }
@@ -470,6 +495,7 @@ rule(<SpecNode>,type-qualifier):
   | RESTRICT    { $$ = spec(@1,$1); }
   | VOLATILE    { $$ = spec(@1,$1); }
   | _ATOMIC     { $$ = spec(@1,$1); }
+  | gcc-attribute-specifier       { FIXME(); $$ = spec(@1,Code.CONST); }
   ;
 
 // (6.7.4)
