@@ -334,13 +334,17 @@ rule(<Ast>,init-declarator-list-notyp,opt,declaration-specifiers):
 
 // (6.7)
 rule(<Ast>,init-declarator,,declaration-specifiers):
-    declarator[decl]                  { $$ = FIXME(); declare($decl,$<DeclSpec>0,false); }
-  | declarator[decl] "=" initializer  { $$ = FIXME(); declare($decl,$<DeclSpec>0,true); }
+    declarator[decl] asm-label_opt                 { $$ = FIXME(); declare($decl,$<DeclSpec>0,false); }
+  | declarator[decl] asm-label_opt "=" initializer { $$ = FIXME(); declare($decl,$<DeclSpec>0,true); }
   ;
 
 rule(<Ast>,init-declarator-notyp,,declaration-specifiers):
-    declarator-notyp[decl]                  { $$ = FIXME(); declare($decl,$<DeclSpec>0,false); }
-  | declarator-notyp[decl] "=" initializer  { $$ = FIXME(); declare($decl,$<DeclSpec>0,true); }
+    declarator-notyp[decl] asm-label_opt                  { $$ = FIXME(); declare($decl,$<DeclSpec>0,false); }
+  | declarator-notyp[decl] asm-label_opt "=" initializer  { $$ = FIXME(); declare($decl,$<DeclSpec>0,true); }
+  ;
+
+rule(,asm-label,optn):
+    GCC_ASM "(" string-literal ")"
   ;
 
 gcc-attribute-specifier:
