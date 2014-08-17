@@ -349,8 +349,13 @@ gcc-attribute-list:
   ;
 
 rule(,gcc-attribute,optn):
+    gcc-attribute-name
+  | gcc-attribute-name "(" gcc-attribute-param-list ")"
+  ;
+
+gcc-attribute-name:
     any-identifier
-  | any-identifier "(" gcc-attribute-param-list ")"
+  | string-literal    // This is our own extension
   ;
 
 gcc-attribute-param-list:
@@ -361,7 +366,7 @@ gcc-attribute-param-list:
 gcc-attribute-param:
     any-identifier
   | INT_NUMBER
-  | STRING_CONST
+  | string-literal
   ;
 
 // (6.7.1)
