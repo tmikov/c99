@@ -189,7 +189,11 @@ public static abstract class Spec
   public Spec ( final TypeSpec type ) { this.type = type; }
 
   public abstract boolean isComplete ();
-  public abstract boolean same ( Spec o );
+
+  public boolean same ( Spec o )
+  {
+    return o == this || this.type == o.type && extAttrs.same( o.extAttrs );
+  }
 
   @Override public String toString ()
   {
@@ -204,11 +208,6 @@ public static final class SimpleSpec extends Spec
   @Override public boolean isComplete ()
   {
     return type != TypeSpec.VOID;
-  }
-
-  @Override public boolean same ( Spec o )
-  {
-    return this.type == o.type;
   }
 }
 
@@ -231,10 +230,7 @@ public static final class BasedSpec extends Spec
 
   @Override public boolean same ( Spec o )
   {
-    if (this == o) return true;
-    if (this.type != o.type) return false;
-    BasedSpec x = (BasedSpec)o;
-    return this.on.same( x.on );
+    return super.same( o ) && this.on.same( ((BasedSpec)o).on );
   }
 
   @Override public final String toString ()
@@ -253,10 +249,7 @@ public static abstract class DerivedSpec extends Spec
   @Override
   public boolean same ( Spec o )
   {
-    if (this == o) return true;
-    if (this.type != o.type) return false;
-    DerivedSpec x = (DerivedSpec)o;
-    return this.of.same( x.of );
+    return super.same(o) && this.of.same( ((DerivedSpec)o).of );
   }
 
   @Override public String toString ()
@@ -284,6 +277,13 @@ public static final class PointerSpec extends DerivedSpec
     return true;
   }
 
+  @Override public final boolean same ( Spec o )
+  {
+    return
+      super.same(o) &&
+      staticSize != null ? staticSize.equals(((PointerSpec)o).staticSize) : ((PointerSpec)o).staticSize == null;
+  }
+
   @Override public final String toString ()
   {
     return staticSize != null ? "ptr to /static "+ staticSize+"/ "+ of : "ptr to "+ of;
@@ -305,9 +305,13 @@ public static final class ArraySpec extends DerivedSpec
 
   @Override public boolean same ( Spec o )
   {
+    if (!super.same(o))
+      return false;
+    ArraySpec x = (ArraySpec) o;
     return
-      super.same(o) &&
-      (this.size != null ? this.size.equals( ((ArraySpec)o).size ) : ((ArraySpec)o).size == null);
+       this._static == x._static &&
+       this.asterisk == x.asterisk &&
+      (this.size != null ? this.size.equals( x.size ) : x.size == null);
   }
 
   @Override public final String toString ()
@@ -399,16 +403,22 @@ public static final class FunctionSpec extends DerivedSpec
 
   @Override public boolean same ( Spec o )
   {
-    if (o == this) return true;
-    if (!super.same( o )) return false;
+    if (o == this)
+      return true;
+    if (!super.same( o ))
+      return false;
     FunctionSpec x = (FunctionSpec)o;
     if (this.oldStyle != x.oldStyle) return false;
     if (this.params == null) return x.params == null;
     if (this.params.length != x.params.length) return false;
 
     for ( int e = this.params.length, i = 0; i < e; ++i )
-      if (!this.params[i].type.same( x.params[i].type ))
+    {
+      final Param pa = this.params[i];
+      final Param pb = x.params[i];
+      if (!pa.type.same( pb.type ) || !pa.extAttrs.same(pb.extAttrs))
         return false;
+    }
 
     return true;
   }
