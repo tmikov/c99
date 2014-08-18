@@ -164,6 +164,7 @@ public static final class Qual
     return this == qual ||
            isAtomic == qual.isAtomic && isConst == qual.isConst && isRestrict == qual.isRestrict &&
            isVolatile == qual.isVolatile &&
+           extAttrs.same( qual.extAttrs ) &&
            spec.same( qual.spec );
   }
 

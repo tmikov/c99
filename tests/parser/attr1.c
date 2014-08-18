@@ -10,3 +10,6 @@ int __attribute__((__x86far__)) x4;
 
 int far * ptr;
 void far cdecl strlen ( void );
+
+int far f1;
+int f1;
