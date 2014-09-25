@@ -187,7 +187,7 @@
   <target name="artifact.c99j:jar" depends="init.artifacts, compile.module.c99j" description="Build &#39;c99j:jar&#39; artifact">
     <property name="artifact.temp.output.c99j:jar" value="${artifacts.temp.dir}/c99j_jar"/>
     <mkdir dir="${artifact.temp.output.c99j:jar}"/>
-    <jar destfile="${temp.jar.path.c99j.jar}" duplicate="preserve" filesetmanifest="mergewithoutmain">
+    <jar destfile="${temp.jar.path.c99j.jar}" duplicate="preserve" filesetmanifest="merge">
       <zipfileset dir="${c99j.output.dir}"/>
     </jar>
     <copy file="${temp.jar.path.c99j.jar}" tofile="${artifact.temp.output.c99j:jar}/c99j.jar"/>
