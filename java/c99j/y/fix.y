@@ -1,4 +1,17 @@
-%token VOID INT CONST IDENT ASTERISK STATIC
+%{
+#include <stdio.h>
+
+int yylex ( void );
+void yyerror ( const char * msg );
+
+#define YYERROR_VERBOSE 1
+%}
+
+%token VOID INT CONST IDENT STATIC
+%token SEMI ";"
+%token LPAR "("
+%token RPAR ")"
+%token ASTERISK "*"
 %%
 
 // (6.9)
@@ -188,3 +201,29 @@ assignment-expression_opt:
   ;
 %%
 
+int yylex ( void )
+{
+  static int toks[] = {
+    // int (*a)(void);
+    INT, LPAR, ASTERISK, IDENT, RPAR, LPAR, VOID, RPAR, SEMI,
+    // int (a)(int x);
+    INT, LPAR, IDENT, RPAR, LPAR, INT, IDENT, RPAR, SEMI,
+    // void (*signal(int sig))(int)
+    VOID, LPAR, ASTERISK, IDENT, LPAR, INT, IDENT, RPAR, RPAR, LPAR, INT, RPAR, SEMI,
+    // int (func) ( void ) (void)
+    INT, LPAR, IDENT, RPAR, LPAR, VOID, RPAR, LPAR, VOID, RPAR, SEMI
+  };
+  static int i = 0;
+
+  return i < sizeof(toks)/sizeof(toks[0]) ? toks[i++] : EOF;
+}
+
+void yyerror ( const char * err )
+{
+  fprintf( stderr, "error: %s\n", err );
+}
+
+int main ( void )
+{
+  return yyparse();
+}
