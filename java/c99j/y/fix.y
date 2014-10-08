@@ -28,7 +28,7 @@ external-declaration:
 
 // (6.9.1)
 function-definition:
-    declaration-specifiers declarator declaration-list_opt compound-statement
+    declaration-specifiers declarator-func declaration-list_opt compound-statement
   ;
 
 compound-statement:
@@ -85,7 +85,16 @@ init-declarator:
 
 // (6.7.6)
 declarator:
-    pointer_opt direct-declarator
+    declarator-func
+  | declarator-nofunc
+  ;
+
+declarator-func:
+    pointer_opt direct-declarator-func
+  ;
+
+declarator-nofunc:
+    pointer_opt direct-declarator-nofunc
   ;
 
 pointer:
@@ -116,18 +125,49 @@ type-qualifier:
  ;
 
 // (6.7.6)
-direct-declarator:
+
+// Parenthesized idenitifier
+pident:
     IDENT
-  | "(" declarator ")"
-  | direct-declarator direct-declarator-elem
+  | "(" pident ")"
+  ; 
+
+direct-declarator:
+    direct-declarator-func
+  | direct-declarator-nofunc
+  ;
+
+direct-declarator-func:
+    pident elem-func
+  | "(" direct-declarator-func ")"
+  | direct-declarator-func direct-declarator-elem
+  ;
+
+direct-declarator-nofunc:
+    pident
+  | d2
+  ;
+
+d2:
+    pident elem-nofunc
+  | "(" pointer direct-declarator ")"
+  | d2 direct-declarator-elem
   ;
 
 direct-declarator-elem:
+    elem-nofunc
+  | elem-func
+  ;
+
+elem-nofunc:
     "[" type-qualifier-list_opt assignment-expression_opt "]"
   | "[" STATIC type-qualifier-list_opt assignment-expression "]"
   | "[" type-qualifier-list STATIC assignment-expression "]"
   | "[" type-qualifier-list_opt ASTERISK "]"
-  | "(" parameter-type-list ")"
+  ;
+
+elem-func:
+    "(" parameter-type-list ")"
   | "(" identifier-list_opt ")"
   ;
 
