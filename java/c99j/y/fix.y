@@ -173,7 +173,8 @@ elem-func:
 
 abstract-declarator:
     pointer
-  | pointer_opt direct-abstract-declarator
+  |         direct-abstract-declarator
+  | pointer direct-abstract-declarator
   ;
 
 /*abstract-declarator_opt:
