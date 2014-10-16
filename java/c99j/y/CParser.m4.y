@@ -508,7 +508,7 @@ rule(<SpecNode>,type-qualifier):
   | RESTRICT    { $$ = spec(@1,$1); }
   | VOLATILE    { $$ = spec(@1,$1); }
   | _ATOMIC     { $$ = spec(@1,$1); }
-  | gcc-attribute-specifier       { FIXME(); $$ = spec(@1,Code.CONST); }
+  | gcc-attribute-specifier
   ;
 
 // (6.7.4)
