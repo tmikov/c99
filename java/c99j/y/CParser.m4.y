@@ -524,95 +524,43 @@ rule(<SpecNode>,alignment-specifier):
   ;
 
 // (6.7.6)
+rule(<Declarator>,func-declarator):
+    declarator
+  ;
+rule(<Declarator>,func-declarator-notyp):
+    declarator-notyp
+  ;
 rule(<Declarator>,declarator):
-    nofunc-declarator
-  | func-declarator
+    pointer_opt[ptr] direct-declarator[decl]  { $$ = $decl.append($ptr); }
   ;
 rule(<Declarator>,declarator_opt):
     declarator
   | %empty                              { $$ = abstractDeclarator(yyloc); }
   ;
 
-
 rule(<Declarator>,declarator-notyp):
-    nofunc-declarator-notyp
-  | func-declarator-notyp
+    pointer[ptr] direct-declarator[decl]      { $$ = $decl.append($ptr); }
+  |              direct-declarator-notyp
   ;
 rule(<Declarator>,declarator-notyp_opt):
     declarator-notyp
   | %empty                              { $$ = abstractDeclarator(yyloc); }
   ;
 
-rule(<Declarator>,nofunc-declarator):
-    pointer_opt[ptr] direct-nofunc-declarator[decl]  { $$ = $decl.append($ptr); }
+rule(<Declarator>,direct-declarator):
+    any-identifier[id]                            { $$ = declarator(@id,$id); }
+  | "(" declarator[decl] ")"                      { $$ = $decl; }
+  | direct-declarator[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
   ;
-rule(<Declarator>,nofunc-declarator-notyp):
-    pointer[ptr] direct-nofunc-declarator[decl]      { $$ = $decl.append($ptr); }
-  |              direct-nofunc-declarator-notyp
-  ;
-
-rule(<Declarator>,func-declarator):
-    pointer_opt[ptr] direct-func-declarator[decl]    { $$ = $decl.append($ptr); }
-  ;
-rule(<Declarator>,func-declarator-notyp):
-    pointer[ptr] direct-func-declarator[decl]        { $$ = $decl.append($ptr); }
-  |              direct-func-declarator-notyp
-  ;
-
-rule(<Declarator>,direct-func-declarator):
-    any-identifier[id] direct-declarator-elem-func[el] { $$ = declarator(@id,$id).append($el); }
-  | "(" func-declarator[decl] ")"                      { $$ = $decl; }  
-  | direct-func-declarator[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
-  ;
-rule(<Declarator>,direct-func-declarator-notyp):
-    identifier[id] direct-declarator-elem-func[el]     { $$ = declarator(@id,$id).append($el); }
-  | "(" func-declarator[decl] ")"                      { $$ = $decl; }  
-  | direct-func-declarator-notyp[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
+rule(<Declarator>,direct-declarator-notyp):
+    identifier[id]                                     { $$ = declarator(@id,$id); }
+  | "(" declarator[decl] ")"                           { $$ = $decl; }
+  | direct-declarator-notyp[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
   ;
 
 
 // (6.7.6)
-rule(<Declarator>,d1):
-    any-identifier[id]                           { $$ = declarator(@id, $id); }
-  | "(" nofunc-declarator[decl] ")"              { $$ = $decl; }
-  ;
-rule(<Declarator>,d2):
-    d1[decl] direct-declarator-elem-nofunc[el]   { $$ = $decl.append($el); }
-  | d2[decl] direct-declarator-elem[el]          { $$ = $decl.append($el); }
-  ;
-rule(<Declarator>,direct-nofunc-declarator):
-    d1
-  | d2
-  ;
-rule(<Declarator>,direct-declarator):
-    direct-nofunc-declarator
-  | direct-func-declarator
-  ;
-
-rule(<Declarator>,d1-notyp):
-    identifier[id]                               { $$ = declarator(@id, $id); }
-  | "(" nofunc-declarator[decl] ")"              { $$ = $decl; }
-  ;
-rule(<Declarator>,d2-notyp):
-    d1-notyp[decl] direct-declarator-elem-nofunc[el] { $$ = $decl.append($el); }
-  | d2-notyp[decl] direct-declarator-elem[el]        { $$ = $decl.append($el); }
-  ;
-rule(<Declarator>,direct-nofunc-declarator-notyp):
-    d1-notyp
-  | d2-notyp
-  ;
-
-rule(<Declarator>,direct-declarator-notyp):
-    direct-nofunc-declarator-notyp
-  | direct-func-declarator-notyp
-  ;
-
 rule(<DeclElem>,direct-declarator-elem):
-    direct-declarator-elem-nofunc
-  | direct-declarator-elem-func
-  ;
-
-rule(<DeclElem>,direct-declarator-elem-nofunc):
     "[" type-qualifier-list_opt assignment-expression_opt "]"
         { $$ = arrayDecl(@$,$[type-qualifier-list_opt],null,null,$[assignment-expression_opt]); }
   | "[" STATIC type-qualifier-list_opt assignment-expression "]"
@@ -621,10 +569,7 @@ rule(<DeclElem>,direct-declarator-elem-nofunc):
         { $$ = arrayDecl(@$,$[type-qualifier-list],@STATIC,null,$[assignment-expression]); }
   | "[" type-qualifier-list_opt ASTERISK "]"
         { $$ = arrayDecl(@$,$[type-qualifier-list_opt],null,@ASTERISK,null); }
-  ;
-
-rule(<DeclElem>,direct-declarator-elem-func):
-    newfunc-decl
+  | newfunc-decl
   | oldfunc-decl
   ;
 
