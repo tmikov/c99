@@ -236,14 +236,14 @@ external-declaration:
 
 // (6.9.1)
 function-definition:
-    specified-func-declarator compound-statement
-  | specified-func-declarator PushParamScope declaration-list {} compound-statement
+    specified-declarator-func compound-statement
+  | specified-declarator-func PushParamScope declaration-list {} compound-statement
         { popScope($PushParamScope); FIXME(); }
   ;
 
-rule(<Ast>,specified-func-declarator):
-    declaration-specifiers-nots[ds] func-declarator-notyp[decl]  { $$ = declare($decl,$ds,true); }
-  | declaration-specifiers-ts[ds]   func-declarator[decl]        { $$ = declare($decl,$ds,true); }
+rule(<Ast>,specified-declarator-func):
+    declaration-specifiers-nots[ds] declarator-func-notyp[decl]  { $$ = declare($decl,$ds,true); }
+  | declaration-specifiers-ts[ds]   declarator-func[decl]        { $$ = declare($decl,$ds,true); }
   ;
 
 // (6.9.1)
@@ -524,14 +524,9 @@ rule(<SpecNode>,alignment-specifier):
   ;
 
 // (6.7.6)
-rule(<Declarator>,func-declarator):
-    declarator
-  ;
-rule(<Declarator>,func-declarator-notyp):
-    declarator-notyp
-  ;
 rule(<Declarator>,declarator):
-    pointer_opt[ptr] direct-declarator[decl]  { $$ = $decl.append($ptr); }
+    declarator-func
+  | declarator-nofunc
   ;
 rule(<Declarator>,declarator_opt):
     declarator
@@ -539,28 +534,86 @@ rule(<Declarator>,declarator_opt):
   ;
 
 rule(<Declarator>,declarator-notyp):
-    pointer[ptr] direct-declarator[decl]      { $$ = $decl.append($ptr); }
-  |              direct-declarator-notyp
+    declarator-func-notyp
+  | declarator-nofunc-notyp
   ;
 rule(<Declarator>,declarator-notyp_opt):
     declarator-notyp
   | %empty                              { $$ = abstractDeclarator(yyloc); }
   ;
 
-rule(<Declarator>,direct-declarator):
-    any-identifier[id]                            { $$ = declarator(@id,$id); }
-  | "(" declarator[decl] ")"                      { $$ = $decl; }
-  | direct-declarator[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
+rule(<Declarator>,declarator-func):
+    pointer_opt[ptr] direct-declarator-func[decl]  { $$ = $decl.append($ptr); }
   ;
-rule(<Declarator>,direct-declarator-notyp):
-    identifier[id]                                     { $$ = declarator(@id,$id); }
-  | "(" declarator[decl] ")"                           { $$ = $decl; }
-  | direct-declarator-notyp[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
+rule(<Declarator>,declarator-func-notyp):
+    pointer[ptr] direct-declarator-func[decl]      { $$ = $decl.append($ptr); }
+  |              direct-declarator-func-notyp
   ;
 
+rule(<Declarator>,declarator-nofunc):
+    pointer_opt[ptr] direct-declarator-nofunc[decl]  { $$ = $decl.append($ptr); }
+  ;
+rule(<Declarator>,declarator-nofunc-notyp):
+    pointer[ptr] direct-declarator-nofunc[decl]      { $$ = $decl.append($ptr); }
+  |              direct-declarator-nofunc-notyp
+  ;
+
+rule(<Declarator>,direct-declarator):
+    direct-declarator-func
+  | direct-declarator-nofunc
+  ;
+rule(<Declarator>,direct-declarator-notyp):
+    direct-declarator-func-notyp
+  | direct-declarator-nofunc-notyp
+  ;
+
+rule(<Symbol>,any-pident):
+    any-identifier
+  | "(" any-pident[id] ")"    { $$ = $id; }
+  ;
+rule(<Symbol>,pident):
+    identifier
+  | "(" any-pident[id] ")"    { $$ = $id; }
+  ;
+
+rule(<Declarator>,direct-declarator-func):
+    any-pident[id] elem-func[el]                  { $$ = declarator(@id,$id).append($el); }
+  | "(" direct-declarator-func[decl] ")"          { $$ = $decl; }
+  | direct-declarator-func[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
+  ;
+rule(<Declarator>,direct-declarator-func-notyp):
+    pident[id] elem-func[el]                           { $$ = declarator(@id,$id).append($el); }
+  | "(" direct-declarator-func[decl] ")"               { $$ = $decl; }
+  | direct-declarator-func-notyp[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
+  ;
+
+rule(<Declarator>,direct-declarator-nofunc):
+    any-pident[id]                               { $$ = declarator(@id,$id); }
+  | d2
+  ;
+rule(<Declarator>,direct-declarator-nofunc-notyp):
+    pident[id]                                   { $$ = declarator(@id,$id); }
+  | d2-notyp
+  ;
+
+rule(<Declarator>,d2):
+    any-pident[id] elem-nofunc[el]                { $$ = declarator(@id,$id).append($el); }
+  | "(" pointer[ptr] direct-declarator[decl] ")"  { $$ = $decl.append($ptr); }
+  | d2[decl] direct-declarator-elem[el]           { $$ = $decl.append($el); }
+  ;
+rule(<Declarator>,d2-notyp):
+    pident[id] elem-nofunc[el]                    { $$ = declarator(@id,$id).append($el); }
+  | "(" pointer[ptr] direct-declarator[decl] ")"  { $$ = $decl.append($ptr); }
+  | d2-notyp[decl] direct-declarator-elem[el]     { $$ = $decl.append($el); }
+  ;
 
 // (6.7.6)
 rule(<DeclElem>,direct-declarator-elem):
+    elem-nofunc
+  | elem-func
+  ;
+
+rule(<DeclElem>,elem-nofunc):
     "[" type-qualifier-list_opt assignment-expression_opt "]"
         { $$ = arrayDecl(@$,$[type-qualifier-list_opt],null,null,$[assignment-expression_opt]); }
   | "[" STATIC type-qualifier-list_opt assignment-expression "]"
@@ -569,7 +622,10 @@ rule(<DeclElem>,direct-declarator-elem):
         { $$ = arrayDecl(@$,$[type-qualifier-list],@STATIC,null,$[assignment-expression]); }
   | "[" type-qualifier-list_opt ASTERISK "]"
         { $$ = arrayDecl(@$,$[type-qualifier-list_opt],null,@ASTERISK,null); }
-  | newfunc-decl
+  ;
+
+rule(<DeclElem>,elem-func):
+    newfunc-decl
   | oldfunc-decl
   ;
 
@@ -646,7 +702,8 @@ rule(<Qual>,type-name):
 // (6.7.7)
 rule(<Declarator>,abstract-declarator):
     pointer                                     { $$ = abstractDeclarator(@pointer).append($pointer); }
-  | pointer_opt direct-abstract-declarator      { $$ = $[direct-abstract-declarator].append($pointer_opt); }
+  |             direct-abstract-declarator
+  | pointer     direct-abstract-declarator      { $$ = $[direct-abstract-declarator].append($pointer); }
   ;
 
 rule(<Declarator>,abstract-declarator_opt):
