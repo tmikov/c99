@@ -242,9 +242,7 @@ function-definition:
   ;
 
 rule(<Ast>,specified-declarator-func):
-    declaration-specifiers-nots[ds] declarator-func-notyp[decl]  { $$ = declare($decl,$ds,true); }
-  | declaration-specifiers-ts[ds]   declarator-func[decl]        { $$ = declare($decl,$ds,true); }
-  ;
+  "blaaa" {} ;
 
 // (6.9.1)
 declaration-list:
@@ -287,7 +285,7 @@ declaration-list:
 declaration:
     static_assert-declaration
   | declaration-specifiers-nots init-declarator-list-notyp_opt ";"
-  | declaration-specifiers-ts   init-declarator-list_opt ";"
+//@@  | declaration-specifiers-ts   init-declarator-list_opt ";"
   ;
 
 rule(<DeclSpec>,declaration-specifiers-nots):
@@ -438,7 +436,7 @@ struct-declaration-list:
 struct-declaration:
     static_assert-declaration
   | declaration-specifiers-nots struct-declarator-list-notyp_opt ";"
-  | declaration-specifiers-ts   struct-declarator-list_opt ";"
+//@@  | declaration-specifiers-ts   struct-declarator-list_opt ";"
   ;
 
 // (6.7.2.1)
@@ -626,12 +624,8 @@ rule(<DeclElem>,elem-nofunc):
 
 rule(<DeclElem>,elem-func):
     newfunc-decl
-  | oldfunc-decl
   ;
 
-rule(<DeclElem>,oldfunc-decl):
-    "(" identifier-list_opt ")" { $$ = oldFuncDecl(@$, $[identifier-list_opt]); }
-  ;
 rule(<DeclElem>,newfunc-decl):
     "(" parameter-type-list ")" { $$ = funcDecl(@$, $[parameter-type-list]); }
   ;
@@ -662,22 +656,9 @@ rule(<DeclList>,parameter-list):
 
 // (6.7.6)
 rule(<DeclInfo>,parameter-declaration):
-    declaration-specifiers-nots pointer direct-declarator
-        { $$ = declInfo($[direct-declarator].append($pointer), $[declaration-specifiers-nots]); }
-  | declaration-specifiers-ts   pointer direct-declarator
-        { $$ = declInfo($[direct-declarator].append($pointer), $[declaration-specifiers-ts]); }
-  | declaration-specifiers-nots         direct-declarator-notyp
-        { $$ = declInfo($[direct-declarator-notyp], $[declaration-specifiers-nots]); }
-  | declaration-specifiers-ts           direct-declarator
-        { $$ = declInfo($[direct-declarator], $[declaration-specifiers-ts]); }
-  | declaration-specifiers-nots pointer direct-abstract-declarator_opt   
-        { $$ = declInfo($[direct-abstract-declarator_opt].append($pointer), $[declaration-specifiers-nots]); }
-  | declaration-specifiers-ts   pointer direct-abstract-declarator_opt   
-        { $$ = declInfo($[direct-abstract-declarator_opt].append($pointer), $[declaration-specifiers-ts]); }
-  | declaration-specifiers-nots         direct-abstract-declarator_opt   
-        { $$ = declInfo($[direct-abstract-declarator_opt], $[declaration-specifiers-nots]); }
-  | declaration-specifiers-ts           direct-abstract-declarator_opt   
-        { $$ = declInfo($[direct-abstract-declarator_opt], $[declaration-specifiers-ts]); }
+    type-specifier "x" direct-declarator-func
+  | type-specifier "x" direct-abstract-declarator
+  | type-specifier     direct-abstract-declarator
   ;
 
 /*
@@ -734,7 +715,8 @@ rule(<DeclElem>,direct-abstract-declarator-elem):
         { $$ = arrayDecl(@$,$[type-qualifier-list],@STATIC,null,$[assignment-expression]); }
   | "[" ASTERISK "]"
         { $$ = arrayDecl(@$,null,null,@ASTERISK,null); }
-  | newfunc-decl
+//  | elem-func
+  | "(" parameter-type-list ")" { $$ = funcDecl(@$, $[parameter-type-list]); }
   | "(" ")"
         { $$ = oldFuncDecl(@$,null); }
   ;
