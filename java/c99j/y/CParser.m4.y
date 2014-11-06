@@ -573,6 +573,10 @@ rule(<Symbol>,pident):
     identifier
   | "(" any-pident[id] ")"    { $$ = $id; }
   ;
+rule(<Symbol>,pident2):
+    "(" identifier[id] ")" { $$ = $id; }
+  | "(" pident2[id] ")"    { $$ = $id; }
+  ;
 
 rule(<Declarator>,direct-declarator-func):
     any-pident[id] elem-func[el]                  { $$ = declarator(@id,$id).append($el); }
@@ -583,6 +587,15 @@ rule(<Declarator>,direct-declarator-func-notyp):
     pident[id] elem-func[el]                           { $$ = declarator(@id,$id).append($el); }
   | "(" direct-declarator-func[decl] ")"               { $$ = $decl; }
   | direct-declarator-func-notyp[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
+  ;
+rule(<Declarator>,direct-declarator-func-param):
+    any-identifier[id] elem-func[el]                    { $$ = declarator(@id,$id).append($el); }
+  | direct-declarator-func-param2
+  | direct-declarator-func-param[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
+  ;
+rule(<Declarator>,direct-declarator-func-param2):
+    pident2[id] elem-func[el]                           { $$ = declarator(@id,$id).append($el); }
+  | "(" direct-declarator-func-param2[decl] ")"               { $$ = $decl; }
   ;
 
 rule(<Declarator>,direct-declarator-nofunc):
@@ -656,7 +669,7 @@ rule(<DeclList>,parameter-list):
 
 // (6.7.6)
 rule(<DeclInfo>,parameter-declaration):
-    type-specifier "x" direct-declarator-func
+    type-specifier "x" direct-declarator-func-param
   | type-specifier "x" direct-abstract-declarator
   | type-specifier     direct-abstract-declarator
   ;
