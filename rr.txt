@@ -1,0 +1,32 @@
+state 508: 
+    any-ident -> typedef       "(" ")"
+    type-specifier -> typedef  "[" "(" "x"
+
+state 457:
+  typedef: shift and goto state 508
+  "(": shift and goto state 457
+
+    any-ident -> typedef       "(" ")"
+    type-specifier -> typedef  "[" "(" "x"
+
+    any-pident                      -> "(" any-pident ")"
+    direct-declarator-func          -> "(" direct-declarator-func ")"
+    direct-abstract-declarator      -> "(" abstract-declarator ")"
+    direct-abstract-declarator-elem -> "(" parameter-type-list ")"
+    direct-abstract-declarator-elem -> "(" ")"
+
+state 381:
+  "(" : shift and goto state 457
+
+    any-pident                      -> "(" any-pident ")"
+    direct-declarator-func          -> "(" direct-declarator-func ")"
+    direct-abstract-declarator      -> "(" abstract-declarator ")"
+    direct-abstract-declarator-elem -> "(" parameter-type-list ")"
+    direct-abstract-declarator-elem -> "(" ")"
+
+state 254:
+  "x" shift and goto state 381
+
+    parameter-declaration -> type-specifier "x" direct-declarator-func
+    parameter-declaration -> type-specifier "x" direct-abstract-declarator
+    parameter-declaration -> type-specifier     direct-abstract-declarator
