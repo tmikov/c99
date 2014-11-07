@@ -189,7 +189,7 @@ import static c99.parser.Trees.*;
 %type<Ast> expression expression_opt
 %type<Ast> constant-expression
 
-%expect 3
+%expect 1
 %start translation-unit
 
 start_grammar
@@ -562,9 +562,13 @@ rule(<Declarator>,direct-declarator):
     direct-declarator-func
   | direct-declarator-nofunc
   ;
-rule(<Declarator>,direct-declarator-notyp):
-    direct-declarator-func-notyp
-  | direct-declarator-nofunc-notyp
+rule(<Declarator>,direct-declarator-prm):
+    direct-declarator-func-prm
+  | direct-declarator-nofunc-prm
+  ;
+rule(<Declarator>,direct-declarator-prmnotyp):
+    direct-declarator-func-prmnotyp
+  | direct-declarator-nofunc-prmnotyp
   ;
 
 rule(<Symbol>,any-pident):
@@ -574,6 +578,10 @@ rule(<Symbol>,any-pident):
 rule(<Symbol>,pident):
     identifier
   | "(" any-pident[id] ")"    { $$ = $id; }
+  ;
+rule(<Symbol>,pident-prm):
+    "(" identifier[id] ")"    { $$ = $id; }
+  | "(" pident-prm[id] ")"    { $$ = $id; }
   ;
 
 rule(<Declarator>,direct-declarator-func):
@@ -586,6 +594,24 @@ rule(<Declarator>,direct-declarator-func-notyp):
   | "(" direct-declarator-func[decl] ")"               { $$ = $decl; }
   | direct-declarator-func-notyp[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
   ;
+rule(<Declarator>,direct-declarator-func-prm):
+    any-identifier[id] elem-func[el]                   { $$ = declarator(@id,$id).append($el); }
+  | direct-declarator-func-prm2
+  | direct-declarator-func-prm[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
+  ;
+rule(<Declarator>,direct-declarator-func-prm2):
+    pident-prm[id] elem-func[el]                   { $$ = declarator(@id,$id).append($el); }
+  | "(" direct-declarator-func-prm2[decl] ")"      { $$ = $decl; }
+  ;
+rule(<Declarator>,direct-declarator-func-prmnotyp):
+    identifier[id] elem-func[el]                   { $$ = declarator(@id,$id).append($el); }
+  | direct-declarator-func-prmnotyp2
+  | direct-declarator-func-prmnotyp[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
+  ;
+rule(<Declarator>,direct-declarator-func-prmnotyp2):
+    pident-prm[id] elem-func[el]                   { $$ = declarator(@id,$id).append($el); }
+  | "(" direct-declarator-func-prmnotyp2[decl] ")" { $$ = $decl; }
+  ;
 
 rule(<Declarator>,direct-declarator-nofunc):
     any-pident[id]                               { $$ = declarator(@id,$id); }
@@ -594,6 +620,16 @@ rule(<Declarator>,direct-declarator-nofunc):
 rule(<Declarator>,direct-declarator-nofunc-notyp):
     pident[id]                                   { $$ = declarator(@id,$id); }
   | d2-notyp
+  ;
+rule(<Declarator>,direct-declarator-nofunc-prm):
+    any-identifier[id]                           { $$ = declarator(@id,$id); }
+  | pident-prm[id]                               { $$ = declarator(@id,$id); }
+  | d2-prm
+  ;
+rule(<Declarator>,direct-declarator-nofunc-prmnotyp):
+    identifier[id]                               { $$ = declarator(@id,$id); }
+  | pident-prm[id]                               { $$ = declarator(@id,$id); }
+  | d2-prmnotyp
   ;
 
 rule(<Declarator>,d2):
@@ -605,6 +641,18 @@ rule(<Declarator>,d2-notyp):
     pident[id] elem-nofunc[el]                    { $$ = declarator(@id,$id).append($el); }
   | "(" pointer[ptr] direct-declarator[decl] ")"  { $$ = $decl.append($ptr); }
   | d2-notyp[decl] direct-declarator-elem[el]     { $$ = $decl.append($el); }
+  ;
+rule(<Declarator>,d2-prm):
+    any-identifier[id] elem-nofunc[el]            { $$ = declarator(@id,$id).append($el); }
+  | pident-prm[id] elem-nofunc[el]                { $$ = declarator(@id,$id).append($el); }
+  | "(" pointer[ptr] direct-declarator-prm[decl] ")" { $$ = $decl.append($ptr); }
+  | d2-prm[decl] direct-declarator-elem[el]       { $$ = $decl.append($el); }
+  ;
+rule(<Declarator>,d2-prmnotyp):
+    identifier[id] elem-nofunc[el]                { $$ = declarator(@id,$id).append($el); }
+  | pident-prm[id] elem-nofunc[el]                { $$ = declarator(@id,$id).append($el); }
+  | "(" pointer[ptr] direct-declarator-prm[decl] ")" { $$ = $decl.append($ptr); }
+  | d2-prmnotyp[decl] direct-declarator-elem[el]  { $$ = $decl.append($el); }
   ;
 
 // (6.7.6)
@@ -662,21 +710,21 @@ rule(<DeclList>,parameter-list):
 
 // (6.7.6)
 rule(<DeclInfo>,parameter-declaration):
-    declaration-specifiers-nots pointer direct-declarator
-        { $$ = declInfo($[direct-declarator].append($pointer), $[declaration-specifiers-nots]); }
-  | declaration-specifiers-ts   pointer direct-declarator
-        { $$ = declInfo($[direct-declarator].append($pointer), $[declaration-specifiers-ts]); }
-  | declaration-specifiers-nots         direct-declarator-notyp
-        { $$ = declInfo($[direct-declarator-notyp], $[declaration-specifiers-nots]); }
-  | declaration-specifiers-ts           direct-declarator
-        { $$ = declInfo($[direct-declarator], $[declaration-specifiers-ts]); }
-  | declaration-specifiers-nots pointer direct-abstract-declarator_opt   
+    declaration-specifiers-nots pointer direct-declarator-prm
+        { $$ = declInfo($[direct-declarator-prm].append($pointer), $[declaration-specifiers-nots]); }
+  | declaration-specifiers-ts   pointer direct-declarator-prm
+        { $$ = declInfo($[direct-declarator-prm].append($pointer), $[declaration-specifiers-ts]); }
+  | declaration-specifiers-nots         direct-declarator-prmnotyp
+        { $$ = declInfo($[direct-declarator-prmnotyp], $[declaration-specifiers-nots]); }
+  | declaration-specifiers-ts           direct-declarator-prm
+        { $$ = declInfo($[direct-declarator-prm], $[declaration-specifiers-ts]); }
+  | declaration-specifiers-nots pointer direct-abstract-declarator_opt
         { $$ = declInfo($[direct-abstract-declarator_opt].append($pointer), $[declaration-specifiers-nots]); }
-  | declaration-specifiers-ts   pointer direct-abstract-declarator_opt   
+  | declaration-specifiers-ts   pointer direct-abstract-declarator_opt
         { $$ = declInfo($[direct-abstract-declarator_opt].append($pointer), $[declaration-specifiers-ts]); }
-  | declaration-specifiers-nots         direct-abstract-declarator_opt   
+  | declaration-specifiers-nots         direct-abstract-declarator_opt
         { $$ = declInfo($[direct-abstract-declarator_opt], $[declaration-specifiers-nots]); }
-  | declaration-specifiers-ts           direct-abstract-declarator_opt   
+  | declaration-specifiers-ts           direct-abstract-declarator_opt
         { $$ = declInfo($[direct-abstract-declarator_opt], $[declaration-specifiers-ts]); }
   ;
 
