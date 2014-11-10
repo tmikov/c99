@@ -587,11 +587,13 @@ rule(<Symbol>,pident-prm):
 rule(<Declarator>,direct-declarator-func):
     any-pident[id] elem-func[el]                  { $$ = declarator(@id,$id).append($el); }
   | "(" direct-declarator-func[decl] ")"          { $$ = $decl; }
+  | "(" pointer[ptr] direct-declarator-func[decl] ")"       { $$ = $decl.append($ptr); }
   | direct-declarator-func[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
   ;
 rule(<Declarator>,direct-declarator-func-notyp):
     pident[id] elem-func[el]                           { $$ = declarator(@id,$id).append($el); }
   | "(" direct-declarator-func[decl] ")"               { $$ = $decl; }
+  | "(" pointer[ptr] direct-declarator-func[decl] ")"             { $$ = $decl.append($ptr); }
   | direct-declarator-func-notyp[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
   ;
 rule(<Declarator>,direct-declarator-func-prm):
@@ -602,6 +604,7 @@ rule(<Declarator>,direct-declarator-func-prm):
 rule(<Declarator>,direct-declarator-func-prm2):
     pident-prm[id] elem-func[el]                   { $$ = declarator(@id,$id).append($el); }
   | "(" direct-declarator-func-prm2[decl] ")"      { $$ = $decl; }
+  | "(" pointer[ptr] direct-declarator-func-prm2[decl] ")"      { $$ = $decl.append($ptr); }
   ;
 rule(<Declarator>,direct-declarator-func-prmnotyp):
     identifier[id] elem-func[el]                   { $$ = declarator(@id,$id).append($el); }
@@ -611,6 +614,7 @@ rule(<Declarator>,direct-declarator-func-prmnotyp):
 rule(<Declarator>,direct-declarator-func-prmnotyp2):
     pident-prm[id] elem-func[el]                   { $$ = declarator(@id,$id).append($el); }
   | "(" direct-declarator-func-prmnotyp2[decl] ")" { $$ = $decl; }
+  | "(" pointer[ptr] direct-declarator-func-prmnotyp2[decl] ")" { $$ = $decl.append($ptr); }
   ;
 
 rule(<Declarator>,direct-declarator-nofunc):
