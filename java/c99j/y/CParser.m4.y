@@ -558,10 +558,10 @@ rule(<Declarator>,declarator-nofunc-notyp):
   |              direct-declarator-nofunc-notyp
   ;
 
-rule(<Declarator>,direct-declarator):
+/*rule_(<Declarator>,direct-declarator):
     direct-declarator-func
   | direct-declarator-nofunc
-  ;
+  ;*/
 rule(<Declarator>,direct-declarator-prm):
     direct-declarator-func-prm
   | direct-declarator-nofunc-prm
@@ -634,24 +634,24 @@ rule(<Declarator>,direct-declarator-nofunc-prmnotyp):
 
 rule(<Declarator>,d2):
     any-pident[id] elem-nofunc[el]                { $$ = declarator(@id,$id).append($el); }
-  | "(" pointer[ptr] direct-declarator[decl] ")"  { $$ = $decl.append($ptr); }
+  | "(" pointer[ptr] direct-declarator-nofunc[decl] ")"  { $$ = $decl.append($ptr); }
   | d2[decl] direct-declarator-elem[el]           { $$ = $decl.append($el); }
   ;
 rule(<Declarator>,d2-notyp):
     pident[id] elem-nofunc[el]                    { $$ = declarator(@id,$id).append($el); }
-  | "(" pointer[ptr] direct-declarator[decl] ")"  { $$ = $decl.append($ptr); }
+  | "(" pointer[ptr] direct-declarator-nofunc[decl] ")"  { $$ = $decl.append($ptr); }
   | d2-notyp[decl] direct-declarator-elem[el]     { $$ = $decl.append($el); }
   ;
 rule(<Declarator>,d2-prm):
     any-identifier[id] elem-nofunc[el]            { $$ = declarator(@id,$id).append($el); }
   | pident-prm[id] elem-nofunc[el]                { $$ = declarator(@id,$id).append($el); }
-  | "(" pointer[ptr] direct-declarator-prm[decl] ")" { $$ = $decl.append($ptr); }
+  | "(" pointer[ptr] direct-declarator-nofunc-prm[decl] ")" { $$ = $decl.append($ptr); }
   | d2-prm[decl] direct-declarator-elem[el]       { $$ = $decl.append($el); }
   ;
 rule(<Declarator>,d2-prmnotyp):
     identifier[id] elem-nofunc[el]                { $$ = declarator(@id,$id).append($el); }
   | pident-prm[id] elem-nofunc[el]                { $$ = declarator(@id,$id).append($el); }
-  | "(" pointer[ptr] direct-declarator-prm[decl] ")" { $$ = $decl.append($ptr); }
+  | "(" pointer[ptr] direct-declarator-nofunc-prm[decl] ")" { $$ = $decl.append($ptr); }
   | d2-prmnotyp[decl] direct-declarator-elem[el]  { $$ = $decl.append($el); }
   ;
 
