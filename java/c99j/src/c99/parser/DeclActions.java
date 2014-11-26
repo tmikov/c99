@@ -834,7 +834,7 @@ private Qual adjustParamType ( Qual qual )
     ArraySpec arraySpec = (ArraySpec)qual.spec;
     PointerSpec ptrSpec = new PointerSpec( arraySpec.of );
     if (arraySpec._static)
-      ptrSpec.staticSize = arraySpec.size;
+      ptrSpec.staticSize = arraySpec.nelem;
     Qual q = new Qual( ptrSpec );
     q.combine( qual ); // Keep the C99 array qualifiers
 
@@ -854,7 +854,7 @@ private static boolean compareDeclTypes ( Qual a, Qual b )
 
     ArraySpec sa = (ArraySpec)a.spec;
     ArraySpec sb = (ArraySpec)b.spec;
-    if (sa.size != null && sb.size != null && !sa.size.equals( sb.size ))
+    if (sa.nelem >= 0 && sb.nelem >= 0 && sa.nelem != sb.nelem)
       return false;
 
     return sa.of.same( sb.of );
@@ -869,7 +869,7 @@ private static boolean isArrayMostlyComplete ( Qual q )
   if (q.spec.type == TypeSpec.ARRAY)
   {
     ArraySpec s = (ArraySpec)q.spec;
-    if (s.size == null && s.of.spec.isComplete())
+    if (s.nelem < 0 && s.of.spec.isComplete())
       return true;
   }
   return false;
@@ -1080,8 +1080,8 @@ redeclaration:
       impDecl.defined = true;
     }
     // Complete the array size, if it wasn't provided before
-    if (isArray( impDecl.type ) && ((ArraySpec)impDecl.type.spec).size == null)
-      ((ArraySpec)impDecl.type.spec).size = ((ArraySpec)type.spec).size;
+    if (isArray( impDecl.type ) && ((ArraySpec)impDecl.type.spec).nelem < 0)
+      ((ArraySpec)impDecl.type.spec).nelem = ((ArraySpec)type.spec).nelem;
 
     if (prevDecl.scope != m_topScope)
     {

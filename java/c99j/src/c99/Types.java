@@ -147,6 +147,7 @@ public static final class Qual
 
   public Qual ( final Spec spec )
   {
+    assert spec != null;
     this.spec = spec;
   }
 
@@ -164,6 +165,7 @@ public static final class Qual
     return this == qual ||
            isAtomic == qual.isAtomic && isConst == qual.isConst && isRestrict == qual.isRestrict &&
            isVolatile == qual.isVolatile &&
+           align == qual.align &&
            extAttrs.same( qual.extAttrs ) &&
            spec.same( qual.spec );
   }
@@ -185,10 +187,15 @@ public static abstract class Spec
 {
   public TypeSpec type;
   public final ExtAttributes extAttrs = new ExtAttributes();
+  public int sizeOf; //< -1 means not yet calculated
 
-  public Spec ( final TypeSpec type ) { this.type = type; }
+  public Spec ( final TypeSpec type )
+  {
+    this.type = type;
+    this.sizeOf = -1;
+  }
 
-  public abstract boolean isComplete ();
+  public final boolean isComplete () { return this.sizeOf >= 0; }
 
   public boolean same ( Spec o )
   {
@@ -203,11 +210,10 @@ public static abstract class Spec
 
 public static final class SimpleSpec extends Spec
 {
-  public SimpleSpec ( final TypeSpec type ) { super(type); }
-
-  @Override public boolean isComplete ()
+  public SimpleSpec ( final TypeSpec type )
   {
-    return type != TypeSpec.VOID;
+    super(type);
+    super.sizeOf = type.sizeOf;
   }
 }
 
@@ -221,11 +227,6 @@ public static final class BasedSpec extends Spec
     super( type );
     assert type == TypeSpec.COMPLEX || type == TypeSpec.IMAGINARY || type == TypeSpec.ATOMIC;
     this.on = on;
-  }
-
-  @Override public boolean isComplete ()
-  {
-    return on != null && on.isComplete();
   }
 
   @Override public boolean same ( Spec o )
@@ -260,11 +261,11 @@ public static abstract class DerivedSpec extends Spec
 
 public static final class PointerSpec extends DerivedSpec
 {
-  public Constant.IntC staticSize; // from ArraySpec.size and _static
+  public int staticSize; // from ArraySpec.size and _static
 
   public PointerSpec ( Qual of )
   {
-    super( TypeSpec.POINTER, of );
+    super(TypeSpec.POINTER, of);
   }
 
   public PointerSpec ()
@@ -272,35 +273,28 @@ public static final class PointerSpec extends DerivedSpec
     this( null );
   }
 
-  @Override public boolean isComplete ()
-  {
-    return true;
-  }
-
   @Override public final boolean same ( Spec o )
   {
     return
-      super.same(o) &&
-      staticSize != null ? staticSize.equals(((PointerSpec)o).staticSize) : ((PointerSpec)o).staticSize == null;
+      super.same(o) && this.staticSize == ((PointerSpec)o).staticSize;
   }
 
   @Override public final String toString ()
   {
-    return staticSize != null ? "ptr to /static "+ staticSize+"/ "+ of : "ptr to "+ of;
+    return staticSize > 0 ? "ptr to /static "+ staticSize+"/ "+ of : "ptr to "+ of;
   }
 }
 
 public static final class ArraySpec extends DerivedSpec
 {
-  public Constant.IntC size;
+  public int nelem;
   public boolean _static;
   public boolean asterisk;
 
-  public ArraySpec () { super( TypeSpec.ARRAY ); }
-
-  @Override public boolean isComplete ()
+  public ArraySpec ()
   {
-    return size != null && this.of != null && this.of.spec.isComplete();
+    super( TypeSpec.ARRAY );
+    this.nelem = -1;
   }
 
   @Override public boolean same ( Spec o )
@@ -308,10 +302,7 @@ public static final class ArraySpec extends DerivedSpec
     if (!super.same(o))
       return false;
     ArraySpec x = (ArraySpec) o;
-    return
-       this._static == x._static &&
-       this.asterisk == x.asterisk &&
-      (this.size != null ? this.size.equals( x.size ) : x.size == null);
+    return this._static == x._static && this.asterisk == x.asterisk && this.nelem == x.nelem;
   }
 
   @Override public final String toString ()
@@ -320,8 +311,8 @@ public static final class ArraySpec extends DerivedSpec
     buf.append( "array[ " );
     if (_static)
       buf.append( "static" );
-    if (size != null)
-      buf.append( size.toString() );
+    if (nelem >= 0)
+      buf.append( nelem );
     if (asterisk)
       buf.append( '*' );
     buf.append( ']' );
@@ -330,7 +321,7 @@ public static final class ArraySpec extends DerivedSpec
   }
 }
 
-public static abstract class TagSpec extends DerivedSpec
+public static abstract class TagSpec extends Spec
 {
   public final Ident name;
 
@@ -356,12 +347,6 @@ public static final class StructUnionSpec extends TagSpec
   {
     super( type, name );
   }
-
-  @Override
-  public boolean isComplete ()
-  {
-    return this.fields != null;
-  }
 }
 
 public static final class EnumSpec extends TagSpec
@@ -371,12 +356,6 @@ public static final class EnumSpec extends TagSpec
   public EnumSpec ( final Ident name )
   {
     super( TypeSpec.ENUM, name );
-  }
-
-  @Override
-  public boolean isComplete ()
-  {
-    return spec != null && spec.isComplete();
   }
 }
 
@@ -393,12 +372,6 @@ public static final class FunctionSpec extends DerivedSpec
   {
     this();
     this.oldStyle = oldStyle;
-  }
-
-  @Override
-  public boolean isComplete ()
-  {
-    return false;
   }
 
   @Override public boolean same ( Spec o )
