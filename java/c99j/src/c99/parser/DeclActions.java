@@ -594,6 +594,17 @@ private final class TypeHelper
       }
       break;
     }
+
+    if (complex != null)
+    {
+      switch (base.code)
+      {
+      case VOID: case TYPENAME: case ENUM: case STRUCT: case UNION:
+        err( complex, specStr(complex), specStr(base) );
+        complex = null;
+        break;
+      }
+    }
   }
 
   Spec mkSpec ()
