@@ -1,5 +1,6 @@
 package c99;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 
 public class Types
@@ -124,6 +125,52 @@ public static enum TypeSpec
   }
 }
 
+public static interface TypeVisitor
+{
+  public boolean visitSimple ( Qual q, SimpleSpec s );
+  public boolean visitBased ( Qual q, BasedSpec s );
+  public boolean visitAtomic ( Qual q, BasedSpec s );
+  public boolean visitPointer ( Qual q, PointerSpec s );
+  public boolean visitArray ( Qual q, ArraySpec s );
+  public boolean visitStructUnion ( Qual q, StructUnionSpec s );
+  public boolean visitEnum ( Qual q, EnumSpec s );
+  public boolean visitFunction ( Qual q, FunctionSpec s );
+}
+
+public static boolean visitAllPre ( Qual q, TypeVisitor v )
+{
+  for (;;)
+  {
+    if (!q.spec.visit( q, v ))
+      return false;
+    if (q.spec instanceof DerivedSpec)
+      q = ((DerivedSpec) q.spec).of;
+    else
+      break;
+  }
+  return true;
+}
+
+public static boolean visitAllPost ( Qual q, TypeVisitor v )
+{
+  final ArrayList<Qual> stack = new ArrayList<Qual>( 16 );
+  for (;;)
+  {
+    stack.add( q );
+    if (q.spec instanceof DerivedSpec)
+      q = ((DerivedSpec) q.spec).of;
+    else
+      break;
+  }
+  for ( int i = stack.size(); i > 0; )
+  {
+    final Qual qq = stack.get(--i);
+    if (!qq.spec.visit( qq, v ))
+      return false;
+  }
+  return true;
+}
+
 public static enum SClass
 {
   NONE,
@@ -160,6 +207,11 @@ public static final class Qual
     this.extAttrs.combine( q.extAttrs );
   }
 
+  /**
+   * Is a type valid for a re-declaration of the same symbol.
+   * @param qual
+   * @return
+   */
   public final boolean same ( Qual qual )
   {
     return this == qual ||
@@ -195,6 +247,8 @@ public static abstract class Spec
     this.sizeOf = -1;
   }
 
+  public abstract boolean visit ( Qual q, TypeVisitor v );
+
   public final boolean isComplete () { return this.sizeOf >= 0; }
 
   public boolean same ( Spec o )
@@ -215,6 +269,12 @@ public static final class SimpleSpec extends Spec
     super(type);
     super.sizeOf = type.sizeOf;
   }
+
+  @Override
+  public boolean visit ( Qual q, TypeVisitor v )
+  {
+    return v.visitSimple( q, this );
+  }
 }
 
 /** Complex, Imaginary, Atomic */
@@ -227,6 +287,12 @@ public static final class BasedSpec extends Spec
     super( type );
     assert type == TypeSpec.COMPLEX || type == TypeSpec.IMAGINARY || type == TypeSpec.ATOMIC;
     this.on = on;
+  }
+
+  @Override
+  public boolean visit ( Qual q, TypeVisitor v )
+  {
+    return this.type == TypeSpec.ATOMIC ? v.visitAtomic( q, this ) : v.visitBased( q, this );
   }
 
   @Override public boolean same ( Spec o )
@@ -273,6 +339,12 @@ public static final class PointerSpec extends DerivedSpec
     this( null );
   }
 
+  @Override
+  public boolean visit ( Qual q, TypeVisitor v )
+  {
+    return v.visitPointer( q, this );
+  }
+
   @Override public final boolean same ( Spec o )
   {
     return
@@ -295,6 +367,12 @@ public static final class ArraySpec extends DerivedSpec
   {
     super( TypeSpec.ARRAY );
     this.nelem = -1;
+  }
+
+  @Override
+  public boolean visit ( Qual q, TypeVisitor v )
+  {
+    return v.visitArray( q, this );
   }
 
   @Override public boolean same ( Spec o )
@@ -347,6 +425,12 @@ public static final class StructUnionSpec extends TagSpec
   {
     super( type, name );
   }
+
+  @Override
+  public boolean visit ( Qual q, TypeVisitor v )
+  {
+    return v.visitStructUnion( q, this );
+  }
 }
 
 public static final class EnumSpec extends TagSpec
@@ -356,6 +440,12 @@ public static final class EnumSpec extends TagSpec
   public EnumSpec ( final Ident name )
   {
     super( TypeSpec.ENUM, name );
+  }
+
+  @Override
+  public boolean visit ( Qual q, TypeVisitor v )
+  {
+    return v.visitEnum( q, this );
   }
 }
 
@@ -372,6 +462,12 @@ public static final class FunctionSpec extends DerivedSpec
   {
     this();
     this.oldStyle = oldStyle;
+  }
+
+  @Override
+  public boolean visit ( Qual q, TypeVisitor v )
+  {
+    return v.visitFunction( q, this );
   }
 
   @Override public boolean same ( Spec o )
