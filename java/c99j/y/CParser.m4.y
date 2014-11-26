@@ -405,7 +405,7 @@ rule(<SpecNode>,type-specifier-notyp):
   | UNSIGNED                    { $$ = spec(@1,$1); }
   | _BOOL                       { $$ = spec(@1,$1); }
   | _COMPLEX                    { $$ = spec(@1,$1); }
-  | _IMAGINARY                  { $$ = spec(@1,$1); }
+  | _IMAGINARY                  { pedWarning(@1, "%s is an extension", $1.str); $$ = spec(@1,$1); }
   | atomic-type-specifier
   | struct-or-union-specifier
   | enum-specifier
