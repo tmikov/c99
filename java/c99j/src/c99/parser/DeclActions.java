@@ -129,7 +129,7 @@ public static final class Declarator extends SourceRange
     return this;
   }
 
-  Qual complete ( Qual declSpec )
+  Qual attachDeclSpecs ( Qual declSpec )
   {
     assert declSpec != null;
     if (bottom != null)
@@ -817,7 +817,7 @@ public final DeclList declList ( DeclList list, DeclInfo di )
 
 public final Qual mkTypeName ( Declarator dr, DeclSpec ds )
 {
-  return dr.complete( ds.qual );
+  return dr.attachDeclSpecs(ds.qual);
 }
 
 private Qual adjustParamType ( Qual qual )
@@ -886,7 +886,7 @@ private static boolean isArray ( Qual q )
 
 public final DeclInfo declInfo ( Declarator dr, DeclSpec ds )
 {
-  return new DeclInfo( dr, dr.ident, dr.complete( ds.qual ), ds );
+  return new DeclInfo( dr, dr.ident, dr.attachDeclSpecs(ds.qual), ds );
 }
 
 public final Decl declare ( Declarator dr, DeclSpec ds )
