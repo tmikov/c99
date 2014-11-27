@@ -538,6 +538,11 @@ public static class Member extends Param
   }
 }
 
+public static void setDefaultAttrs ( CompEnv env, ISourceRange loc, Qual qual )
+{
+  Platform.setDefaultAttrs( env, loc, qual );
+}
+
 public static int sizeOf ( Qual qual )
 {
   if (!qual.spec.isComplete())

@@ -1,21 +1,12 @@
 package c99.parser;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 
-import c99.CompilerOptions;
-import c99.ExtAttr;
-import c99.ExtAttrDef;
-import c99.ExtAttributes;
-import c99.IErrorReporter;
-import c99.ISourceRange;
-import c99.Platform;
-import c99.SourceRange;
+import c99.*;
 import c99.Types.*;
 import c99.Types;
-import c99.Utils;
 import c99.parser.ast.Ast;
 
 import static c99.parser.Trees.*;
@@ -237,7 +228,7 @@ public final TExtAttr extAttr (
   }
   SourceRange rngAll = BisonLexer.fromLocation(locAll);
   ExtAttr extAttr = Platform.parseExtAttr(
-    m_reporter, rngAll, BisonLexer.fromLocation(locName), def, params
+    m_compEnv, rngAll, BisonLexer.fromLocation(locName), def, params
   );
   if (extAttr == null)
     return null;
@@ -417,6 +408,7 @@ private static Spec stdSpec ( TypeSpec ts )
 
 private final class TypeHelper
 {
+  final SourceRange loc = new SourceRange();
   boolean haveErr = false;
 
   SpecNode thread = null;
@@ -436,6 +428,11 @@ private final class TypeHelper
   SpecNode _volatile = null;
   SpecNode _atomicQual = null;
   ExtAttributes qualAttrs;
+
+  TypeHelper ( CParser.Location loc )
+  {
+    BisonLexer.setLocation( this.loc, loc );
+  }
 
   void err ( ISourceRange rng, String a, String b )
   {
@@ -652,6 +649,8 @@ private final class TypeHelper
 
   Qual mkQual ( Spec spec )
   {
+    assert spec != null;
+
     final Qual q = new Qual(spec);
     q.isConst = _const != null;
     q.isVolatile = _volatile != null;
@@ -662,6 +661,8 @@ private final class TypeHelper
     // Combine the qualifiers of the typedef
     if (base != null && base.code == Code.TYPENAME)
       q.combine( ((SpecDeclNode)base).decl.type );
+
+    Types.setDefaultAttrs( m_compEnv, loc, q );
 
     return q;
   }
@@ -695,7 +696,7 @@ private final class TypeHelper
 
 public final DeclSpec declSpec ( CParser.Location loc, SpecNode specNode )
 {
-  final TypeHelper th = new TypeHelper();
+  final TypeHelper th = new TypeHelper(loc);
 
   th.accumulate( specNode );
   th.deduceBase( loc );
@@ -720,7 +721,7 @@ public final Declarator abstractDeclarator ( CParser.Location loc )
 
 public final DeclElem pointerDecl ( CParser.Location loc, SpecNode qualList, DeclElem to )
 {
-  final TypeHelper th = new TypeHelper();
+  final TypeHelper th = new TypeHelper(loc);
   th.accumulate( qualList );
   return new DeclElem( loc, th.mkQual(new PointerSpec()) ).append( to );
 }
@@ -730,7 +731,7 @@ public final DeclElem arrayDecl (
   SpecNode qualList, CParser.Location _static, CParser.Location asterisk, Ast size
 )
 {
-  final TypeHelper th = new TypeHelper();
+  final TypeHelper th = new TypeHelper(loc);
   if (qualList != null && m_topScope.kind != Scope.Kind.PARAM)
   {
     error( qualList, "type qualifiers in non-parameter array declarator" );
