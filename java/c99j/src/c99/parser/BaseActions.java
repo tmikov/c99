@@ -1,5 +1,6 @@
 package c99.parser;
 
+import c99.CompEnv;
 import c99.CompilerOptions;
 import c99.IErrorReporter;
 import c99.ISourceRange;
@@ -10,11 +11,14 @@ protected CompilerOptions m_opts;
 protected IErrorReporter m_reporter;
 protected SymTable m_symTab;
 
+protected CompEnv m_compEnv;
+
 protected void init ( CompilerOptions opts, IErrorReporter reporter, SymTable symTab )
 {
   m_opts = opts;
   m_reporter = reporter;
   m_symTab = symTab;
+  m_compEnv = new CompEnv(opts, reporter);
 }
 
 public final void error ( CParser.Location loc, String msg, Object... args )
