@@ -14,6 +14,7 @@ import c99.ISourceRange;
 import c99.Platform;
 import c99.SourceRange;
 import c99.Types.*;
+import c99.Types;
 import c99.Utils;
 import c99.parser.ast.Ast;
 
@@ -894,6 +895,58 @@ private static boolean isArray ( Qual q )
 {
   return q.spec.type == TypeSpec.ARRAY;
 }
+
+private final void validateType ( Qual q )
+{
+  Types.visitAllPost( q, new TypeVisitor()
+  {
+    public boolean visitSimple ( Qual q, SimpleSpec s )
+    {
+      return false;
+    }
+
+    public boolean visitBased ( Qual q, BasedSpec s )
+    {
+      return false;
+    }
+
+    public boolean visitAtomic ( Qual q, BasedSpec s )
+    {
+      return false;
+    }
+
+    public boolean visitPointer ( Qual q, PointerSpec s )
+    {
+      return false;
+    }
+
+    public boolean visitArray ( Qual q, ArraySpec s )
+    {
+      return false;
+    }
+
+    public boolean visitStructUnion ( Qual q, StructUnionSpec s )
+    {
+      return false;
+    }
+
+    public boolean visitEnum ( Qual q, EnumSpec s )
+    {
+      return false;
+    }
+
+    public boolean visitFunction ( Qual q, FunctionSpec s )
+    {
+      return false;
+    }
+  } );
+}
+
+private final void validateType ( DeclInfo di )
+{
+  validateType( di.type );
+}
+
 
 public final DeclInfo declInfo ( Declarator dr, DeclSpec ds )
 {
