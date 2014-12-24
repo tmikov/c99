@@ -81,14 +81,19 @@ public static final class DeclSpec
 public static final class DeclElem extends SourceRange
 {
   public Qual qual;
-  public DerivedSpec spec;
+  public Spec spec;
   public DeclElem to;
+
+  private static boolean specIsLast ( Spec spec )
+  {
+    return !(spec instanceof DerivedSpec) || ((DerivedSpec)spec).of == null;
+  }
 
   public DeclElem ( CParser.Location loc, final Qual qual )
   {
     this.qual = qual;
-    this.spec = (DerivedSpec)qual.spec;
-    assert this.spec.of == null;
+    this.spec = qual.spec;
+    assert specIsLast( this.spec );
 
     BisonLexer.setLocation( this, loc );
   }
@@ -97,9 +102,10 @@ public static final class DeclElem extends SourceRange
   {
     if (next != null)
     {
-      assert this.to == null && this.spec.of == null;
+      assert this.to == null && specIsLast( this.spec );
+      assert this.spec instanceof DerivedSpec;
       this.to = next;
-      this.spec.of = next.qual;
+      ((DerivedSpec)this.spec).of = next.qual;
     }
     return this;
   }
@@ -135,7 +141,7 @@ public static final class Declarator extends SourceRange
     assert declSpec != null;
     if (bottom != null)
     {
-      bottom.spec.of = declSpec;
+      ((DerivedSpec)bottom.spec).of = declSpec;
       declSpec = top.qual;
 
       bottom = top = null; // Mark it as invalid
