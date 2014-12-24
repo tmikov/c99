@@ -969,7 +969,7 @@ public final Decl declare ( Declarator dr, DeclSpec ds, boolean hasInit )
   return declare( declInfo( dr, ds ), hasInit );
 }
 
-public final Decl declare ( DeclInfo di, boolean hasInit )
+private final Decl declare ( DeclInfo di, boolean hasInit )
 {
   final DeclSpec ds = di.ds;
   SClass sc = ds.sc;
