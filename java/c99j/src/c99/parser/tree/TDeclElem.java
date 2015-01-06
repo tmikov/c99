@@ -11,7 +11,6 @@ import c99.parser.CParser;
 public final class TDeclElem extends SourceRange
 {
   public Types.Qual qual;
-  public Types.Spec spec;
   public TDeclElem to;
 
   private static boolean specIsLast ( Types.Spec spec )
@@ -22,8 +21,7 @@ public final class TDeclElem extends SourceRange
   public TDeclElem ( CParser.Location loc, final Types.Qual qual )
   {
     this.qual = qual;
-    this.spec = qual.spec;
-    assert specIsLast( this.spec );
+    assert specIsLast( this.qual.spec );
 
     BisonLexer.setLocation( this, loc );
   }
@@ -32,10 +30,10 @@ public final class TDeclElem extends SourceRange
   {
     if (next != null)
     {
-      assert this.to == null && specIsLast( this.spec );
-      assert this.spec instanceof Types.DerivedSpec;
+      assert this.to == null && specIsLast( this.qual.spec );
+      assert this.qual.spec instanceof Types.DerivedSpec;
       this.to = next;
-      ((Types.DerivedSpec)this.spec).of = next.qual;
+      ((Types.DerivedSpec)this.qual.spec).of = next.qual;
     }
     return this;
   }

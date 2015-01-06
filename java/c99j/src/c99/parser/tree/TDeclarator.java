@@ -39,7 +39,7 @@ public final class TDeclarator extends SourceRange
     assert declSpec != null;
     if (bottom != null)
     {
-      ((Types.DerivedSpec)bottom.spec).of = declSpec;
+      ((Types.DerivedSpec)bottom.qual.spec).of = declSpec;
       declSpec = top.qual;
 
       bottom = top = null; // Mark it as invalid
