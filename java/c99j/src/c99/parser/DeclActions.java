@@ -16,25 +16,6 @@ public class DeclActions extends AstActions
 {
 private Scope m_topScope;
 
-public static final class DeclSpec
-{
-  public SClass sc;
-  public final ExtAttributes scAttr;
-  public final Qual qual;
-  public TSpecNode scNode;
-  public TSpecNode thread;
-  public TSpecNode inline;
-  public TSpecNode noreturn;
-  public boolean error;
-
-  public DeclSpec ( final SClass sc, ExtAttributes scAttr, final Qual qual )
-  {
-    this.sc = sc;
-    this.scAttr = scAttr;
-    this.qual = qual;
-  }
-}
-
 
 /**
  * We need to accumulate parameter declarations because of reduce/reduce conflicts
@@ -44,9 +25,9 @@ public static final class DeclInfo extends SourceRange
 {
   public final Symbol ident;
   public final Qual   type;
-  public final DeclSpec ds;
+  public final TDeclSpec ds;
 
-  public DeclInfo ( ISourceRange rng, Symbol ident, Qual type, DeclSpec ds )
+  public DeclInfo ( ISourceRange rng, Symbol ident, Qual type, TDeclSpec ds )
   {
     super(rng);
     this.ident = ident;
@@ -54,7 +35,7 @@ public static final class DeclInfo extends SourceRange
     this.ds = ds;
   }
 
-  public DeclInfo ( CParser.Location loc, Symbol ident, Qual type, DeclSpec ds )
+  public DeclInfo ( CParser.Location loc, Symbol ident, Qual type, TDeclSpec ds )
   {
     this((ISourceRange)null, ident, type, ds );
     BisonLexer.setLocation( this, loc );
@@ -576,9 +557,9 @@ private final class TypeHelper
     }
   }
 
-  DeclSpec mkDeclSpec ( SClass sclass, Qual qual )
+  TDeclSpec mkDeclSpec ( SClass sclass, Qual qual )
   {
-    DeclSpec ds = new DeclSpec( sclass, scAttrs, qual );
+    TDeclSpec ds = new TDeclSpec( sclass, scAttrs, qual );
     ds.scNode = sc;
     ds.thread = thread;
     ds.inline = inline;
@@ -589,7 +570,7 @@ private final class TypeHelper
   }
 }
 
-public final DeclSpec declSpec ( CParser.Location loc, TSpecNode specNode )
+public final TDeclSpec declSpec ( CParser.Location loc, TSpecNode specNode )
 {
   final TypeHelper th = new TypeHelper(loc);
 
@@ -729,7 +710,7 @@ public final DeclList declList ( DeclList list, DeclInfo di )
   return list;
 }
 
-public final Qual mkTypeName ( TDeclarator dr, DeclSpec ds )
+public final Qual mkTypeName ( TDeclarator dr, TDeclSpec ds )
 {
   return dr.attachDeclSpecs(ds.qual);
 }
@@ -850,24 +831,24 @@ private final void validateType ( DeclInfo di )
 }
 
 
-public final DeclInfo declInfo ( TDeclarator dr, DeclSpec ds )
+public final DeclInfo declInfo ( TDeclarator dr, TDeclSpec ds )
 {
   return new DeclInfo( dr, dr.ident, dr.attachDeclSpecs(ds.qual), ds );
 }
 
-public final Decl declare ( TDeclarator dr, DeclSpec ds )
+public final Decl declare ( TDeclarator dr, TDeclSpec ds )
 {
   return declare(  dr, ds, false );
 }
 
-public final Decl declare ( TDeclarator dr, DeclSpec ds, boolean hasInit )
+public final Decl declare ( TDeclarator dr, TDeclSpec ds, boolean hasInit )
 {
   return declare( declInfo( dr, ds ), hasInit );
 }
 
 private final Decl declare ( DeclInfo di, boolean hasInit )
 {
-  final DeclSpec ds = di.ds;
+  final TDeclSpec ds = di.ds;
   SClass sc = ds.sc;
   boolean haveError = ds.error;
   Qual type = di.type;

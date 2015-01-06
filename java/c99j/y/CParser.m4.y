@@ -291,11 +291,11 @@ declaration:
   | declaration-specifiers-ts   init-declarator-list_opt ";"
   ;
 
-rule(<DeclSpec>,declaration-specifiers-nots):
+rule(<TDeclSpec>,declaration-specifiers-nots):
     _declaration-specifiers-nots { $$ = declSpec(@1,$1); }
   ;
 
-rule(<DeclSpec>,declaration-specifiers-ts):
+rule(<TDeclSpec>,declaration-specifiers-ts):
     _declaration-specifiers-ts   { $$ = declSpec(@1,$1); }
   ;
 
@@ -335,13 +335,13 @@ rule(<Ast>,init-declarator-list-notyp,opt,declaration-specifiers):
 
 // (6.7)
 rule(<Ast>,init-declarator,,declaration-specifiers):
-    declarator[decl] asm-label_opt                 { $$ = FIXME(); declare($decl,$<DeclSpec>0,false); }
-  | declarator[decl] asm-label_opt "=" initializer { $$ = FIXME(); declare($decl,$<DeclSpec>0,true); }
+    declarator[decl] asm-label_opt                 { $$ = FIXME(); declare($decl,$<TDeclSpec>0,false); }
+  | declarator[decl] asm-label_opt "=" initializer { $$ = FIXME(); declare($decl,$<TDeclSpec>0,true); }
   ;
 
 rule(<Ast>,init-declarator-notyp,,declaration-specifiers):
-    declarator-notyp[decl] asm-label_opt                  { $$ = FIXME(); declare($decl,$<DeclSpec>0,false); }
-  | declarator-notyp[decl] asm-label_opt "=" initializer  { $$ = FIXME(); declare($decl,$<DeclSpec>0,true); }
+    declarator-notyp[decl] asm-label_opt                  { $$ = FIXME(); declare($decl,$<TDeclSpec>0,false); }
+  | declarator-notyp[decl] asm-label_opt "=" initializer  { $$ = FIXME(); declare($decl,$<TDeclSpec>0,true); }
   ;
 
 rule(,asm-label,optn):
@@ -466,12 +466,12 @@ rule(,struct-declarator-list-notyp,optn):
 
 // (6.7.2.1)
 struct-declarator:
-    declarator[decl]                              { declare($decl,$<DeclSpec>0); }
+    declarator[decl]                              { declare($decl,$<TDeclSpec>0); }
   | declarator_opt ":" constant-expression        { FIXME(); }
   ;
 
 struct-declarator-notyp:
-    declarator-notyp[decl]                         { declare($decl,$<DeclSpec>0); }
+    declarator-notyp[decl]                         { declare($decl,$<TDeclSpec>0); }
   | declarator-notyp_opt ":" constant-expression   { FIXME(); }
   ;
 
