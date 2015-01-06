@@ -8,6 +8,7 @@ import c99.*;
 import c99.Types.*;
 import c99.Types;
 import c99.parser.ast.Ast;
+import c99.parser.tree.*;
 
 import static c99.parser.Trees.*;
 
@@ -15,49 +16,15 @@ public class DeclActions extends AstActions
 {
 private Scope m_topScope;
 
-public static class SpecNode extends SourceRange
-{
-  public final Code code;
-  public SpecNode next;
-
-  public SpecNode ( ISourceRange rgn, Code code )
-  {
-    super(rgn);
-    this.code = code;
-  }
-}
-
-public static final class SpecAttrNode extends SpecNode
-{
-  public final TExtAttrList attrList;
-
-  public SpecAttrNode ( final ISourceRange rgn, final TExtAttrList attrList )
-  {
-    super(rgn, Code.GCC_ATTRIBUTE);
-    this.attrList = attrList;
-  }
-}
-
-public static final class SpecDeclNode extends SpecNode
-{
-  public final Decl decl;
-
-  public SpecDeclNode ( ISourceRange rng, Code code, Decl decl )
-  {
-    super( rng, code );
-    this.decl = decl;
-  }
-}
-
 public static final class DeclSpec
 {
   public SClass sc;
   public final ExtAttributes scAttr;
   public final Qual qual;
-  public SpecNode scNode;
-  public SpecNode thread;
-  public SpecNode inline;
-  public SpecNode noreturn;
+  public TSpecNode scNode;
+  public TSpecNode thread;
+  public TSpecNode inline;
+  public TSpecNode noreturn;
   public boolean error;
 
   public DeclSpec ( final SClass sc, ExtAttributes scAttr, final Qual qual )
@@ -68,78 +35,6 @@ public static final class DeclSpec
   }
 }
 
-
-public static final class DeclElem extends SourceRange
-{
-  public Qual qual;
-  public Spec spec;
-  public DeclElem to;
-
-  private static boolean specIsLast ( Spec spec )
-  {
-    return !(spec instanceof DerivedSpec) || ((DerivedSpec)spec).of == null;
-  }
-
-  public DeclElem ( CParser.Location loc, final Qual qual )
-  {
-    this.qual = qual;
-    this.spec = qual.spec;
-    assert specIsLast( this.spec );
-
-    BisonLexer.setLocation( this, loc );
-  }
-
-  DeclElem append ( DeclElem next )
-  {
-    if (next != null)
-    {
-      assert this.to == null && specIsLast( this.spec );
-      assert this.spec instanceof DerivedSpec;
-      this.to = next;
-      ((DerivedSpec)this.spec).of = next.qual;
-    }
-    return this;
-  }
-}
-
-public static final class Declarator extends SourceRange
-{
-  public final Symbol ident;
-  DeclElem top;
-  DeclElem bottom;
-
-  public Declarator ( CParser.Location loc, final Symbol ident )
-  {
-    this.ident = ident;
-    BisonLexer.setLocation( this, loc );
-  }
-
-  Declarator append ( DeclElem next )
-  {
-    if (next != null)
-    {
-      if (bottom != null)
-        bottom.append( next );
-      else
-        top = next;
-      bottom = next;
-    }
-    return this;
-  }
-
-  Qual attachDeclSpecs ( Qual declSpec )
-  {
-    assert declSpec != null;
-    if (bottom != null)
-    {
-      ((DerivedSpec)bottom.spec).of = declSpec;
-      declSpec = top.qual;
-
-      bottom = top = null; // Mark it as invalid
-    }
-    return declSpec;
-  }
-}
 
 /**
  * We need to accumulate parameter declarations because of reduce/reduce conflicts
@@ -246,25 +141,25 @@ public final TExtAttrList extAttrList ( CParser.Location loc, TExtAttrList list,
   return list;
 }
 
-public final SpecNode specExtAttr ( CParser.Location loc, TExtAttrList attrList )
+public final TSpecNode specExtAttr ( CParser.Location loc, TExtAttrList attrList )
 {
   if (attrList != null && attrList.size() > 0)
-    return BisonLexer.setLocation(new SpecAttrNode(null, attrList), loc);
+    return BisonLexer.setLocation(new TSpecAttrNode(null, attrList), loc);
   else
     return null;
 }
 
-public final SpecNode spec ( CParser.Location loc, Code code )
+public final TSpecNode spec ( CParser.Location loc, Code code )
 {
-  return BisonLexer.setLocation(new SpecNode( null, code ), loc);
+  return BisonLexer.setLocation(new TSpecNode( null, code ), loc);
 }
 
-public final SpecNode specTypename ( CParser.Location loc, Decl decl )
+public final TSpecNode specTypename ( CParser.Location loc, Decl decl )
 {
-  return BisonLexer.setLocation( new SpecDeclNode( null, Code.TYPENAME, decl ), loc );
+  return BisonLexer.setLocation( new TSpecDeclNode( null, Code.TYPENAME, decl ), loc );
 }
 
-public final SpecNode declareAgg (
+public final TSpecNode declareAgg (
   CParser.Location loc, Code tagCode,
   CParser.Location identLoc, Symbol ident,
   Scope memberScope
@@ -330,10 +225,10 @@ public final SpecNode declareAgg (
   for ( Decl d : decls )
     spec.fields[i++] = new Member( d, d.symbol, d.type );
 
-  return new SpecDeclNode( tagDecl, tagCode, tagDecl );
+  return new TSpecDeclNode( tagDecl, tagCode, tagDecl );
 }
 
-public final SpecNode specAgg (
+public final TSpecNode specAgg (
   CParser.Location loc, Code tagCode,
   CParser.Location identLoc, Symbol ident
 )
@@ -370,24 +265,24 @@ public final SpecNode specAgg (
     m_topScope.pushTag( tagDecl );
   }
 
-  return new SpecDeclNode( tagDecl, tagCode, tagDecl );
+  return new TSpecDeclNode( tagDecl, tagCode, tagDecl );
 }
 
 
-public final SpecNode spec ( Ast ast )
+public final TSpecNode spec ( Ast ast )
 {
   assert false; // FIXME
   return null;
 }
 
-public final SpecNode append ( SpecNode a, SpecNode b )
+public final TSpecNode appendSpecNode ( TSpecNode a, TSpecNode b )
 {
   if (a == null)
     return b;
   if (b == null)
     return a;
 
-  SpecNode t = a;
+  TSpecNode t = a;
   while (t.next != null)
     t = t.next;
   t.next = b;
@@ -411,22 +306,22 @@ private final class TypeHelper
   final SourceRange loc = new SourceRange();
   boolean haveErr = false;
 
-  SpecNode thread = null;
-  SpecNode inline = null;
-  SpecNode noreturn = null;
+  TSpecNode thread = null;
+  TSpecNode inline = null;
+  TSpecNode noreturn = null;
 
-  SpecNode complex = null;
-  SpecNode sc = null;
-  int len = 0; String lenStr = null; SpecNode lenSpec = null;
+  TSpecNode complex = null;
+  TSpecNode sc = null;
+  int len = 0; String lenStr = null; TSpecNode lenSpec = null;
   ExtAttributes scAttrs;
-  SpecNode base = null;
-  SpecNode signed = null;
+  TSpecNode base = null;
+  TSpecNode signed = null;
   ExtAttributes specAttrs;
 
-  SpecNode _const = null;
-  SpecNode _restrict = null;
-  SpecNode _volatile = null;
-  SpecNode _atomicQual = null;
+  TSpecNode _const = null;
+  TSpecNode _restrict = null;
+  TSpecNode _volatile = null;
+  TSpecNode _atomicQual = null;
   ExtAttributes qualAttrs;
 
   TypeHelper ( CParser.Location loc )
@@ -443,22 +338,22 @@ private final class TypeHelper
       error( rng, "Both '%s' and '%s' specified", a, b );
   }
 
-  String specStr ( SpecNode spec )
+  String specStr ( TSpecNode spec )
   {
     switch (spec.code)
     {
     case TYPENAME:
-      return ((SpecDeclNode)spec).decl.symbol.name;
+      return ((TSpecDeclNode)spec).decl.symbol.name;
     case STRUCT: case UNION:
-      return spec.code.str + " " + ((SpecDeclNode)spec).decl.symbol.name;
+      return spec.code.str + " " + ((TSpecDeclNode)spec).decl.symbol.name;
     case ENUM:
       assert false; // FIXME
-      return spec.code.str + " " + ((SpecDeclNode)spec).decl.symbol.name;
+      return spec.code.str + " " + ((TSpecDeclNode)spec).decl.symbol.name;
     default: return spec.code.str;
     }
   }
 
-  SpecNode set ( SpecNode state, SpecNode spec )
+  TSpecNode set ( TSpecNode state, TSpecNode spec )
   {
     if (state == null)
       return spec;
@@ -469,7 +364,7 @@ private final class TypeHelper
     }
   }
 
-  void accumulate ( SpecNode specNode )
+  void accumulate ( TSpecNode specNode )
   {
     for ( ; specNode != null; specNode = specNode.next )
     {
@@ -494,7 +389,7 @@ private final class TypeHelper
 
       case GCC_ATTRIBUTE:
         {
-          SpecAttrNode an = (SpecAttrNode) specNode;
+          TSpecAttrNode an = (TSpecAttrNode) specNode;
           for ( TExtAttr ea : an.attrList )
           {
             switch (ea.extAttr.def.disposition)
@@ -635,7 +530,7 @@ private final class TypeHelper
     case DOUBLE: spec = stdSpec(len != 1 ? TypeSpec.DOUBLE : TypeSpec.LDOUBLE); break;
 
     case TYPENAME: case STRUCT: case UNION: case ENUM:
-      spec = ((SpecDeclNode)base).decl.type.spec;
+      spec = ((TSpecDeclNode)base).decl.type.spec;
       break;
 
     default: spec = null; break;
@@ -660,7 +555,7 @@ private final class TypeHelper
 
     // Combine the qualifiers of the typedef
     if (base != null && base.code == Code.TYPENAME)
-      q.combine( ((SpecDeclNode)base).decl.type );
+      q.combine( ((TSpecDeclNode)base).decl.type );
 
     Types.setDefaultAttrs( m_compEnv, loc, q );
 
@@ -694,7 +589,7 @@ private final class TypeHelper
   }
 }
 
-public final DeclSpec declSpec ( CParser.Location loc, SpecNode specNode )
+public final DeclSpec declSpec ( CParser.Location loc, TSpecNode specNode )
 {
   final TypeHelper th = new TypeHelper(loc);
 
@@ -708,27 +603,27 @@ public final DeclSpec declSpec ( CParser.Location loc, SpecNode specNode )
   return th.mkDeclSpec( sclass, qual );
 }
 
-public final Declarator declarator ( CParser.Location loc, Symbol ident )
+public final TDeclarator declarator ( CParser.Location loc, Symbol ident )
 {
-  return new Declarator( loc, ident );
+  return new TDeclarator( loc, ident );
 }
 
-public final Declarator abstractDeclarator ( CParser.Location loc )
+public final TDeclarator abstractDeclarator ( CParser.Location loc )
 {
   // create a position instead of a location
   return declarator( new CParser.Location( loc.begin ), null );
 }
 
-public final DeclElem pointerDecl ( CParser.Location loc, SpecNode qualList, DeclElem to )
+public final TDeclElem pointerDecl ( CParser.Location loc, TSpecNode qualList, TDeclElem to )
 {
   final TypeHelper th = new TypeHelper(loc);
   th.accumulate( qualList );
-  return new DeclElem( loc, th.mkQual(new PointerSpec()) ).append( to );
+  return new TDeclElem( loc, th.mkQual(new PointerSpec()) ).append( to );
 }
 
-public final DeclElem arrayDecl (
+public final TDeclElem arrayDecl (
   CParser.Location loc,
-  SpecNode qualList, CParser.Location _static, CParser.Location asterisk, Ast size
+  TSpecNode qualList, CParser.Location _static, CParser.Location asterisk, Ast size
 )
 {
   final TypeHelper th = new TypeHelper(loc);
@@ -755,7 +650,7 @@ public final DeclElem arrayDecl (
   spec._static = _static != null;
   spec.asterisk = asterisk != null;
   // FIXME: size
-  return new DeclElem( loc, th.mkQual(spec) );
+  return new TDeclElem( loc, th.mkQual(spec) );
 }
 
 public final IdentList identList ()
@@ -779,7 +674,7 @@ public final IdentList identListAdd (
   return list;
 }
 
-public final DeclElem funcDecl ( CParser.Location loc, DeclList paramList )
+public final TDeclElem funcDecl ( CParser.Location loc, DeclList paramList )
 {
   Scope paramScope = pushScope( Scope.Kind.PARAM );
   try
@@ -796,7 +691,7 @@ public final DeclElem funcDecl ( CParser.Location loc, DeclList paramList )
   return funcDecl( loc, paramScope );
 }
 
-private final DeclElem funcDecl ( CParser.Location loc, Scope paramScope )
+private final TDeclElem funcDecl ( CParser.Location loc, Scope paramScope )
 {
   final FunctionSpec spec = new FunctionSpec();
   final Collection<Decl> decls = paramScope.decls();
@@ -806,10 +701,10 @@ private final DeclElem funcDecl ( CParser.Location loc, Scope paramScope )
   for ( Decl d : decls )
     spec.params[i++] = new Member(d, d.symbol, d.type);
 
-  return new DeclElem( loc, new Qual(spec) );
+  return new TDeclElem( loc, new Qual(spec) );
 }
 
-public final DeclElem oldFuncDecl ( CParser.Location loc, IdentList identList )
+public final TDeclElem oldFuncDecl ( CParser.Location loc, IdentList identList )
 {
   final FunctionSpec spec = new FunctionSpec(true);
 
@@ -823,7 +718,7 @@ public final DeclElem oldFuncDecl ( CParser.Location loc, IdentList identList )
       spec.params[i++] = m;
   }
 
-  return new DeclElem( loc, new Qual(spec) );
+  return new TDeclElem( loc, new Qual(spec) );
 }
 
 public final DeclList declList ( DeclList list, DeclInfo di )
@@ -834,7 +729,7 @@ public final DeclList declList ( DeclList list, DeclInfo di )
   return list;
 }
 
-public final Qual mkTypeName ( Declarator dr, DeclSpec ds )
+public final Qual mkTypeName ( TDeclarator dr, DeclSpec ds )
 {
   return dr.attachDeclSpecs(ds.qual);
 }
@@ -955,17 +850,17 @@ private final void validateType ( DeclInfo di )
 }
 
 
-public final DeclInfo declInfo ( Declarator dr, DeclSpec ds )
+public final DeclInfo declInfo ( TDeclarator dr, DeclSpec ds )
 {
   return new DeclInfo( dr, dr.ident, dr.attachDeclSpecs(ds.qual), ds );
 }
 
-public final Decl declare ( Declarator dr, DeclSpec ds )
+public final Decl declare ( TDeclarator dr, DeclSpec ds )
 {
   return declare(  dr, ds, false );
 }
 
-public final Decl declare ( Declarator dr, DeclSpec ds, boolean hasInit )
+public final Decl declare ( TDeclarator dr, DeclSpec ds, boolean hasInit )
 {
   return declare( declInfo( dr, ds ), hasInit );
 }

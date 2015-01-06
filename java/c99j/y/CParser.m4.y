@@ -8,6 +8,7 @@ import c99.IErrorReporter;
 import c99.parser.ast.Ast;
 import static c99.Types.*;
 import static c99.parser.Trees.*;
+import c99.parser.tree.*;
 }
 %define public
 %define parser_class_name {CParser}
@@ -298,23 +299,23 @@ rule(<DeclSpec>,declaration-specifiers-ts):
     _declaration-specifiers-ts   { $$ = declSpec(@1,$1); }
   ;
 
-rule(<SpecNode>,_declaration-specifiers-nots):
+rule(<TSpecNode>,_declaration-specifiers-nots):
     specifier-nots
-  | specifier-nots _declaration-specifiers-nots  { $$ = append( $1, $2 ); }
+  | specifier-nots _declaration-specifiers-nots  { $$ = appendSpecNode( $1, $2 ); }
   ;
 
-rule(<SpecNode>,_declaration-specifiers-ts):
-    type-specifier declaration-specifiers-ts-rest  { $$ = append( $1, $2 ); }
-  | specifier-nots _declaration-specifiers-ts       { $$ = append( $1, $2 ); }
+rule(<TSpecNode>,_declaration-specifiers-ts):
+    type-specifier declaration-specifiers-ts-rest  { $$ = appendSpecNode( $1, $2 ); }
+  | specifier-nots _declaration-specifiers-ts       { $$ = appendSpecNode( $1, $2 ); }
   ;
 
-rule(<SpecNode>,declaration-specifiers-ts-rest):
+rule(<TSpecNode>,declaration-specifiers-ts-rest):
     %empty                                               { $$ = null; }
-  | type-specifier-notyp declaration-specifiers-ts-rest  { $$ = append( $1, $2 ); }
-  | specifier-nots declaration-specifiers-ts-rest        { $$ = append( $1, $2 ); }
+  | type-specifier-notyp declaration-specifiers-ts-rest  { $$ = appendSpecNode( $1, $2 ); }
+  | specifier-nots declaration-specifiers-ts-rest        { $$ = appendSpecNode( $1, $2 ); }
   ;
 
-rule(<SpecNode>,specifier-nots):
+rule(<TSpecNode>,specifier-nots):
     storage-class-specifier
   | type-qualifier
   | function-specifier
@@ -347,7 +348,7 @@ rule(,asm-label,optn):
     GCC_ASM "(" string-literal ")"
   ;
 
-rule(<SpecNode>,gcc-attribute-specifier):
+rule(<TSpecNode>,gcc-attribute-specifier):
     GCC_ATTRIBUTE "(" "(" gcc-attribute-list[list] ")" ")"      { $$ = specExtAttr(@$,$list); }
   ;
 
@@ -378,7 +379,7 @@ rule(<Tree>,gcc-attribute-param):
   ;
 
 // (6.7.1)
-rule(<SpecNode>,storage-class-specifier):
+rule(<TSpecNode>,storage-class-specifier):
     TYPEDEF                    { $$ = spec(@1,$1); }
   | EXTERN                     { $$ = spec(@1,$1); }
   | STATIC                     { $$ = spec(@1,$1); }
@@ -388,12 +389,12 @@ rule(<SpecNode>,storage-class-specifier):
   ;
 
 // (6.7.2)
-rule(<SpecNode>,type-specifier):
+rule(<TSpecNode>,type-specifier):
     type-specifier-notyp
   | TYPENAME                    { $$ = specTypename(@1,$1); }
   ;
 
-rule(<SpecNode>,type-specifier-notyp):
+rule(<TSpecNode>,type-specifier-notyp):
     VOID                        { $$ = spec(@1,$1); }
   | CHAR                        { $$ = spec(@1,$1); }
   | SHORT                       { $$ = spec(@1,$1); }
@@ -415,7 +416,7 @@ rule(<SpecNode>,type-specifier-notyp):
   ;
 
 // (6.7.2.1)
-rule(<SpecNode>,struct-or-union-specifier):
+rule(<TSpecNode>,struct-or-union-specifier):
     struct-or-union any-identifier_opt "{" PushAggScope struct-declaration-list "}"
       { $$ = declareAgg(@[struct-or-union], $[struct-or-union], @[any-identifier_opt], $[any-identifier_opt], popScope($PushAggScope)); }
   | struct-or-union any-identifier
@@ -442,12 +443,12 @@ struct-declaration:
   ;
 
 // (6.7.2.1)
-rule(<SpecNode>,specifier-qualifier-list):
+rule(<TSpecNode>,specifier-qualifier-list):
     specifier-or-qualifier
-  | specifier-qualifier-list specifier-or-qualifier     { $$ = append($1,$2); }
+  | specifier-qualifier-list specifier-or-qualifier     { $$ = appendSpecNode($1,$2); }
   ;
 
-rule(<SpecNode>,specifier-or-qualifier):
+rule(<TSpecNode>,specifier-or-qualifier):
     type-specifier
   | type-qualifier
   ;
@@ -475,7 +476,7 @@ struct-declarator-notyp:
   ;
 
 // (6.7.2.2)
-rule(<SpecNode>,enum-specifier):
+rule(<TSpecNode>,enum-specifier):
     ENUM any-identifier_opt "{" enumerator-list "}"             { FIXME(); }
   | ENUM any-identifier_opt "{" enumerator-list "," "}"         { FIXME(); }
   | ENUM any-identifier                                         { FIXME(); }  
@@ -498,12 +499,12 @@ enumeration-constant:
   ;
 
 // (6.7.2.4)
-rule(<SpecNode>,atomic-type-specifier):
+rule(<TSpecNode>,atomic-type-specifier):
     _ATOMIC "(" type-name ")"  { FIXME(); }
   ;
 
 // (6.7.3)
-rule(<SpecNode>,type-qualifier):
+rule(<TSpecNode>,type-qualifier):
     CONST       { $$ = spec(@1,$1); }
   | RESTRICT    { $$ = spec(@1,$1); }
   | VOLATILE    { $$ = spec(@1,$1); }
@@ -512,61 +513,61 @@ rule(<SpecNode>,type-qualifier):
   ;
 
 // (6.7.4)
-rule(<SpecNode>,function-specifier):
+rule(<TSpecNode>,function-specifier):
     INLINE      { $$ = spec(@1,$1); }
   | _NORETURN   { $$ = spec(@1,$1); }
   ;
 
 // (6.7.5)
-rule(<SpecNode>,alignment-specifier):
+rule(<TSpecNode>,alignment-specifier):
     _ALIGNAS "(" type-name ")"                  { FIXME(); }
   | _ALIGNAS "(" constant-expression ")"        { FIXME(); }
   ;
 
 // (6.7.6)
-rule(<Declarator>,declarator):
+rule(<TDeclarator>,declarator):
     declarator-func
   | declarator-nofunc
   ;
-rule(<Declarator>,declarator_opt):
+rule(<TDeclarator>,declarator_opt):
     declarator
   | %empty                              { $$ = abstractDeclarator(yyloc); }
   ;
 
-rule(<Declarator>,declarator-notyp):
+rule(<TDeclarator>,declarator-notyp):
     declarator-func-notyp
   | declarator-nofunc-notyp
   ;
-rule(<Declarator>,declarator-notyp_opt):
+rule(<TDeclarator>,declarator-notyp_opt):
     declarator-notyp
   | %empty                              { $$ = abstractDeclarator(yyloc); }
   ;
 
-rule(<Declarator>,declarator-func):
+rule(<TDeclarator>,declarator-func):
     pointer_opt[ptr] direct-declarator-func[decl]  { $$ = $decl.append($ptr); }
   ;
-rule(<Declarator>,declarator-func-notyp):
+rule(<TDeclarator>,declarator-func-notyp):
     pointer[ptr] direct-declarator-func[decl]      { $$ = $decl.append($ptr); }
   |              direct-declarator-func-notyp
   ;
 
-rule(<Declarator>,declarator-nofunc):
+rule(<TDeclarator>,declarator-nofunc):
     pointer_opt[ptr] direct-declarator-nofunc[decl]  { $$ = $decl.append($ptr); }
   ;
-rule(<Declarator>,declarator-nofunc-notyp):
+rule(<TDeclarator>,declarator-nofunc-notyp):
     pointer[ptr] direct-declarator-nofunc[decl]      { $$ = $decl.append($ptr); }
   |              direct-declarator-nofunc-notyp
   ;
 
-/*rule_(<Declarator>,direct-declarator):
+/*rule_(<TDeclarator>,direct-declarator):
     direct-declarator-func
   | direct-declarator-nofunc
   ;*/
-rule(<Declarator>,direct-declarator-prm):
+rule(<TDeclarator>,direct-declarator-prm):
     direct-declarator-func-prm
   | direct-declarator-nofunc-prm
   ;
-rule(<Declarator>,direct-declarator-prmnotyp):
+rule(<TDeclarator>,direct-declarator-prmnotyp):
     direct-declarator-func-prmnotyp
   | direct-declarator-nofunc-prmnotyp
   ;
@@ -584,75 +585,75 @@ rule(<Symbol>,pident-prm):
   | "(" pident-prm[id] ")"    { $$ = $id; }
   ;
 
-rule(<Declarator>,direct-declarator-func):
+rule(<TDeclarator>,direct-declarator-func):
     any-pident[id] elem-func[el]                  { $$ = declarator(@id,$id).append($el); }
   | "(" direct-declarator-func[decl] ")"          { $$ = $decl; }
   | "(" pointer[ptr] direct-declarator-func[decl] ")"       { $$ = $decl.append($ptr); }
   | direct-declarator-func[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
   ;
-rule(<Declarator>,direct-declarator-func-notyp):
+rule(<TDeclarator>,direct-declarator-func-notyp):
     pident[id] elem-func[el]                           { $$ = declarator(@id,$id).append($el); }
   | "(" direct-declarator-func[decl] ")"               { $$ = $decl; }
   | "(" pointer[ptr] direct-declarator-func[decl] ")"             { $$ = $decl.append($ptr); }
   | direct-declarator-func-notyp[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
   ;
-rule(<Declarator>,direct-declarator-func-prm):
+rule(<TDeclarator>,direct-declarator-func-prm):
     any-identifier[id] elem-func[el]                   { $$ = declarator(@id,$id).append($el); }
   | direct-declarator-func-prm2
   | direct-declarator-func-prm[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
   ;
-rule(<Declarator>,direct-declarator-func-prm2):
+rule(<TDeclarator>,direct-declarator-func-prm2):
     pident-prm[id] elem-func[el]                   { $$ = declarator(@id,$id).append($el); }
   | "(" direct-declarator-func-prm2[decl] ")"      { $$ = $decl; }
   | "(" pointer[ptr] direct-declarator-func-prm2[decl] ")"      { $$ = $decl.append($ptr); }
   ;
-rule(<Declarator>,direct-declarator-func-prmnotyp):
+rule(<TDeclarator>,direct-declarator-func-prmnotyp):
     identifier[id] elem-func[el]                   { $$ = declarator(@id,$id).append($el); }
   | direct-declarator-func-prmnotyp2
   | direct-declarator-func-prmnotyp[decl] direct-declarator-elem[el] { $$ = $decl.append($el); }
   ;
-rule(<Declarator>,direct-declarator-func-prmnotyp2):
+rule(<TDeclarator>,direct-declarator-func-prmnotyp2):
     pident-prm[id] elem-func[el]                   { $$ = declarator(@id,$id).append($el); }
   | "(" direct-declarator-func-prmnotyp2[decl] ")" { $$ = $decl; }
   | "(" pointer[ptr] direct-declarator-func-prmnotyp2[decl] ")" { $$ = $decl.append($ptr); }
   ;
 
-rule(<Declarator>,direct-declarator-nofunc):
+rule(<TDeclarator>,direct-declarator-nofunc):
     any-pident[id]                               { $$ = declarator(@id,$id); }
   | d2
   ;
-rule(<Declarator>,direct-declarator-nofunc-notyp):
+rule(<TDeclarator>,direct-declarator-nofunc-notyp):
     pident[id]                                   { $$ = declarator(@id,$id); }
   | d2-notyp
   ;
-rule(<Declarator>,direct-declarator-nofunc-prm):
+rule(<TDeclarator>,direct-declarator-nofunc-prm):
     any-identifier[id]                           { $$ = declarator(@id,$id); }
   | pident-prm[id]                               { $$ = declarator(@id,$id); }
   | d2-prm
   ;
-rule(<Declarator>,direct-declarator-nofunc-prmnotyp):
+rule(<TDeclarator>,direct-declarator-nofunc-prmnotyp):
     identifier[id]                               { $$ = declarator(@id,$id); }
   | pident-prm[id]                               { $$ = declarator(@id,$id); }
   | d2-prmnotyp
   ;
 
-rule(<Declarator>,d2):
+rule(<TDeclarator>,d2):
     any-pident[id] elem-nofunc[el]                { $$ = declarator(@id,$id).append($el); }
   | "(" pointer[ptr] direct-declarator-nofunc[decl] ")"  { $$ = $decl.append($ptr); }
   | d2[decl] direct-declarator-elem[el]           { $$ = $decl.append($el); }
   ;
-rule(<Declarator>,d2-notyp):
+rule(<TDeclarator>,d2-notyp):
     pident[id] elem-nofunc[el]                    { $$ = declarator(@id,$id).append($el); }
   | "(" pointer[ptr] direct-declarator-nofunc[decl] ")"  { $$ = $decl.append($ptr); }
   | d2-notyp[decl] direct-declarator-elem[el]     { $$ = $decl.append($el); }
   ;
-rule(<Declarator>,d2-prm):
+rule(<TDeclarator>,d2-prm):
     any-identifier[id] elem-nofunc[el]            { $$ = declarator(@id,$id).append($el); }
   | pident-prm[id] elem-nofunc[el]                { $$ = declarator(@id,$id).append($el); }
   | "(" pointer[ptr] direct-declarator-nofunc-prm[decl] ")" { $$ = $decl.append($ptr); }
   | d2-prm[decl] direct-declarator-elem[el]       { $$ = $decl.append($el); }
   ;
-rule(<Declarator>,d2-prmnotyp):
+rule(<TDeclarator>,d2-prmnotyp):
     identifier[id] elem-nofunc[el]                { $$ = declarator(@id,$id).append($el); }
   | pident-prm[id] elem-nofunc[el]                { $$ = declarator(@id,$id).append($el); }
   | "(" pointer[ptr] direct-declarator-nofunc-prm[decl] ")" { $$ = $decl.append($ptr); }
@@ -660,12 +661,12 @@ rule(<Declarator>,d2-prmnotyp):
   ;
 
 // (6.7.6)
-rule(<DeclElem>,direct-declarator-elem):
+rule(<TDeclElem>,direct-declarator-elem):
     elem-nofunc
   | elem-func
   ;
 
-rule(<DeclElem>,elem-nofunc):
+rule(<TDeclElem>,elem-nofunc):
     "[" type-qualifier-list_opt assignment-expression_opt "]"
         { $$ = arrayDecl(@$,$[type-qualifier-list_opt],null,null,$[assignment-expression_opt]); }
   | "[" STATIC type-qualifier-list_opt assignment-expression "]"
@@ -676,28 +677,28 @@ rule(<DeclElem>,elem-nofunc):
         { $$ = arrayDecl(@$,$[type-qualifier-list_opt],null,@ASTERISK,null); }
   ;
 
-rule(<DeclElem>,elem-func):
+rule(<TDeclElem>,elem-func):
     newfunc-decl
   | oldfunc-decl
   ;
 
-rule(<DeclElem>,oldfunc-decl):
+rule(<TDeclElem>,oldfunc-decl):
     "(" identifier-list_opt ")" { $$ = oldFuncDecl(@$, $[identifier-list_opt]); }
   ;
-rule(<DeclElem>,newfunc-decl):
+rule(<TDeclElem>,newfunc-decl):
     "(" parameter-type-list ")" { $$ = funcDecl(@$, $[parameter-type-list]); }
   ;
 
 // (6.7.6)
-rule(<DeclElem>,pointer,opt):
+rule(<TDeclElem>,pointer,opt):
                   "*"[p] type-qualifier-list_opt  { $$ = pointerDecl(@p,$[type-qualifier-list_opt], null); }
   | pointer[left] "*"[p] type-qualifier-list_opt  { $$ = pointerDecl(@p,$[type-qualifier-list_opt], $left); }
   ;
 
 // (6.7.6)
-rule(<SpecNode>,type-qualifier-list,opt):
+rule(<TSpecNode>,type-qualifier-list,opt):
     type-qualifier
-  | type-qualifier-list[left] type-qualifier  { $$ = append($left, $[type-qualifier]); }
+  | type-qualifier-list[left] type-qualifier  { $$ = appendSpecNode($left, $[type-qualifier]); }
   ;
 
 // (6.7.6)
@@ -752,30 +753,30 @@ rule(<Qual>,type-name):
   ;
   
 // (6.7.7)
-rule(<Declarator>,abstract-declarator):
+rule(<TDeclarator>,abstract-declarator):
     pointer                                     { $$ = abstractDeclarator(@pointer).append($pointer); }
   |             direct-abstract-declarator
   | pointer     direct-abstract-declarator      { $$ = $[direct-abstract-declarator].append($pointer); }
   ;
 
-rule(<Declarator>,abstract-declarator_opt):
+rule(<TDeclarator>,abstract-declarator_opt):
     abstract-declarator
   | %empty                                      { $$ = abstractDeclarator(yyloc); }
   ;
 
 // (6.7.7)
-rule(<Declarator>,direct-abstract-declarator):
+rule(<TDeclarator>,direct-abstract-declarator):
     "(" abstract-declarator ")"                                      { $$ = $[abstract-declarator]; }
   | direct-abstract-declarator-elem[elem]                            { $$ = abstractDeclarator(@elem).append($elem); }
   | direct-abstract-declarator direct-abstract-declarator-elem[elem] { $$ = $1.append($elem); }
   ;
 
-rule(<Declarator>,direct-abstract-declarator_opt):
+rule(<TDeclarator>,direct-abstract-declarator_opt):
     direct-abstract-declarator
   | %empty                                     { $$ = abstractDeclarator(yyloc); }
   ;
 
-rule(<DeclElem>,direct-abstract-declarator-elem):
+rule(<TDeclElem>,direct-abstract-declarator-elem):
     "[" type-qualifier-list assignment-expression_opt "]"
         { $$ = arrayDecl(@$,$[type-qualifier-list],null,null,$[assignment-expression_opt]); }
   | "[" assignment-expression_opt "]"
