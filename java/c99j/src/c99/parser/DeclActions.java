@@ -17,32 +17,7 @@ public class DeclActions extends AstActions
 private Scope m_topScope;
 
 
-/**
- * We need to accumulate parameter declarations because of reduce/reduce conflicts
- * in the grammar otherwise
- */
-public static final class DeclInfo extends SourceRange
-{
-  public final Symbol ident;
-  public final Qual   type;
-  public final TDeclSpec ds;
-
-  public DeclInfo ( ISourceRange rng, Symbol ident, Qual type, TDeclSpec ds )
-  {
-    super(rng);
-    this.ident = ident;
-    this.type = type;
-    this.ds = ds;
-  }
-
-  public DeclInfo ( CParser.Location loc, Symbol ident, Qual type, TDeclSpec ds )
-  {
-    this((ISourceRange)null, ident, type, ds );
-    BisonLexer.setLocation( this, loc );
-  }
-}
-
-public static final class DeclList extends LinkedList<DeclInfo>
+public static final class DeclList extends LinkedList<TDeclaration>
 {
   public boolean ellipsis;
 
@@ -660,7 +635,7 @@ public final TDeclElem funcDecl ( CParser.Location loc, DeclList paramList )
   Scope paramScope = pushScope( Scope.Kind.PARAM );
   try
   {
-    for ( DeclInfo di : paramList )
+    for ( TDeclaration di : paramList )
       declare( di, false );
     if (paramList.ellipsis)
       FIXME("implement ellipsis");
@@ -702,7 +677,7 @@ public final TDeclElem oldFuncDecl ( CParser.Location loc, IdentList identList )
   return new TDeclElem( loc, new Qual(spec) );
 }
 
-public final DeclList declList ( DeclList list, DeclInfo di )
+public final DeclList declList ( DeclList list, TDeclaration di )
 {
   if (list == null)
     list = new DeclList();
@@ -825,15 +800,15 @@ private final void validateType ( Qual q )
   } );
 }
 
-private final void validateType ( DeclInfo di )
+private final void validateType ( TDeclaration di )
 {
   validateType( di.type );
 }
 
 
-public final DeclInfo declInfo ( TDeclarator dr, TDeclSpec ds )
+public final TDeclaration declInfo ( TDeclarator dr, TDeclSpec ds )
 {
-  return new DeclInfo( dr, dr.ident, dr.attachDeclSpecs(ds.qual), ds );
+  return new TDeclaration( dr, dr.ident, dr.attachDeclSpecs(ds.qual), ds );
 }
 
 public final Decl declare ( TDeclarator dr, TDeclSpec ds )
@@ -846,7 +821,7 @@ public final Decl declare ( TDeclarator dr, TDeclSpec ds, boolean hasInit )
   return declare( declInfo( dr, ds ), hasInit );
 }
 
-private final Decl declare ( DeclInfo di, boolean hasInit )
+private final Decl declare ( TDeclaration di, boolean hasInit )
 {
   final TDeclSpec ds = di.ds;
   SClass sc = ds.sc;

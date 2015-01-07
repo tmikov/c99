@@ -714,7 +714,7 @@ rule(<DeclList>,parameter-list):
   ;
 
 // (6.7.6)
-rule(<DeclInfo>,parameter-declaration):
+rule(<TDeclaration>,parameter-declaration):
     declaration-specifiers-nots pointer direct-declarator-prm
         { $$ = declInfo($[direct-declarator-prm].append($pointer), $[declaration-specifiers-nots]); }
   | declaration-specifiers-ts   pointer direct-declarator-prm
