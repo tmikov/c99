@@ -13,21 +13,37 @@ import c99.parser.Symbol;
  */
 public final class TDeclaration extends SourceRange
 {
-  public final Symbol ident;
-  public final Types.Qual type;
   public final TDeclSpec ds;
+  public final TDeclarator declarator;
+  public final Types.Qual type;
 
-  public TDeclaration ( ISourceRange rng, Symbol ident, Types.Qual type, TDeclSpec ds )
+
+  private TDeclaration ( ISourceRange rng, TDeclSpec ds, TDeclarator declarator, Types.Qual type )
   {
     super(rng);
-    this.ident = ident;
-    this.type = type;
     this.ds = ds;
+    this.declarator = declarator;
+    this.type = type;
   }
 
-  public TDeclaration ( CParser.Location loc, Symbol ident, Types.Qual type, TDeclSpec ds )
+  public TDeclaration ( ISourceRange rng, TDeclSpec ds, TDeclarator declarator )
   {
-    this((ISourceRange)null, ident, type, ds );
+    this( rng, ds, declarator, declarator.attachDeclSpecs( ds.qual ));
+  }
+
+  public TDeclaration ( CParser.Location loc, TDeclSpec ds, TDeclarator declarator )
+  {
+    this((ISourceRange)null, ds, declarator );
     BisonLexer.setLocation( this, loc );
+  }
+
+  public final boolean hasIdent ()
+  {
+    return this.declarator.ident != null;
+  }
+
+  public final Symbol getIdent ()
+  {
+    return this.declarator.ident;
   }
 }

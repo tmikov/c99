@@ -34,16 +34,14 @@ public final class TDeclarator extends SourceRange
     return this;
   }
 
-  public Types.Qual attachDeclSpecs ( Types.Qual declSpec )
+  Types.Qual attachDeclSpecs ( Types.Qual declSpecQual )
   {
-    assert declSpec != null;
-    if (bottom != null)
+    if (this.top == null)
+      return declSpecQual;
+    else
     {
-      ((Types.DerivedSpec)bottom.qual.spec).of = declSpec;
-      declSpec = top.qual;
-
-      bottom = top = null; // Mark it as invalid
+      ((Types.DerivedSpec)bottom.qual.spec).of = declSpecQual;
+      return top.qual;
     }
-    return declSpec;
   }
 }

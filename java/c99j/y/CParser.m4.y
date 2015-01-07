@@ -243,8 +243,10 @@ function-definition:
   ;
 
 rule(<Ast>,specified-declarator-func):
-    declaration-specifiers-nots[ds] declarator-func-notyp[decl]  { $$ = declare($decl,$ds,true); }
-  | declaration-specifiers-ts[ds]   declarator-func[decl]        { $$ = declare($decl,$ds,true); }
+    declaration-specifiers-nots[ds] declarator-func-notyp[decl]
+        { $$ = declare(declaration($decl,$ds),true); }
+  | declaration-specifiers-ts[ds]   declarator-func[decl]
+        { $$ = declare(declaration($decl,$ds),true); }
   ;
 
 // (6.9.1)
@@ -335,13 +337,17 @@ rule(<Ast>,init-declarator-list-notyp,opt,declaration-specifiers):
 
 // (6.7)
 rule(<Ast>,init-declarator,,declaration-specifiers):
-    declarator[decl] asm-label_opt                 { $$ = FIXME(); declare($decl,$<TDeclSpec>0,false); }
-  | declarator[decl] asm-label_opt "=" initializer { $$ = FIXME(); declare($decl,$<TDeclSpec>0,true); }
+    declarator[decl] asm-label_opt
+        { $$ = FIXME(); declare(declaration($decl,$<TDeclSpec>0),false); }
+  | declarator[decl] asm-label_opt "=" initializer
+        { $$ = FIXME(); declare(declaration($decl,$<TDeclSpec>0),true); }
   ;
 
 rule(<Ast>,init-declarator-notyp,,declaration-specifiers):
-    declarator-notyp[decl] asm-label_opt                  { $$ = FIXME(); declare($decl,$<TDeclSpec>0,false); }
-  | declarator-notyp[decl] asm-label_opt "=" initializer  { $$ = FIXME(); declare($decl,$<TDeclSpec>0,true); }
+    declarator-notyp[decl] asm-label_opt
+        { $$ = FIXME(); declare(declaration($decl,$<TDeclSpec>0),false); }
+  | declarator-notyp[decl] asm-label_opt "=" initializer
+        { $$ = FIXME(); declare(declaration($decl,$<TDeclSpec>0),true); }
   ;
 
 rule(,asm-label,optn):
@@ -466,13 +472,13 @@ rule(,struct-declarator-list-notyp,optn):
 
 // (6.7.2.1)
 struct-declarator:
-    declarator[decl]                              { declare($decl,$<TDeclSpec>0); }
-  | declarator_opt ":" constant-expression        { FIXME(); }
+    declarator[decl]                        { declare(declaration($decl,$<TDeclSpec>0),false); }
+  | declarator_opt ":" constant-expression  { FIXME(); }
   ;
 
 struct-declarator-notyp:
-    declarator-notyp[decl]                         { declare($decl,$<TDeclSpec>0); }
-  | declarator-notyp_opt ":" constant-expression   { FIXME(); }
+    declarator-notyp[decl]                  { declare(declaration($decl,$<TDeclSpec>0),false); }
+  | declarator-notyp_opt ":" constant-expression  { FIXME(); }
   ;
 
 // (6.7.2.2)
@@ -716,21 +722,21 @@ rule(<TDeclList>,parameter-list):
 // (6.7.6)
 rule(<TDeclaration>,parameter-declaration):
     declaration-specifiers-nots pointer direct-declarator-prm
-        { $$ = declInfo($[direct-declarator-prm].append($pointer), $[declaration-specifiers-nots]); }
+        { $$ = declaration($[direct-declarator-prm].append($pointer), $[declaration-specifiers-nots]); }
   | declaration-specifiers-ts   pointer direct-declarator-prm
-        { $$ = declInfo($[direct-declarator-prm].append($pointer), $[declaration-specifiers-ts]); }
+        { $$ = declaration($[direct-declarator-prm].append($pointer), $[declaration-specifiers-ts]); }
   | declaration-specifiers-nots         direct-declarator-prmnotyp
-        { $$ = declInfo($[direct-declarator-prmnotyp], $[declaration-specifiers-nots]); }
+        { $$ = declaration($[direct-declarator-prmnotyp], $[declaration-specifiers-nots]); }
   | declaration-specifiers-ts           direct-declarator-prm
-        { $$ = declInfo($[direct-declarator-prm], $[declaration-specifiers-ts]); }
+        { $$ = declaration($[direct-declarator-prm], $[declaration-specifiers-ts]); }
   | declaration-specifiers-nots pointer direct-abstract-declarator_opt
-        { $$ = declInfo($[direct-abstract-declarator_opt].append($pointer), $[declaration-specifiers-nots]); }
+        { $$ = declaration($[direct-abstract-declarator_opt].append($pointer), $[declaration-specifiers-nots]); }
   | declaration-specifiers-ts   pointer direct-abstract-declarator_opt
-        { $$ = declInfo($[direct-abstract-declarator_opt].append($pointer), $[declaration-specifiers-ts]); }
+        { $$ = declaration($[direct-abstract-declarator_opt].append($pointer), $[declaration-specifiers-ts]); }
   | declaration-specifiers-nots         direct-abstract-declarator_opt
-        { $$ = declInfo($[direct-abstract-declarator_opt], $[declaration-specifiers-nots]); }
+        { $$ = declaration($[direct-abstract-declarator_opt], $[declaration-specifiers-nots]); }
   | declaration-specifiers-ts           direct-abstract-declarator_opt
-        { $$ = declInfo($[direct-abstract-declarator_opt], $[declaration-specifiers-ts]); }
+        { $$ = declaration($[direct-abstract-declarator_opt], $[declaration-specifiers-ts]); }
   ;
 
 /*
@@ -747,7 +753,7 @@ rule(<IdentList>,identifier-list,opt):
   ;
 
 // (6.7.7)
-rule(<Qual>,type-name):
+rule(<TDeclaration>,type-name):
     specifier-qualifier-list[slist] abstract-declarator_opt
         { $$ = mkTypeName($[abstract-declarator_opt], declSpec(@slist,$slist)); }
   ;

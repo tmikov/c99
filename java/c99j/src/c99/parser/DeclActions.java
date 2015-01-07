@@ -677,10 +677,6 @@ public final TDeclList declList ( TDeclList list, TDeclaration di )
   return list;
 }
 
-public final Qual mkTypeName ( TDeclarator dr, TDeclSpec ds )
-{
-  return dr.attachDeclSpecs(ds.qual);
-}
 
 private Qual adjustParamType ( Qual qual )
 {
@@ -746,74 +742,17 @@ private static boolean isArray ( Qual q )
   return q.spec.type == TypeSpec.ARRAY;
 }
 
-private final void validateType ( Qual q )
+public final TDeclaration declaration ( TDeclarator dr, TDeclSpec ds )
 {
-  Types.visitAllPost( q, new TypeVisitor()
-  {
-    public boolean visitSimple ( Qual q, SimpleSpec s )
-    {
-      return false;
-    }
-
-    public boolean visitBased ( Qual q, BasedSpec s )
-    {
-      return false;
-    }
-
-    public boolean visitAtomic ( Qual q, BasedSpec s )
-    {
-      return false;
-    }
-
-    public boolean visitPointer ( Qual q, PointerSpec s )
-    {
-      return false;
-    }
-
-    public boolean visitArray ( Qual q, ArraySpec s )
-    {
-      return false;
-    }
-
-    public boolean visitStructUnion ( Qual q, StructUnionSpec s )
-    {
-      return false;
-    }
-
-    public boolean visitEnum ( Qual q, EnumSpec s )
-    {
-      return false;
-    }
-
-    public boolean visitFunction ( Qual q, FunctionSpec s )
-    {
-      return false;
-    }
-  } );
+  return new TDeclaration( dr, ds, dr );
 }
 
-private final void validateType ( TDeclaration di )
+public final TDeclaration mkTypeName ( TDeclarator dr, TDeclSpec ds )
 {
-  validateType( di.type );
+  return declaration( dr, ds );
 }
 
-
-public final TDeclaration declInfo ( TDeclarator dr, TDeclSpec ds )
-{
-  return new TDeclaration( dr, dr.ident, dr.attachDeclSpecs(ds.qual), ds );
-}
-
-public final Decl declare ( TDeclarator dr, TDeclSpec ds )
-{
-  return declare(  dr, ds, false );
-}
-
-public final Decl declare ( TDeclarator dr, TDeclSpec ds, boolean hasInit )
-{
-  return declare( declInfo( dr, ds ), hasInit );
-}
-
-private final Decl declare ( TDeclaration di, boolean hasInit )
+public final Decl declare ( TDeclaration di, boolean hasInit )
 {
   final TDeclSpec ds = di.ds;
   SClass sc = ds.sc;
@@ -837,7 +776,7 @@ private final Decl declare ( TDeclaration di, boolean hasInit )
 
     if (hasInit && sc == SClass.EXTERN && !isFunc(type))
     {
-      warning( di, "'%s': ignoring 'extern' in initialization", di.ident );
+      warning( di, "'%s': ignoring 'extern' in initialization", di.getIdent() );
       sc = SClass.NONE;
     }
 
@@ -867,7 +806,7 @@ private final Decl declare ( TDeclaration di, boolean hasInit )
 
     if (hasInit && sc == SClass.EXTERN && !isFunc(type))
     {
-      error( di, "'%s': 'extern' and initialization", di.ident );
+      error( di, "'%s': 'extern' and initialization", di.getIdent() );
       sc = SClass.NONE; // Just pretend it is a new declaration for error recovery
       haveError = true;
     }
@@ -911,7 +850,7 @@ private final Decl declare ( TDeclaration di, boolean hasInit )
     }
     if (!type.spec.isComplete())
     {
-      error( di, "'%s' has an incomplete type", Utils.defaultIfEmpty(di.ident.name, "<unnamed>") );
+      error( di, "'%s' has an incomplete type", Utils.defaultIfEmpty(di.getIdent().name, "<unnamed>") );
       haveError = true;
     }
     linkage = Linkage.NONE;
@@ -935,14 +874,14 @@ private final Decl declare ( TDeclaration di, boolean hasInit )
   Decl prevDecl = null;
 
   // Check for a previous declaration in this scope
-  if (di.ident != null && di.ident.topDecl != null && di.ident.topDecl.scope == m_topScope)
-    prevDecl = di.ident.topDecl;
+  if (di.hasIdent() && di.getIdent().topDecl != null && di.getIdent().topDecl.scope == m_topScope)
+    prevDecl = di.getIdent().topDecl;
 
   // Locate a previous declaration with linkage in any parent scope
   if (prevDecl == null && linkage != Linkage.NONE)
   {
-    assert di.ident != null;
-    prevDecl = di.ident != null ? di.ident.topDecl : null;
+    assert di.hasIdent();
+    prevDecl = di.hasIdent() ? di.getIdent().topDecl : null;
     while (prevDecl != null && prevDecl.linkage == Linkage.NONE)
       prevDecl = prevDecl.prev;
   }
@@ -958,7 +897,7 @@ redeclaration:
     if (!compareDeclTypes( impDecl.type, type ))
     {
       error( di, "'%s' redeclared differently; previous declaration here: %s",
-             di.ident.name, SourceRange.formatRange(impDecl) );
+             di.getIdent().name, SourceRange.formatRange(impDecl) );
       haveError = true;
       break redeclaration;
     }
@@ -966,7 +905,7 @@ redeclaration:
     if (defined && impDecl.defined)
     {
       error( di, "'%s': invalid redefinition; already defined here: %s",
-             di.ident.name, SourceRange.formatRange(impDecl) );
+             di.getIdent().name, SourceRange.formatRange(impDecl) );
       haveError = true;
       break redeclaration;
     }
@@ -980,7 +919,7 @@ redeclaration:
     else
     {
       error( di, "'%s': invalid redeclaration; previously declared here: %s",
-             di.ident.name, SourceRange.formatRange(prevDecl) );
+             di.getIdent().name, SourceRange.formatRange(prevDecl) );
       haveError = true;
       break redeclaration;
     }
@@ -1011,7 +950,7 @@ redeclaration:
     sc = SClass.NONE;
 
   Decl decl = new Decl(
-    di, Decl.Kind.VAR, m_topScope, sc, linkage, di.ident, type, defined, haveError
+    di, Decl.Kind.VAR, m_topScope, sc, linkage, di.getIdent(), type, defined, haveError
   );
   if (prevDecl == null) // We could arrive here in case of an incorrect redeclaration
     m_topScope.pushDecl( decl );
