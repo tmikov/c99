@@ -384,7 +384,7 @@ private final class TypeHelper
     }
   }
 
-  void deduceBase ( CParser.Location loc )
+  void deduceBase ()
   {
     if (base == null)
     {
@@ -397,7 +397,7 @@ private final class TypeHelper
       }
       else
       {
-        base = spec( loc, Code.INT );
+        base = new TSpecNode( this.loc, Code.INT );
         warning( loc, "implicit '%s' assumed", specStr(base) );
       }
     }
@@ -524,9 +524,9 @@ private final class TypeHelper
     }
   }
 
-  TDeclSpec mkDeclSpec ( SClass sclass, Qual qual )
+  TDeclSpec mkDeclSpec ( TSpecNode specList, SClass sclass, Qual qual )
   {
-    TDeclSpec ds = new TDeclSpec( sclass, scAttrs, qual );
+    TDeclSpec ds = new TDeclSpec( specList, sclass, scAttrs, qual );
     ds.scNode = sc;
     ds.thread = thread;
     ds.inline = inline;
@@ -542,13 +542,13 @@ public final TDeclSpec declSpec ( CParser.Location loc, TSpecNode specNode )
   final TypeHelper th = new TypeHelper(loc);
 
   th.accumulate( specNode );
-  th.deduceBase( loc );
+  th.deduceBase();
   th.checkSignAndLength();
 
   final Spec spec = th.mkSpec();
   final Qual qual = th.mkQual( spec );
   final SClass sclass = th.mkSClass();
-  return th.mkDeclSpec( sclass, qual );
+  return th.mkDeclSpec( specNode, sclass, qual );
 }
 
 public final TDeclarator declarator ( CParser.Location loc, Symbol ident )
