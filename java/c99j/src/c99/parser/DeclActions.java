@@ -2,7 +2,6 @@ package c99.parser;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
 
 import c99.*;
 import c99.Types.*;
@@ -16,13 +15,6 @@ public class DeclActions extends AstActions
 {
 private Scope m_topScope;
 
-
-public static final class DeclList extends LinkedList<TDeclaration>
-{
-  public boolean ellipsis;
-
-  public DeclList setEllipsis () { this.ellipsis = true; return this; }
-}
 
 /** This class needed only as a workaround for a Bison BUG - generics in %type */
 public static final class IdentList extends LinkedHashMap<Symbol,Member>
@@ -630,7 +622,7 @@ public final IdentList identListAdd (
   return list;
 }
 
-public final TDeclElem funcDecl ( CParser.Location loc, DeclList paramList )
+public final TDeclElem funcDecl ( CParser.Location loc, TDeclList paramList )
 {
   Scope paramScope = pushScope( Scope.Kind.PARAM );
   try
@@ -677,10 +669,10 @@ public final TDeclElem oldFuncDecl ( CParser.Location loc, IdentList identList )
   return new TDeclElem( loc, new Qual(spec) );
 }
 
-public final DeclList declList ( DeclList list, TDeclaration di )
+public final TDeclList declList ( TDeclList list, TDeclaration di )
 {
   if (list == null)
-    list = new DeclList();
+    list = new TDeclList();
   list.add( di );
   return list;
 }

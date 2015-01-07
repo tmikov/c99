@@ -702,13 +702,13 @@ rule(<TSpecNode>,type-qualifier-list,opt):
   ;
 
 // (6.7.6)
-rule(<DeclList>,parameter-type-list):
+rule(<TDeclList>,parameter-type-list):
     parameter-list
   | parameter-list "," "..."            { $$ = $[parameter-list].setEllipsis(); }
   ;
 
 // (6.7.6)
-rule(<DeclList>,parameter-list):
+rule(<TDeclList>,parameter-list):
     parameter-declaration                           { $$ = declList(null,$[parameter-declaration]); }
   | parameter-list[left] "," parameter-declaration  { $$ = declList($left,$[parameter-declaration]); }
   ;
