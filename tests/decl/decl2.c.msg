@@ -3,6 +3,9 @@ decl2.c(8)[1..25]: error: More than one 'unsigned' specified
 decl2.c(9)[8..16]: error: Both 'unsigned' and 'signed' specified
 decl2.c(10)[1..27]: error: More than one '_Thread_local' specified
 decl2.c(11)[1..27]: error: More than one '_Complex' specified
+decl2.c(12)[1..29]: warning: _Imaginary is an extension
+decl2.c(12)[1..29]: warning: _Imaginary is an extension
+decl2.c(12)[1..29]: warning: _Imaginary is an extension
 decl2.c(12)[1..29]: error: More than one '_Imaginary' specified
 decl2.c(13)[1..22]: error: More than one 'typedef' specified
 decl2.c(14)[9..16]: error: More than one 'typedef' specified
@@ -27,7 +30,7 @@ decl2.c(36)[7..10]: error: Both 'int' and 'float' specified
 decl2.c(37)[5..10]: error: Both 'float' and 'int' specified
 decl2.c(37)[11..15]: error: Both 'char' and 'int' specified
 decl2.c(41)[1..21]: error: More than one 'struct S1' specified
-decl2.c(42)[17..19]: error: Both 'union S2' and 'struct S1' specified
+decl2.c(42)[11..16]: error: Both 'union S2' and 'struct S1' specified
 decl2.c(46)[7..12]: error: More than one 'short' specified
 decl2.c(47)[7..11]: error: Both 'long' and 'short' specified
 decl2.c(50)[11..15]: error: Both 'long' and 'long long' specified

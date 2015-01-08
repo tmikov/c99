@@ -1,6 +1,7 @@
 package c99.parser;
 
 import c99.Constant;
+import c99.parser.tree.TIdent;
 
 import static c99.parser.Trees.*;
 
@@ -22,9 +23,9 @@ public TStringLiteral stringLiteral ( CParser.Location loc, TStringLiteral lit, 
   return BisonLexer.setLocation(new TStringLiteral(null,value), loc);
 }
 
-public TSymbol symbolTree ( CParser.Location loc, Symbol sym )
+public TIdent symbolTree ( CParser.Location loc, Symbol sym )
 {
-  return BisonLexer.setLocation( new TSymbol(null,sym), loc );
+  return BisonLexer.setLocation( new TIdent(null,sym), loc );
 }
 
 public TIntNumber intNumber ( CParser.Location loc, Constant.IntC value )

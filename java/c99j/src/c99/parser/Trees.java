@@ -78,15 +78,4 @@ public static class TStringLiteral extends Tree
     this.value = value;
   }
 }
-
-public static class TSymbol extends Tree
-{
-  public final Symbol sym;
-
-  public TSymbol ( final ISourceRange rng, final Symbol sym )
-  {
-    super(rng);
-    this.sym = sym;
-  }
-}
 }

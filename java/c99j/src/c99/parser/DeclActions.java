@@ -1,7 +1,6 @@
 package c99.parser;
 
 import java.util.Collection;
-import java.util.LinkedHashMap;
 
 import c99.*;
 import c99.Types.*;
@@ -15,11 +14,6 @@ public class DeclActions extends AstActions
 {
 private Scope m_topScope;
 
-
-/** This class needed only as a workaround for a Bison BUG - generics in %type */
-public static final class IdentList extends LinkedHashMap<Symbol,Member>
-{
-}
 
 protected void init ( CompilerOptions opts, IErrorReporter reporter, SymTable symTab )
 {
@@ -107,17 +101,54 @@ public final TSpecNode specTypename ( CParser.Location loc, Decl decl )
   return BisonLexer.setLocation( new TSpecDeclNode( null, Code.TYPENAME, decl ), loc );
 }
 
-public final TSpecNode declareAgg (
-  CParser.Location loc, Code tagCode,
-  CParser.Location identLoc, Symbol ident,
-  Scope memberScope
-)
+private final Spec referenceAgg ( TSpecAggNode node )
 {
-  assert memberScope != null;
-  final TypeSpec tagSpec = tagCode == Code.STRUCT ? TypeSpec.STRUCT : TypeSpec.UNION;
+  final Decl tagDecl;
+  final TypeSpec tagSpec = node.code == Code.STRUCT ? TypeSpec.STRUCT : TypeSpec.UNION;
+
+  assert node.identTree != null;
+  final Symbol ident = node.identTree.ident;
+  if (ident.topTag != null)
+  {
+    if (ident.topTag.type.spec.type == tagSpec)
+    {
+      tagDecl = ident.topTag; // Return the existing tag
+    }
+    else
+    {
+      error( node.identTree, "'%s %s' previously defined as a different kind of tag here: %s",
+             node.code.str, ident.name, SourceRange.formatRange( ident.topTag ) );
+
+      // Error recovery: return an anonymous tag
+      Spec spec = new StructUnionSpec( tagSpec, null );
+      tagDecl = new Decl( node, Decl.Kind.TAG, m_topScope, SClass.NONE, Linkage.NONE,
+                          null, new Qual( spec ), false, true );
+    }
+  }
+  else
+  {
+    // Forward declaration of tag
+    Spec spec = new StructUnionSpec( tagSpec, ident );
+    tagDecl = new Decl( node.identTree, Decl.Kind.TAG, m_topScope, SClass.NONE, Linkage.NONE,
+                        ident, new Qual( spec ), false, false );
+    m_topScope.pushTag( tagDecl );
+    if (m_topScope.kind == Scope.Kind.PARAM)
+      warning( tagDecl, "declaration of '%s' will not be visible outside of the function", spec.readableType() );
+  }
+
+  return tagDecl.type.spec;
+}
+
+private final Spec declareAgg ( TSpecAggNode node )
+{
+  if (node.memberScope == null)
+    return referenceAgg( node );
+
+  final TypeSpec tagSpec = node.code == Code.STRUCT ? TypeSpec.STRUCT : TypeSpec.UNION;
 
   Decl tagDecl = null;
-  boolean haveErr = memberScope.error;
+  Symbol ident = node.identTree.ident;
+  boolean haveErr = node.memberScope.error;
 
   // Check for redefinition: it must have been defined in the current scope
   if (ident != null && ident.topTag != null && ident.topTag.scope == m_topScope)
@@ -128,8 +159,8 @@ public final TSpecNode declareAgg (
 
       if (prevSpec.fields != null) // Already defined?
       {
-        error( identLoc, "redefinition of '%s %s'. originally defined here: %s",
-               tagCode.str, ident.name, SourceRange.formatRange( ident.topTag ) );
+        error( node.identTree, "redefinition of '%s %s'. originally defined here: %s",
+               node.code.str, ident.name, SourceRange.formatRange( ident.topTag ) );
 
         // Error recovery: make the aggregate anonymous
         ident = null;
@@ -140,8 +171,8 @@ public final TSpecNode declareAgg (
     }
     else
     {
-      error( identLoc, "'%s %s' previously defined as a different kind of tag here: %s",
-             tagCode.str, ident.name, SourceRange.formatRange( ident.topTag ) );
+      error( node.identTree, "'%s %s' previously defined as a different kind of tag here: %s",
+             node.code.str, ident.name, SourceRange.formatRange( ident.topTag ) );
 
       // Error recovery: make the aggregate anonymous
       ident = null;
@@ -149,21 +180,25 @@ public final TSpecNode declareAgg (
     }
   }
 
+  final SourceRange rng = node.identTree != null ? node.identTree : node;
+
   if (tagDecl == null) // If not completing a previous forward declaration
   {
     Spec spec = new StructUnionSpec( tagSpec, ident );
-    tagDecl = new Decl( null, Decl.Kind.TAG, m_topScope, SClass.NONE, Linkage.NONE, ident,
+    tagDecl = new Decl( node, Decl.Kind.TAG, m_topScope, SClass.NONE, Linkage.NONE, ident,
                         new Qual( spec ), true, haveErr );
     m_topScope.pushTag( tagDecl );
+    if (m_topScope.kind == Scope.Kind.PARAM)
+      warning( rng, "declaration of '%s' will not be visible outside of the function", spec.readableType() );
   }
 
   tagDecl.defined = true;
 
   // Update the location to this one in all cases
-  BisonLexer.setLocation( tagDecl, identLoc != null ? identLoc : loc );
+  tagDecl.setRange( rng );
 
   final StructUnionSpec spec = (StructUnionSpec)tagDecl.type.spec;
-  final Collection<Decl> decls = memberScope.decls();
+  final Collection<Decl> decls = node.memberScope.decls();
 
   assert spec.fields == null;
   spec.error |= haveErr;
@@ -173,47 +208,22 @@ public final TSpecNode declareAgg (
   for ( Decl d : decls )
     spec.fields[i++] = new Member( d, d.symbol, d.type );
 
-  return new TSpecDeclNode( tagDecl, tagCode, tagDecl );
+  return spec;
 }
 
 public final TSpecNode specAgg (
   CParser.Location loc, Code tagCode,
-  CParser.Location identLoc, Symbol ident
+  CParser.Location identLoc, Symbol ident, Scope memberScope
 )
 {
-  assert ident != null;
-  final TypeSpec tagSpec = tagCode == Code.STRUCT ? TypeSpec.STRUCT : TypeSpec.UNION;
-
-  final Decl tagDecl;
-  if (ident.topTag != null)
-  {
-    if (ident.topTag.type.spec.type == tagSpec)
-    {
-      tagDecl = ident.topTag; // Return the existing tag
-    }
-    else
-    {
-      error( loc, "'%s %s' previously defined as a different kind of tag here: %s",
-             tagCode.str, ident.name, SourceRange.formatRange( ident.topTag ) );
-
-      // Error recovery: return an anonymous tag
-      Spec spec = new StructUnionSpec( tagSpec, null );
-      tagDecl = new Decl( null, Decl.Kind.TAG, m_topScope, SClass.NONE, Linkage.NONE,
-                          null, new Qual( spec ), false, true );
-      BisonLexer.setLocation( tagDecl, loc );
-    }
-  }
-  else
-  {
-    // Forward declaration of tag
-    Spec spec = new StructUnionSpec( tagSpec, ident );
-    tagDecl = new Decl( null, Decl.Kind.TAG, m_topScope, SClass.NONE, Linkage.NONE,
-                        ident, new Qual( spec ), false, false );
-    BisonLexer.setLocation( tagDecl, identLoc );
-    m_topScope.pushTag( tagDecl );
-  }
-
-  return new TSpecDeclNode( tagDecl, tagCode, tagDecl );
+  return BisonLexer.setLocation(
+    new TSpecAggNode(
+      null, tagCode,
+      ident != null ? BisonLexer.setLocation(new TIdent(null, ident), identLoc) : null,
+      memberScope
+    ),
+    loc
+  );
 }
 
 
@@ -249,6 +259,8 @@ private static Spec stdSpec ( TypeSpec ts )
   return s_specs[ts.ordinal() - TypeSpec.VOID.ordinal()];
 }
 
+private static final SimpleSpec s_errorSpec = new SimpleSpec( TypeSpec.ERROR );
+
 private final class TypeHelper
 {
   final SourceRange loc = new SourceRange();
@@ -272,9 +284,9 @@ private final class TypeHelper
   TSpecNode _atomicQual = null;
   ExtAttributes qualAttrs;
 
-  TypeHelper ( CParser.Location loc )
+  TypeHelper ( ISourceRange loc )
   {
-    BisonLexer.setLocation( this.loc, loc );
+    this.loc.setRange( loc );
   }
 
   void err ( ISourceRange rng, String a, String b )
@@ -293,7 +305,10 @@ private final class TypeHelper
     case TYPENAME:
       return ((TSpecDeclNode)spec).decl.symbol.name;
     case STRUCT: case UNION:
-      return spec.code.str + " " + ((TSpecDeclNode)spec).decl.symbol.name;
+      {
+        TSpecAggNode n = (TSpecAggNode)spec;
+        return n.identTree != null ? spec.code.str + " " + n.identTree.ident.name : spec.code.str;
+      }
     case ENUM:
       assert false; // FIXME
       return spec.code.str + " " + ((TSpecDeclNode)spec).decl.symbol.name;
@@ -477,8 +492,18 @@ private final class TypeHelper
     case FLOAT: spec = stdSpec(TypeSpec.FLOAT); break;
     case DOUBLE: spec = stdSpec(len != 1 ? TypeSpec.DOUBLE : TypeSpec.LDOUBLE); break;
 
-    case TYPENAME: case STRUCT: case UNION: case ENUM:
+    case TYPENAME:
       spec = ((TSpecDeclNode)base).decl.type.spec;
+      break;
+
+    case STRUCT: case UNION:
+      spec = declareAgg( (TSpecAggNode)base );
+      break;
+
+    case ENUM:
+      assert( false );
+      spec = null;
+      FIXME("implement enum");
       break;
 
     default: spec = null; break;
@@ -524,9 +549,9 @@ private final class TypeHelper
     }
   }
 
-  TDeclSpec mkDeclSpec ( TSpecNode specList, SClass sclass, Qual qual )
+  TDeclSpec mkDeclSpec ( SClass sclass, Qual qual )
   {
-    TDeclSpec ds = new TDeclSpec( specList, sclass, scAttrs, qual );
+    TDeclSpec ds = new TDeclSpec( sclass, scAttrs, qual );
     ds.scNode = sc;
     ds.thread = thread;
     ds.inline = inline;
@@ -537,23 +562,9 @@ private final class TypeHelper
   }
 }
 
-public final TDeclSpec declSpec ( CParser.Location loc, TSpecNode specNode )
-{
-  final TypeHelper th = new TypeHelper(loc);
-
-  th.accumulate( specNode );
-  th.deduceBase();
-  th.checkSignAndLength();
-
-  final Spec spec = th.mkSpec();
-  final Qual qual = th.mkQual( spec );
-  final SClass sclass = th.mkSClass();
-  return th.mkDeclSpec( specNode, sclass, qual );
-}
-
 public final TDeclarator declarator ( CParser.Location loc, Symbol ident )
 {
-  return new TDeclarator( loc, ident );
+  return BisonLexer.setLocation( new TDeclarator( null, ident ), loc );
 }
 
 public final TDeclarator abstractDeclarator ( CParser.Location loc )
@@ -562,52 +573,27 @@ public final TDeclarator abstractDeclarator ( CParser.Location loc )
   return declarator( new CParser.Location( loc.begin ), null );
 }
 
-public final TDeclElem pointerDecl ( CParser.Location loc, TSpecNode qualList, TDeclElem to )
+public final TDeclarator.Elem pointerDecl ( CParser.Location loc, TSpecNode qualList, TDeclarator.Elem to )
 {
-  final TypeHelper th = new TypeHelper(loc);
-  th.accumulate( qualList );
-  return new TDeclElem( loc, th.mkQual(new PointerSpec()) ).append( to );
+  return new TDeclarator.PointerElem( loc, qualList ).append( to );
 }
 
-public final TDeclElem arrayDecl (
+public final TDeclarator.Elem arrayDecl (
   CParser.Location loc,
   TSpecNode qualList, CParser.Location _static, CParser.Location asterisk, Ast size
 )
 {
-  final TypeHelper th = new TypeHelper(loc);
-//  if (qualList != null && m_topScope.kind != Scope.Kind.PARAM)
-//  {
-//    error( qualList, "type qualifiers in non-parameter array declarator" );
-//    qualList = null;
-//  }
-  th.accumulate( qualList );
-
-//  if (_static != null && m_topScope.kind != Scope.Kind.PARAM)
-//  {
-//    error( _static, "'static' in non-parameter array declarator" );
-//    _static = null;
-//  }
-
-//  if (asterisk != null && m_topScope.kind != Scope.Kind.PARAM)
-//  {
-//    error( asterisk, "'[*]' in non-parameter array declarator" );
-//    asterisk = null;
-//  }
-
-  ArraySpec spec = new ArraySpec();
-  spec._static = _static != null;
-  spec.asterisk = asterisk != null;
   // FIXME: size
-  return new TDeclElem( loc, th.mkQual(spec) );
+  return new TDeclarator.ArrayElem( loc, qualList, _static, asterisk );
 }
 
-public final IdentList identList ()
+public final TIdentList identList ()
 {
-  return new IdentList();
+  return new TIdentList();
 }
 
-public final IdentList identListAdd (
-  CParser.Location loc, IdentList list, Symbol sym
+public final TIdentList identListAdd (
+  CParser.Location loc, TIdentList list, Symbol sym
 )
 {
   Member m;
@@ -622,51 +608,14 @@ public final IdentList identListAdd (
   return list;
 }
 
-public final TDeclElem funcDecl ( CParser.Location loc, TDeclList paramList )
+public final TDeclarator.Elem funcDecl ( CParser.Location loc, TDeclList paramList )
 {
-  Scope paramScope = pushScope( Scope.Kind.PARAM );
-  try
-  {
-    for ( TDeclaration di : paramList )
-      declare( di, false );
-    if (paramList.ellipsis)
-      FIXME("implement ellipsis");
-  }
-  finally
-  {
-    popScope( paramScope );
-  }
-  return funcDecl( loc, paramScope );
+  return new TDeclarator.FuncElem( loc, paramList, null );
 }
 
-private final TDeclElem funcDecl ( CParser.Location loc, Scope paramScope )
+public final TDeclarator.Elem oldFuncDecl ( CParser.Location loc, TIdentList identList )
 {
-  final FunctionSpec spec = new FunctionSpec();
-  final Collection<Decl> decls = paramScope.decls();
-
-  spec.params = new Member[decls.size()];
-  int i = 0;
-  for ( Decl d : decls )
-    spec.params[i++] = new Member(d, d.symbol, d.type);
-
-  return new TDeclElem( loc, new Qual(spec) );
-}
-
-public final TDeclElem oldFuncDecl ( CParser.Location loc, IdentList identList )
-{
-  final FunctionSpec spec = new FunctionSpec(true);
-
-  if (identList == null)
-    spec.params = new Member[0];
-  else
-  {
-    spec.params = new Member[identList.size()];
-    int i = 0;
-    for ( Member m : identList.values() )
-      spec.params[i++] = m;
-  }
-
-  return new TDeclElem( loc, new Qual(spec) );
+  return new TDeclarator.FuncElem( loc, null, identList );
 }
 
 public final TDeclList declList ( TDeclList list, TDeclaration di )
@@ -677,6 +626,13 @@ public final TDeclList declList ( TDeclList list, TDeclaration di )
   return list;
 }
 
+public final TInitDeclaratorList initDeclaratorList ( TInitDeclaratorList list, TInitDeclarator idecl )
+{
+  if (list == null)
+    list = new TInitDeclaratorList();
+  list.add( idecl );
+  return list;
+}
 
 private Qual adjustParamType ( Qual qual )
 {
@@ -742,21 +698,173 @@ private static boolean isArray ( Qual q )
   return q.spec.type == TypeSpec.ARRAY;
 }
 
-public final TDeclaration declaration ( TDeclarator dr, TDeclSpec ds )
+public final TDeclaration declaration ( TDeclarator dr, TSpecNode dsNode )
 {
-  return new TDeclaration( dr, ds, dr );
+  return new TDeclaration( dr, dsNode, dr );
 }
 
-public final TDeclaration mkTypeName ( TDeclarator dr, TDeclSpec ds )
+public final TDeclaration mkTypeName ( TDeclarator dr, TSpecNode dsNode )
 {
-  return declaration( dr, ds );
+  return declaration( dr, dsNode );
+}
+
+private final class TypeChecker implements TDeclarator.Visitor
+{
+  boolean haveError;
+  Qual qual;
+
+  TypeChecker ( Qual qual )
+  {
+    this.qual = qual;
+  }
+
+  private boolean checkDepth ( int depth, TDeclarator.Elem elem )
+  {
+    if (depth <= CompilerLimits.MAX_TYPE_DEPTH)
+      return true;
+
+    error( elem, "Type is too complex" );
+    haveError = true;
+    return false;
+  }
+
+  @Override public boolean pointer ( int depth, TDeclarator.PointerElem elem )
+  {
+    if (!checkDepth( depth, elem ))
+      return false;
+
+    final TypeHelper th = new TypeHelper( elem );
+    th.accumulate( elem.qualList );
+    this.qual = th.mkQual( new Types.PointerSpec( this.qual ) );
+
+    return true;
+  }
+
+  @Override public boolean array ( int depth, TDeclarator.ArrayElem elem )
+  {
+    if (!checkDepth( depth, elem ))
+      return false;
+
+    if (elem.qualList != null && m_topScope.kind != Scope.Kind.PARAM)
+    {
+      error( elem.qualList, "type qualifiers in non-parameter array declarator" );
+      haveError = true;
+      elem.qualList = null;
+    }
+
+    if (elem._static != null && m_topScope.kind != Scope.Kind.PARAM)
+    {
+      error( elem._static, "'static' in non-parameter array declarator" );
+      haveError = true;
+      elem._static = null;
+    }
+
+    if (elem.asterisk != null && m_topScope.kind != Scope.Kind.PARAM)
+    {
+      error( elem.asterisk, "'[*]' in non-parameter array declarator" );
+      haveError = true;
+      elem.asterisk = null;
+    }
+
+    if (!qual.spec.isComplete())
+    {
+      error( elem, "array has incomplete type '%s'", qual.readableType() );
+      haveError = true;
+      return false;
+    }
+
+    ArraySpec spec = new ArraySpec( this.qual );
+    spec._static = elem._static != null;
+    spec.asterisk = elem.asterisk != null;
+    TypeHelper th = new TypeHelper( elem );
+    th.accumulate( elem.qualList );
+    this.qual = th.mkQual( spec );
+
+    return true;
+  }
+
+  @Override public boolean function ( int depth, TDeclarator.FuncElem elem )
+  {
+    if (!checkDepth( depth, elem ))
+      return false;
+
+    final FunctionSpec spec = new FunctionSpec( elem.declList == null, qual );
+    if (elem.declList != null) // new-style function?
+    {
+      // FIXME: support "func (void)"
+      // FIXME: implement ellipsis
+      Scope paramScope = pushScope( Scope.Kind.PARAM );
+      try
+      {
+        for (TDeclaration decl : elem.declList )
+          declare( decl, false );
+        if (elem.declList.ellipsis)
+          FIXME( "implement ellipsis" );
+      }
+      finally
+      {
+        popScope( paramScope );
+      }
+      Collection<Decl> decls = paramScope.decls();
+      spec.params = new Member[decls.size()];
+      int i = 0;
+      for ( Decl d : decls )
+        spec.params[i++] = new Member( d, d.symbol, d.type ); // FIXME: coordinates
+    }
+    else // old-style function
+    {
+      if (elem.identList == null)
+        spec.params = new Member[0];
+      else
+      {
+        spec.params = new Member[elem.identList.size()];
+        int i = 0;
+        for ( Member m : elem.identList.values() )
+          spec.params[i++] = m; // FIXME: coordinates
+      }
+    }
+    this.qual = new Qual( spec );
+    return true;
+  }
+}
+
+private final void validateType ( TDeclaration decl )
+{
+  final TDeclSpec ds;
+  {
+    final TypeHelper th = new TypeHelper( decl.dsNode );
+    th.accumulate( decl.dsNode );
+    th.deduceBase();
+    th.checkSignAndLength();
+    ds = th.mkDeclSpec( th.mkSClass(), th.mkQual( th.mkSpec() ) );
+  }
+
+  decl.ds = ds;
+
+  TypeChecker checker = new TypeChecker( ds.qual );
+  if (decl.declarator != null)
+  {
+    if (decl.declarator.visitPost( checker ) && !checker.haveError)
+      decl.type = checker.qual;
+    else
+    {
+      decl.type = new Qual( s_errorSpec );
+      decl.error = true;
+    }
+  }
+  else
+  {
+    decl.type = ds.qual;
+  }
 }
 
 public final Decl declare ( TDeclaration di, boolean hasInit )
 {
+  validateType( di );
+
   final TDeclSpec ds = di.ds;
   SClass sc = ds.sc;
-  boolean haveError = ds.error;
+  boolean haveError = di.error;
   Qual type = di.type;
 
   Linkage linkage;
@@ -955,6 +1063,19 @@ redeclaration:
   if (prevDecl == null) // We could arrive here in case of an incorrect redeclaration
     m_topScope.pushDecl( decl );
   return decl;
+}
+
+public final void declaration ( TSpecNode specNode, TInitDeclaratorList ideclList )
+{
+  if (ideclList != null && ideclList.size() > 0)
+  {
+    for ( TInitDeclarator idecl : ideclList )
+      declare( declaration( idecl.declarator, specNode ), idecl.init );
+  }
+  else
+  {
+    validateType( declaration( new TDeclarator( specNode, null ), specNode ) );
+  }
 }
 
 } // class

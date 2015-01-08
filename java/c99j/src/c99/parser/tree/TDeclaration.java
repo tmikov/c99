@@ -13,27 +13,23 @@ import c99.parser.Symbol;
  */
 public final class TDeclaration extends SourceRange
 {
-  public final TDeclSpec ds;
+  public final TSpecNode dsNode;
   public final TDeclarator declarator;
-  public final Types.Qual type;
+  public TDeclSpec ds;
+  public Types.Qual type;
+  public boolean error;
 
 
-  private TDeclaration ( ISourceRange rng, TDeclSpec ds, TDeclarator declarator, Types.Qual type )
+  public TDeclaration ( ISourceRange rng, TSpecNode dsNode, TDeclarator declarator )
   {
     super(rng);
-    this.ds = ds;
+    this.dsNode = dsNode;
     this.declarator = declarator;
-    this.type = type;
   }
 
-  public TDeclaration ( ISourceRange rng, TDeclSpec ds, TDeclarator declarator )
+  public TDeclaration ( CParser.Location loc, TSpecNode dsNode, TDeclarator declarator )
   {
-    this( rng, ds, declarator, declarator.attachDeclSpecs( ds.qual ));
-  }
-
-  public TDeclaration ( CParser.Location loc, TDeclSpec ds, TDeclarator declarator )
-  {
-    this((ISourceRange)null, ds, declarator );
+    this((ISourceRange)null, dsNode, declarator );
     BisonLexer.setLocation( this, loc );
   }
 

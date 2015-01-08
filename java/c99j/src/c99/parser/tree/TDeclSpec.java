@@ -8,7 +8,6 @@ import c99.Types;
  */
 public final class TDeclSpec
 {
-  public final TSpecNode specList;
   public Types.SClass sc;
   public final ExtAttributes scAttr;
   public final Types.Qual qual;
@@ -18,9 +17,8 @@ public final class TDeclSpec
   public TSpecNode noreturn;
   public boolean error;
 
-  public TDeclSpec ( TSpecNode specList, Types.SClass sc, ExtAttributes scAttr, final Types.Qual qual )
+  public TDeclSpec ( Types.SClass sc, ExtAttributes scAttr, final Types.Qual qual )
   {
-    this.specList = specList;
     this.sc = sc;
     this.scAttr = scAttr;
     this.qual = qual;

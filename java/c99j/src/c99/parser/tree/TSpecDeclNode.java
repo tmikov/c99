@@ -7,6 +7,7 @@ import c99.parser.Decl;
 /**
  * Created by tmikov on 1/5/15.
  */
+@Deprecated
 public final class TSpecDeclNode extends TSpecNode
 {
   public final Decl decl;

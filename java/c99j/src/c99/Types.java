@@ -238,6 +238,11 @@ public static final class Qual
       buf.append( spec.toString() );
     return buf.toString();
   }
+
+  public final String readableType ()
+  {
+    return toString();
+  }
 }
 
 public static abstract class Spec
@@ -264,6 +269,11 @@ public static abstract class Spec
   @Override public String toString ()
   {
     return type.str;
+  }
+
+  public final String readableType ()
+  {
+    return toString();
   }
 }
 
@@ -316,7 +326,7 @@ public static abstract class DerivedSpec extends Spec
   public Qual of;
 
   public DerivedSpec ( final TypeSpec type, Qual of ) { super( type ); this.of = of; }
-  public DerivedSpec ( final TypeSpec type ) { this( type, null ); }
+//  public DerivedSpec ( final TypeSpec type ) { this( type, null ); }
 
   @Override
   public boolean same ( Spec o )
@@ -339,10 +349,10 @@ public static final class PointerSpec extends DerivedSpec
     super(TypeSpec.POINTER, of);
   }
 
-  public PointerSpec ()
-  {
-    this( null );
-  }
+//  public PointerSpec ()
+//  {
+//    this( null );
+//  }
 
   @Override
   public boolean visit ( Qual q, TypeVisitor v )
@@ -368,9 +378,9 @@ public static final class ArraySpec extends DerivedSpec
   public boolean _static;
   public boolean asterisk;
 
-  public ArraySpec ()
+  public ArraySpec ( Qual of )
   {
-    super( TypeSpec.ARRAY );
+    super( TypeSpec.ARRAY, of );
     this.nelem = -1;
   }
 
@@ -464,13 +474,9 @@ public static final class FunctionSpec extends DerivedSpec
   public boolean oldStyle;
   public Param[] params;
 
-  public FunctionSpec ()
+  public FunctionSpec ( boolean oldStyle, Qual returning )
   {
-    super( TypeSpec.FUNCTION );
-  }
-  public FunctionSpec ( boolean oldStyle )
-  {
-    this();
+    super( TypeSpec.FUNCTION, returning );
     this.oldStyle = oldStyle;
   }
 
