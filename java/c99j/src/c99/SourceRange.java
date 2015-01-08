@@ -156,7 +156,7 @@ public static boolean isRealRange ( ISourceRange rng )
 {
   return rng != null &&
          (rng.getLine2() > rng.getLine1() ||
-          rng.getLine2() == rng.getLine1() && rng.getCol2() > rng.getCol1() + 1);
+          rng.getLine2() == rng.getLine1() && rng.getCol2() > rng.getCol1());
 }
 
 public static String formatRange ( ISourceRange rng )
