@@ -575,24 +575,24 @@ public final TDeclElem arrayDecl (
 )
 {
   final TypeHelper th = new TypeHelper(loc);
-  if (qualList != null && m_topScope.kind != Scope.Kind.PARAM)
-  {
-    error( qualList, "type qualifiers in non-parameter array declarator" );
-    qualList = null;
-  }
+//  if (qualList != null && m_topScope.kind != Scope.Kind.PARAM)
+//  {
+//    error( qualList, "type qualifiers in non-parameter array declarator" );
+//    qualList = null;
+//  }
   th.accumulate( qualList );
 
-  if (_static != null && m_topScope.kind != Scope.Kind.PARAM)
-  {
-    error( _static, "'static' in non-parameter array declarator" );
-    _static = null;
-  }
+//  if (_static != null && m_topScope.kind != Scope.Kind.PARAM)
+//  {
+//    error( _static, "'static' in non-parameter array declarator" );
+//    _static = null;
+//  }
 
-  if (asterisk != null && m_topScope.kind != Scope.Kind.PARAM)
-  {
-    error( asterisk, "'[*]' in non-parameter array declarator" );
-    asterisk = null;
-  }
+//  if (asterisk != null && m_topScope.kind != Scope.Kind.PARAM)
+//  {
+//    error( asterisk, "'[*]' in non-parameter array declarator" );
+//    asterisk = null;
+//  }
 
   ArraySpec spec = new ArraySpec();
   spec._static = _static != null;
