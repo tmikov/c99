@@ -15,40 +15,42 @@ public static final int LONGLONG_BITS = Platform.LONGLONG_BITS;
 
 public static enum TypeSpec
 {
-  VOID(),
+  VOID("void"),
 
-  BOOL(false,1),
+  BOOL("bool",false,1),
   // Note: the ordering matters. First <signed>, then <unsigned>, from smaller to larger
-  SCHAR(true,CHAR_BITS),
-  UCHAR(false,CHAR_BITS),
-  SSHORT(true,SHORT_BITS),
-  USHORT(false,SHORT_BITS),
-  SINT(true,INT_BITS),
-  UINT(false,INT_BITS),
-  SLONG(true,LONG_BITS),
-  ULONG(false,LONG_BITS),
-  SLLONG(true,LONGLONG_BITS),
-  ULLONG(false,LONGLONG_BITS),
-  FLOAT(32, Float.MIN_VALUE, Float.MAX_VALUE),
-  DOUBLE(64, Double.MIN_VALUE, Double.MAX_VALUE),
-  LDOUBLE(64, Double.MIN_VALUE, Double.MAX_VALUE),
+  SCHAR("signed char",true,CHAR_BITS),
+  UCHAR("unsigned char",false,CHAR_BITS),
+  SSHORT("short",true,SHORT_BITS),
+  USHORT("unsigned short",false,SHORT_BITS),
+  SINT("int",true,INT_BITS),
+  UINT("unsigned",false,INT_BITS),
+  SLONG("long",true,LONG_BITS),
+  ULONG("unsigned long",false,LONG_BITS),
+  SLLONG("long long",true,LONGLONG_BITS),
+  ULLONG("unsibned long long",false,LONGLONG_BITS),
+  FLOAT("float",32, Float.MIN_VALUE, Float.MAX_VALUE),
+  DOUBLE("double",64, Double.MIN_VALUE, Double.MAX_VALUE),
+  LDOUBLE("long double",64, Double.MIN_VALUE, Double.MAX_VALUE),
 
-  ATOMIC(),
-  COMPLEX(),
-  IMAGINARY(),
+  ATOMIC("_Atomic"),
+  COMPLEX("_Complex"),
+  IMAGINARY("_Imaginary"),
 
-  ENUM(),
+  ENUM("enum"),
 
-  ARRAY(),
-  STRUCT(),
-  UNION(),
-  FUNCTION(),
-  POINTER(),
+  ARRAY("[]"),
+  STRUCT("struct"),
+  UNION("union"),
+  FUNCTION("()"),
+  POINTER("*"),
 
-  ERROR();
+  ERROR("error");
 
   public static final TypeSpec INTMAX_T = SLLONG;
   public static final TypeSpec UINTMAX_T = ULLONG;
+
+  public final String str;
 
   public final boolean arithmetic;
   public final boolean floating;
@@ -62,8 +64,9 @@ public static enum TypeSpec
   public final double minReal;
   public final double maxReal;
 
-  TypeSpec ()
+  TypeSpec ( String str )
   {
+    this.str = str;
     this.arithmetic = false;
     this.floating = false;
     this.integer = false;
@@ -77,9 +80,10 @@ public static enum TypeSpec
     this.maxReal = 0;
   }
 
-  TypeSpec ( int width, double minReal, double maxReal )
+  TypeSpec ( String str, int width, double minReal, double maxReal )
   {
     assert width > 0;
+    this.str = str;
     this.arithmetic = true;
     this.floating = true;
     this.integer = false;
@@ -93,9 +97,10 @@ public static enum TypeSpec
     this.maxReal = maxReal;
   }
 
-  TypeSpec ( boolean signed, int width )
+  TypeSpec ( String str, boolean signed, int width )
   {
     assert width > 0;
+    this.str = str;
     this.arithmetic = true;
     this.floating = false;
     this.integer = true;
@@ -258,7 +263,7 @@ public static abstract class Spec
 
   @Override public String toString ()
   {
-    return type.toString();
+    return type.str;
   }
 }
 
@@ -412,6 +417,11 @@ public static abstract class TagSpec extends Spec
   @Override public boolean same ( Spec o )
   {
     return this == o;
+  }
+
+  public String toString ()
+  {
+    return this.name != null ? this.type.str + " " + this.name.name : this.type.str;
   }
 }
 
