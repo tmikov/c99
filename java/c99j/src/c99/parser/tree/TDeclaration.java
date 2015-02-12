@@ -5,6 +5,7 @@ import c99.SourceRange;
 import c99.Types;
 import c99.parser.BisonLexer;
 import c99.parser.CParser;
+import c99.parser.Linkage;
 import c99.parser.Symbol;
 
 /**
@@ -16,7 +17,11 @@ public final class TDeclaration extends SourceRange
   public final TSpecNode dsNode;
   public final TDeclarator declarator;
   public TDeclSpec ds;
+
+  public Linkage linkage;
+  public Types.SClass sclass;
   public Types.Qual type;
+  public boolean defined;
   public boolean error;
 
 

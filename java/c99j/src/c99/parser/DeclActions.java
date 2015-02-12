@@ -260,6 +260,7 @@ private static Spec stdSpec ( TypeSpec ts )
 }
 
 private static final SimpleSpec s_errorSpec = new SimpleSpec( TypeSpec.ERROR );
+private static final Qual s_errorQual = new Qual(s_errorSpec);
 
 private final class TypeHelper
 {
@@ -766,7 +767,13 @@ private final class TypeChecker implements TDeclarator.Visitor
       elem.asterisk = null;
     }
 
-    if (!qual.spec.isComplete())
+    if (this.qual.spec.type == TypeSpec.FUNCTION)
+    {
+      error( elem, "array of functions" );
+      haveError = true;
+      this.qual = s_errorQual;
+    }
+    else if (!qual.spec.isComplete())
     {
       error( elem, "array has incomplete type '%s'", qual.readableType() );
       haveError = true;
@@ -787,6 +794,19 @@ private final class TypeChecker implements TDeclarator.Visitor
   {
     if (!checkDepth( depth, elem ))
       return false;
+
+    if (this.qual.spec.type == TypeSpec.ARRAY)
+    {
+      error( elem, "function returning an array" );
+      this.qual = s_errorQual;
+      this.haveError = true;
+    }
+    else if (this.qual.spec.type == TypeSpec.FUNCTION)
+    {
+      error( elem, "function returning a function" );
+      this.qual = s_errorQual;
+      this.haveError = true;
+    }
 
     final FunctionSpec spec = new FunctionSpec( elem.declList == null, qual );
     if (elem.declList != null) // new-style function?
@@ -848,7 +868,7 @@ private final void validateType ( TDeclaration decl )
       decl.type = checker.qual;
     else
     {
-      decl.type = new Qual( s_errorSpec );
+      decl.type = s_errorQual;
       decl.error = true;
     }
   }
@@ -858,119 +878,124 @@ private final void validateType ( TDeclaration decl )
   }
 }
 
-public final Decl declare ( TDeclaration di, boolean hasInit )
+/**
+ * Sets {@link TDeclaration#sclass}, {@link TDeclaration#linkage}, {@link TDeclaration#defined}
+ * @param di
+ * @param hasInit
+ */
+private final void validateLinkage ( final TDeclaration di, final boolean hasInit )
 {
-  validateType( di );
-
   final TDeclSpec ds = di.ds;
-  SClass sc = ds.sc;
-  boolean haveError = di.error;
-  Qual type = di.type;
+  di.sclass = ds.sc;
 
-  Linkage linkage;
-  boolean defined;
   switch (m_topScope.kind)
   {
   case FILE:
-    if (sc == SClass.NONE && isFunc(type))
-      sc = SClass.EXTERN;
-    else if (sc == SClass.REGISTER || sc == SClass.AUTO)
+    if (di.sclass == SClass.NONE && isFunc(di.type))
+      di.sclass = SClass.EXTERN;
+    else if (di.sclass == SClass.REGISTER || di.sclass == SClass.AUTO)
     {
       error( ds.scNode, "'%s' storage class at file scope", ds.scNode.code.str );
-      haveError = true;
+      di.error = true;
       ds.error = true;
-      sc = ds.sc = SClass.NONE;
+      di.sclass = ds.sc = SClass.NONE;
     }
 
-    if (hasInit && sc == SClass.EXTERN && !isFunc(type))
+    if (hasInit && di.sclass == SClass.EXTERN && !isFunc(di.type))
     {
       warning( di, "'%s': ignoring 'extern' in initialization", di.getIdent() );
-      sc = SClass.NONE;
+      di.sclass = SClass.NONE;
     }
 
-    linkage = sc == SClass.STATIC ? Linkage.INTERNAL : Linkage.EXTERNAL;
-    switch (sc)
+    di.linkage = di.sclass == SClass.STATIC ? Linkage.INTERNAL : Linkage.EXTERNAL;
+    switch (di.sclass)
     {
     case EXTERN: // only in case of isFunc()
     case NONE:
-      linkage = Linkage.EXTERNAL;
-      defined = hasInit;
+      di.linkage = Linkage.EXTERNAL;
+      di.defined = hasInit;
       break;
     case STATIC:
-      linkage = Linkage.INTERNAL;
-      defined = hasInit;
+      di.linkage = Linkage.INTERNAL;
+      di.defined = hasInit;
       break;
     case TYPEDEF:
-      linkage = Linkage.NONE;
-      defined = true;
+      di.linkage = Linkage.NONE;
+      di.defined = true;
       break;
-    default: assert false; defined = false; break;
+    default: assert false; di.defined = false; break;
     }
     break;
 
   case BLOCK:
-    if (sc == SClass.NONE && isFunc(type))
-      sc = SClass.EXTERN;
+    if (di.sclass == SClass.NONE && isFunc(di.type))
+      di.sclass = SClass.EXTERN;
 
-    if (hasInit && sc == SClass.EXTERN && !isFunc(type))
+    if (hasInit && di.sclass == SClass.EXTERN && !isFunc(di.type))
     {
       error( di, "'%s': 'extern' and initialization", di.getIdent() );
-      sc = SClass.NONE; // Just pretend it is a new declaration for error recovery
-      haveError = true;
+      di.sclass = SClass.NONE; // Just pretend it is a new declaration for error recovery
+      di.error = true;
     }
 
-    linkage = sc == SClass.EXTERN ? Linkage.EXTERNAL : Linkage.NONE;
-    defined = sc != SClass.EXTERN;
+    di.linkage = di.sclass == SClass.EXTERN ? Linkage.EXTERNAL : Linkage.NONE;
+    di.defined = di.sclass != SClass.EXTERN;
     break;
 
   case PARAM:
     assert !hasInit;
-    type = adjustParamType( type );
-    if (sc == SClass.REGISTER)
+    di.type = adjustParamType( di.type );
+    if (di.sclass == SClass.REGISTER)
     {
       warning( ds.scNode, "'%s' storage class is ignored", ds.scNode.code.str );
-      sc = SClass.NONE;
+      di.sclass = SClass.NONE;
     }
-    else if (sc != SClass.NONE)
+    else if (di.sclass != SClass.NONE)
     {
       error( ds.scNode, "'%s' storage class in function declaration", ds.scNode.code.str );
-      haveError = true;
+      di.error = true;
       ds.error = true;
-      sc = ds.sc = SClass.NONE;
+      di.sclass = ds.sc = SClass.NONE;
     }
-    linkage = Linkage.NONE;
-    defined = true;
+    di.linkage = Linkage.NONE;
+    di.defined = true;
     break;
 
   case AGGREGATE:
     assert !hasInit;
-    if (isFunc(type))
+    if (isFunc(di.type))
     {
       error( di, "field declared as a function in struct/union" );
-      type = adjustParamType( type ); // Least painful way of error recovery is to convert to a pointer
+      di.type = adjustParamType( di.type ); // Least painful way of error recovery is to convert to a pointer
     }
-    if (sc != SClass.NONE)
+    if (di.sclass != SClass.NONE)
     {
       error( ds.scNode, "storage class in struct/union scope" );
-      haveError = true;
+      di.error = true;
       ds.error = true;
-      sc = ds.sc = SClass.NONE;
+      di.sclass = ds.sc = SClass.NONE;
     }
-    if (!type.spec.isComplete())
+    if (!di.type.spec.isComplete())
     {
       error( di, "'%s' has an incomplete type", Utils.defaultIfEmpty(di.getIdent().name, "<unnamed>") );
-      haveError = true;
+      di.error = true;
     }
-    linkage = Linkage.NONE;
-    defined = true;
+    di.linkage = Linkage.NONE;
+    di.defined = true;
     break;
 
   default:
     assert false;
-    linkage = null;
-    defined = false;
+    di.linkage = null;
+    di.defined = false;
     break;
   }
+}
+
+public final Decl declare ( TDeclaration di, boolean hasInit )
+{
+  validateType( di );
+  validateLinkage( di, hasInit );
 
   /*
     Check for re-declaration.
@@ -986,7 +1011,7 @@ public final Decl declare ( TDeclaration di, boolean hasInit )
     prevDecl = di.getIdent().topDecl;
 
   // Locate a previous declaration with linkage in any parent scope
-  if (prevDecl == null && linkage != Linkage.NONE)
+  if (prevDecl == null && di.linkage != Linkage.NONE)
   {
     assert di.hasIdent();
     prevDecl = di.hasIdent() ? di.getIdent().topDecl : null;
@@ -1002,37 +1027,37 @@ redeclaration:
     while (impDecl.importedDecl != null)
       impDecl = impDecl.importedDecl;
 
-    if (!compareDeclTypes( impDecl.type, type ))
+    if (!compareDeclTypes( impDecl.type, di.type ))
     {
       error( di, "'%s' redeclared differently; previous declaration here: %s",
              di.getIdent().name, SourceRange.formatRange(impDecl) );
-      haveError = true;
+      di.error = true;
       break redeclaration;
     }
 
-    if (defined && impDecl.defined)
+    if (di.defined && impDecl.defined)
     {
       error( di, "'%s': invalid redefinition; already defined here: %s",
              di.getIdent().name, SourceRange.formatRange(impDecl) );
-      haveError = true;
+      di.error = true;
       break redeclaration;
     }
 
-    if (prevDecl.linkage == Linkage.EXTERNAL && linkage == Linkage.EXTERNAL)
+    if (prevDecl.linkage == Linkage.EXTERNAL && di.linkage == Linkage.EXTERNAL)
       {}
-    else if (prevDecl.linkage == Linkage.INTERNAL && linkage == Linkage.EXTERNAL && sc == SClass.EXTERN)
+    else if (prevDecl.linkage == Linkage.INTERNAL && di.linkage == Linkage.EXTERNAL && di.sclass == SClass.EXTERN)
       {}
-    else if (prevDecl.linkage == Linkage.INTERNAL && linkage == Linkage.INTERNAL)
+    else if (prevDecl.linkage == Linkage.INTERNAL && di.linkage == Linkage.INTERNAL)
       {}
     else
     {
       error( di, "'%s': invalid redeclaration; previously declared here: %s",
              di.getIdent().name, SourceRange.formatRange(prevDecl) );
-      haveError = true;
+      di.error = true;
       break redeclaration;
     }
 
-    if (defined)
+    if (di.defined)
     {
       if (impDecl.sclass == SClass.EXTERN)
         impDecl.sclass = SClass.NONE;
@@ -1042,11 +1067,11 @@ redeclaration:
     }
     // Complete the array size, if it wasn't provided before
     if (isArray( impDecl.type ) && ((ArraySpec)impDecl.type.spec).nelem < 0)
-      ((ArraySpec)impDecl.type.spec).nelem = ((ArraySpec)type.spec).nelem;
+      ((ArraySpec)impDecl.type.spec).nelem = ((ArraySpec)di.type.spec).nelem;
 
     if (prevDecl.scope != m_topScope)
     {
-      Decl decl = new Decl( di, m_topScope, impDecl, haveError );
+      Decl decl = new Decl( di, m_topScope, impDecl, di.error );
       m_topScope.pushDecl( decl );
       return decl;
     }
@@ -1054,11 +1079,11 @@ redeclaration:
     return prevDecl;
   }
 
-  if (defined && sc == SClass.EXTERN)
-    sc = SClass.NONE;
+  if (di.defined && di.sclass == SClass.EXTERN)
+    di.sclass = SClass.NONE;
 
   Decl decl = new Decl(
-    di, Decl.Kind.VAR, m_topScope, sc, linkage, di.getIdent(), type, defined, haveError
+    di, Decl.Kind.VAR, m_topScope, di.sclass, di.linkage, di.getIdent(), di.type, di.defined, di.error
   );
   if (prevDecl == null) // We could arrive here in case of an incorrect redeclaration
     m_topScope.pushDecl( decl );
