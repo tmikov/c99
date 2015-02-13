@@ -14,10 +14,33 @@ public class DeclActions extends AstActions
 {
 private Scope m_topScope;
 
+private SimpleSpec m_specs[];
+
+private Spec stdSpec ( TypeSpec ts )
+{
+  return m_specs[ts.ordinal() - TypeSpec.VOID.ordinal()];
+}
+
+private static final SimpleSpec s_errorSpec = new SimpleSpec( TypeSpec.ERROR, -1, 0 );
+private static final Qual s_errorQual = new Qual(s_errorSpec);
 
 protected void init ( CompilerOptions opts, IErrorReporter reporter, SymTable symTab )
 {
   super.init( opts, reporter, symTab );
+
+  // Initialize the basic type specs
+  m_specs = new SimpleSpec[TypeSpec.LDOUBLE.ordinal() - TypeSpec.VOID.ordinal() + 1];
+  for ( int i = TypeSpec.VOID.ordinal(); i <= TypeSpec.LDOUBLE.ordinal(); ++i )
+  {
+    final TypeSpec type = TypeSpec.values()[i];
+    int size = -1, align = 0;
+    if (type.sizeOf > 0)
+    {
+      size = type.sizeOf;
+      align = Platform.alignment( m_opts, size );
+    }
+    m_specs[i - TypeSpec.VOID.ordinal()] = new SimpleSpec( type, size, align );
+  }
 }
 
 public final Object FIXME ( String msg )
@@ -157,7 +180,7 @@ private final Spec declareAgg ( TSpecAggNode node )
     {
       final StructUnionSpec prevSpec = (StructUnionSpec)ident.topTag.type.spec;
 
-      if (prevSpec.fields != null) // Already defined?
+      if (prevSpec.isComplete()) // Already defined?
       {
         error( node.identTree, "redefinition of '%s %s'. originally defined here: %s",
                node.code.str, ident.name, SourceRange.formatRange( ident.topTag ) );
@@ -200,15 +223,61 @@ private final Spec declareAgg ( TSpecAggNode node )
   final StructUnionSpec spec = (StructUnionSpec)tagDecl.type.spec;
   final Collection<Decl> decls = node.memberScope.decls();
 
-  assert spec.fields == null;
-  spec.error |= haveErr;
-  spec.fields = new Member[decls.size()];
+  assert !spec.isComplete();
+  Member[] fields = new Member[decls.size()];
 
   int i = 0;
   for ( Decl d : decls )
-    spec.fields[i++] = new Member( d, d.symbol, d.type );
+  {
+    fields[i++] = new Member( d, d.symbol, d.type );
+    haveErr |= d.error;
+  }
+
+  spec.orError( haveErr );
+  spec.setFields( fields );
+  calcAggSize( spec );
 
   return spec;
+}
+
+/**
+ * Calculathe struct/union size and alignment and assign field offsets
+ * @param spec
+ */
+private final void calcAggSize ( StructUnionSpec spec )
+{
+  assert spec.isComplete();
+
+  if (spec.isError())
+    return;
+
+  int size = 0;
+  int align = 1;
+
+  if (spec.type == TypeSpec.STRUCT)
+  {
+    for ( Member field : spec.getFields() )
+    {
+      int falign = field.type.alignOf();
+      align = Math.max( falign, align );
+      size = (size + falign-1) & ~(falign-1);
+      field.offset = size;
+      size += field.type.spec.sizeOf();
+    }
+  }
+  else
+  {
+    assert spec.type == TypeSpec.UNION;
+    for ( Member field : spec.getFields() )
+    {
+      field.offset = 0;
+      align = Math.max( field.type.alignOf(), align );
+      size = Math.max( field.type.spec.sizeOf(), size );
+    }
+  }
+
+  size = (size + align-1) & ~(align-1);
+  spec.setSizeAlign( size, align );
 }
 
 public final TSpecNode specAgg (
@@ -227,12 +296,6 @@ public final TSpecNode specAgg (
 }
 
 
-public final TSpecNode spec ( Ast ast )
-{
-  assert false; // FIXME
-  return null;
-}
-
 public final TSpecNode appendSpecNode ( TSpecNode a, TSpecNode b )
 {
   if (a == null)
@@ -247,20 +310,6 @@ public final TSpecNode appendSpecNode ( TSpecNode a, TSpecNode b )
   return a;
 }
 
-private static final SimpleSpec s_specs[];
-static {
-  s_specs = new SimpleSpec[TypeSpec.LDOUBLE.ordinal() - TypeSpec.VOID.ordinal() + 1];
-  for ( int i = TypeSpec.VOID.ordinal(); i <= TypeSpec.LDOUBLE.ordinal(); ++i )
-    s_specs[i - TypeSpec.VOID.ordinal()] = new SimpleSpec(TypeSpec.values()[i]);
-}
-
-private static Spec stdSpec ( TypeSpec ts )
-{
-  return s_specs[ts.ordinal() - TypeSpec.VOID.ordinal()];
-}
-
-private static final SimpleSpec s_errorSpec = new SimpleSpec( TypeSpec.ERROR );
-private static final Qual s_errorQual = new Qual(s_errorSpec);
 
 private final class TypeHelper
 {
@@ -531,7 +580,7 @@ private final class TypeHelper
     if (base != null && base.code == Code.TYPENAME)
       q.combine( ((TSpecDeclNode)base).decl.type );
 
-    Types.setDefaultAttrs( m_compEnv, loc, q );
+    Platform.setDefaultAttrs( m_compEnv, loc, q );
 
     return q;
   }
@@ -635,19 +684,26 @@ public final TInitDeclaratorList initDeclaratorList ( TInitDeclaratorList list, 
   return list;
 }
 
+private final PointerSpec newPointerSpec ( Qual to )
+{
+  int size = Platform.pointerSize( to );
+  int align = Platform.alignment( m_opts, size );
+  return new PointerSpec( to, size, align );
+}
+
 private Qual adjustParamType ( Qual qual )
 {
   if (qual.spec.type == TypeSpec.FUNCTION)
   {
     // function => pointer to function
-    return new Qual(new PointerSpec(qual));
+    return new Qual(newPointerSpec(qual) );
   }
   else if (qual.spec.type == TypeSpec.ARRAY)
   {
     // array => pointer to element
 
     ArraySpec arraySpec = (ArraySpec)qual.spec;
-    PointerSpec ptrSpec = new PointerSpec( arraySpec.of );
+    PointerSpec ptrSpec = newPointerSpec( arraySpec.of );
     if (arraySpec._static)
       ptrSpec.staticSize = arraySpec.nelem;
     Qual q = new Qual( ptrSpec );
@@ -736,7 +792,7 @@ private final class TypeChecker implements TDeclarator.Visitor
 
     final TypeHelper th = new TypeHelper( elem );
     th.accumulate( elem.qualList );
-    this.qual = th.mkQual( new Types.PointerSpec( this.qual ) );
+    this.qual = th.mkQual( newPointerSpec( this.qual ) );
 
     return true;
   }
@@ -907,7 +963,6 @@ private final void validateLinkage ( final TDeclaration di, final boolean hasIni
       di.sclass = SClass.NONE;
     }
 
-    di.linkage = di.sclass == SClass.STATIC ? Linkage.INTERNAL : Linkage.EXTERNAL;
     switch (di.sclass)
     {
     case EXTERN: // only in case of isFunc()
@@ -966,6 +1021,7 @@ private final void validateLinkage ( final TDeclaration di, final boolean hasIni
     if (isFunc(di.type))
     {
       error( di, "field declared as a function in struct/union" );
+      di.error = true;
       di.type = adjustParamType( di.type ); // Least painful way of error recovery is to convert to a pointer
     }
     if (di.sclass != SClass.NONE)

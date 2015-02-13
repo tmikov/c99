@@ -39,7 +39,8 @@ public Decl (
   this.linkage = linkage;
   this.symbol = symbol;
   this.type = type;
-  this.error = error;
+  this.defined = defined;
+  this.error = error || type.spec.isError();
 }
 
 /** Import a declaration into the current scope */
@@ -56,6 +57,7 @@ public Decl ( ISourceRange rng, Scope scope, Decl importedDecl, boolean error )
   this.linkage = importedDecl.linkage;
   this.symbol = importedDecl.symbol;
   this.type = importedDecl.type;
+  this.defined = importedDecl.defined;
   this.error = importedDecl.error | error;
 }
 

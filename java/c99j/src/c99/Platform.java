@@ -159,4 +159,9 @@ public static int pointerSize ( Types.Qual qual )
   }
 }
 
+public static int alignment ( CompilerOptions opts, int size )
+{
+  return Math.min(size, opts.maxAlign);
+}
+
 } // class

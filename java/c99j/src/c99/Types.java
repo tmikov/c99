@@ -192,7 +192,7 @@ public static final class Qual
   public boolean isVolatile;
   public boolean isRestrict;
   public boolean isAtomic;
-  public int     align;
+  private int    m_align;
   public final ExtAttributes extAttrs = new ExtAttributes();
 
   public Spec spec;
@@ -212,6 +212,11 @@ public static final class Qual
     this.extAttrs.combine( q.extAttrs );
   }
 
+  public final int alignOf ()
+  {
+    return Math.max( m_align, this.spec.align );
+  }
+
   /**
    * Is a type valid for a re-declaration of the same symbol.
    * @param qual
@@ -222,7 +227,7 @@ public static final class Qual
     return this == qual ||
            isAtomic == qual.isAtomic && isConst == qual.isConst && isRestrict == qual.isRestrict &&
            isVolatile == qual.isVolatile &&
-           align == qual.align &&
+           m_align == qual.m_align &&
            extAttrs.same( qual.extAttrs ) &&
            spec.same( qual.spec );
   }
@@ -249,15 +254,37 @@ public static abstract class Spec
 {
   public TypeSpec type;
   public final ExtAttributes extAttrs = new ExtAttributes();
+  protected boolean complete;
+  private int size;
+  int align;
 
-  public Spec ( final TypeSpec type )
+  public Spec ( final TypeSpec type, boolean complete )
   {
     this.type = type;
+    this.complete = complete;
+    this.size = -1;
   }
 
   public abstract boolean visit ( Qual q, TypeVisitor v );
 
-  public boolean isComplete () { return false; }
+  public abstract boolean isError ();
+
+  public final boolean isComplete ()
+  {
+    return this.complete;
+  }
+
+  public final void setSizeAlign ( int size, int align )
+  {
+    this.size = size;
+    this.align = align;
+  }
+
+  public final int sizeOf ()
+  {
+    assert isComplete();
+    return this.size;
+  }
 
   public boolean same ( Spec o )
   {
@@ -277,9 +304,18 @@ public static abstract class Spec
 
 public static final class SimpleSpec extends Spec
 {
-  public SimpleSpec ( final TypeSpec type )
+  public SimpleSpec ( final TypeSpec type, int size, int align )
   {
-    super(type);
+    super(type, size > 0);
+    if (size > 0)
+    {
+      assert type.sizeOf == size && align > 0;
+      setSizeAlign( size, align );
+    }
+    else
+    {
+      assert type.sizeOf == 0 && size == -1 && align == 0;
+    }
   }
 
   @Override
@@ -288,7 +324,11 @@ public static final class SimpleSpec extends Spec
     return v.visitSimple( q, this );
   }
 
-  @Override public boolean isComplete () { return true; }
+  @Override
+  public boolean isError ()
+  {
+    return this.type == TypeSpec.ERROR;
+  }
 }
 
 /** Complex, Imaginary, Atomic */
@@ -298,7 +338,7 @@ public static final class BasedSpec extends Spec
 
   public BasedSpec ( TypeSpec type, Spec on )
   {
-    super( type );
+    super( type, on.isComplete() );
     assert type == TypeSpec.COMPLEX || type == TypeSpec.IMAGINARY || type == TypeSpec.ATOMIC;
     this.on = on;
   }
@@ -310,9 +350,9 @@ public static final class BasedSpec extends Spec
   }
 
   @Override
-  public boolean isComplete ()
+  public boolean isError ()
   {
-    return on.isComplete();
+    return this.on.isError();
   }
 
   @Override public boolean same ( Spec o )
@@ -330,8 +370,11 @@ public static abstract class DerivedSpec extends Spec
 {
   public Qual of;
 
-  public DerivedSpec ( final TypeSpec type, Qual of ) { super( type ); this.of = of; }
-//  public DerivedSpec ( final TypeSpec type ) { this( type, null ); }
+  public DerivedSpec ( final TypeSpec type, boolean complete, Qual of )
+  {
+    super( type, complete );
+    this.of = of;
+  }
 
   @Override
   public boolean same ( Spec o )
@@ -349,15 +392,11 @@ public static final class PointerSpec extends DerivedSpec
 {
   public int staticSize; // from ArraySpec.size and _static
 
-  public PointerSpec ( Qual of )
+  public PointerSpec ( Qual of, int size, int align )
   {
-    super(TypeSpec.POINTER, of);
+    super(TypeSpec.POINTER, true, of);
+    setSizeAlign( size, align );
   }
-
-//  public PointerSpec ()
-//  {
-//    this( null );
-//  }
 
   @Override
   public boolean visit ( Qual q, TypeVisitor v )
@@ -366,9 +405,9 @@ public static final class PointerSpec extends DerivedSpec
   }
 
   @Override
-  public boolean isComplete ()
+  public boolean isError ()
   {
-    return true;
+    return false;
   }
 
   @Override public final boolean same ( Spec o )
@@ -391,7 +430,7 @@ public static final class ArraySpec extends DerivedSpec
 
   public ArraySpec ( Qual of )
   {
-    super( TypeSpec.ARRAY, of );
+    super( TypeSpec.ARRAY, false, of );
     this.nelem = -1;
   }
 
@@ -402,9 +441,9 @@ public static final class ArraySpec extends DerivedSpec
   }
 
   @Override
-  public boolean isComplete ()
+  public boolean isError ()
   {
-    return this.nelem >= 0 && this.of.spec.isComplete();
+    return false;
   }
 
   @Override public boolean same ( Spec o )
@@ -437,7 +476,7 @@ public static abstract class TagSpec extends Spec
 
   public TagSpec ( final TypeSpec type, final Ident name )
   {
-    super( type );
+    super( type, false );
     this.name = name;
   }
 
@@ -454,8 +493,8 @@ public static abstract class TagSpec extends Spec
 
 public static final class StructUnionSpec extends TagSpec
 {
-  public boolean error;
-  public Member[] fields;
+  private boolean m_error;
+  private Member[] m_fields;
   public HashMap<Ident,Member> lookup;
 
   public StructUnionSpec ( final TypeSpec type, final Ident name )
@@ -467,6 +506,29 @@ public static final class StructUnionSpec extends TagSpec
   public boolean visit ( Qual q, TypeVisitor v )
   {
     return v.visitStructUnion( q, this );
+  }
+
+  @Override
+  public boolean isError ()
+  {
+    return this.m_error;
+  }
+
+  public void orError ( boolean err )
+  {
+    this.m_error |= err;
+  }
+
+  public void setFields ( Member[] fields )
+  {
+    assert m_fields == null;
+    this.complete = fields != null;
+    m_fields = fields;
+  }
+
+  public Member[] getFields ()
+  {
+    return m_fields;
   }
 }
 
@@ -484,6 +546,12 @@ public static final class EnumSpec extends TagSpec
   {
     return v.visitEnum( q, this );
   }
+
+  @Override
+  public boolean isError ()
+  {
+    return false;
+  }
 }
 
 public static final class FunctionSpec extends DerivedSpec
@@ -493,8 +561,14 @@ public static final class FunctionSpec extends DerivedSpec
 
   public FunctionSpec ( boolean oldStyle, Qual returning )
   {
-    super( TypeSpec.FUNCTION, returning );
+    super( TypeSpec.FUNCTION, false, returning );
     this.oldStyle = oldStyle;
+  }
+
+  @Override
+  public boolean isError ()
+  {
+    return false;
   }
 
   @Override
@@ -569,25 +643,6 @@ public static class Member extends Param
   {
     super(rng, name, type);
   }
-}
-
-public static void setDefaultAttrs ( CompEnv env, ISourceRange loc, Qual qual )
-{
-  Platform.setDefaultAttrs( env, loc, qual );
-}
-
-public static int sizeOf ( Qual qual )
-{
-  if (!qual.spec.isComplete())
-    return 0;
-  return 0;
-}
-
-public static int alignOf ( Qual qual )
-{
-  if (!qual.spec.isComplete())
-    return 0;
-  return 0;
 }
 
 public static TypeSpec integerPromotion ( TypeSpec spec )
