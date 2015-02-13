@@ -249,17 +249,15 @@ public static abstract class Spec
 {
   public TypeSpec type;
   public final ExtAttributes extAttrs = new ExtAttributes();
-  public int sizeOf; //< -1 means not yet calculated
 
   public Spec ( final TypeSpec type )
   {
     this.type = type;
-    this.sizeOf = -1;
   }
 
   public abstract boolean visit ( Qual q, TypeVisitor v );
 
-  public final boolean isComplete () { return this.sizeOf >= 0; }
+  public boolean isComplete () { return false; }
 
   public boolean same ( Spec o )
   {
@@ -282,7 +280,6 @@ public static final class SimpleSpec extends Spec
   public SimpleSpec ( final TypeSpec type )
   {
     super(type);
-    super.sizeOf = type.sizeOf;
   }
 
   @Override
@@ -290,6 +287,8 @@ public static final class SimpleSpec extends Spec
   {
     return v.visitSimple( q, this );
   }
+
+  @Override public boolean isComplete () { return true; }
 }
 
 /** Complex, Imaginary, Atomic */
@@ -308,6 +307,12 @@ public static final class BasedSpec extends Spec
   public boolean visit ( Qual q, TypeVisitor v )
   {
     return this.type == TypeSpec.ATOMIC ? v.visitAtomic( q, this ) : v.visitBased( q, this );
+  }
+
+  @Override
+  public boolean isComplete ()
+  {
+    return on.isComplete();
   }
 
   @Override public boolean same ( Spec o )
@@ -360,6 +365,12 @@ public static final class PointerSpec extends DerivedSpec
     return v.visitPointer( q, this );
   }
 
+  @Override
+  public boolean isComplete ()
+  {
+    return true;
+  }
+
   @Override public final boolean same ( Spec o )
   {
     return
@@ -388,6 +399,12 @@ public static final class ArraySpec extends DerivedSpec
   public boolean visit ( Qual q, TypeVisitor v )
   {
     return v.visitArray( q, this );
+  }
+
+  @Override
+  public boolean isComplete ()
+  {
+    return this.nelem >= 0 && this.of.spec.isComplete();
   }
 
   @Override public boolean same ( Spec o )
