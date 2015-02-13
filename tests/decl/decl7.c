@@ -17,4 +17,5 @@ struct S2
     void func1 ( void ); //BAD: field declared as function
 };
 
+void (*funcs3[10])(void);
 void (funcs1[10])(void); //BAD: array of functions
