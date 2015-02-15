@@ -6,8 +6,8 @@ import c99.ISourceRange;
 import c99.SourceRange;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 
+@Deprecated
 public abstract class Trees
 {
 public static class Tree extends SourceRange
@@ -37,27 +37,6 @@ public static class TExtAttrList extends ArrayList<TExtAttr>
 {
 }
 
-public static class TDecl extends Tree
-{
-  public final Decl decl;
-  public final TExpr init;
-
-  public TDecl ( ISourceRange rng, Decl decl, TExpr init )
-  {
-    super( rng );
-    this.decl = decl;
-    this.init = init;
-  }
-} // class
-
-public static class TExpr extends Tree
-{
-  public TExpr ( ISourceRange rng )
-  {
-    super( rng );
-  }
-} // class
-
 public static class TIntNumber extends Tree
 {
   public final Constant.IntC value;
@@ -69,13 +48,4 @@ public static class TIntNumber extends Tree
   }
 }
 
-public static class TStringLiteral extends Tree
-{
-  public final byte[] value;
-  public TStringLiteral ( final ISourceRange rng, byte[] value )
-  {
-    super(rng);
-    this.value = value;
-  }
-}
 }

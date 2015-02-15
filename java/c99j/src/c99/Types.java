@@ -1,5 +1,6 @@
 package c99;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -49,6 +50,8 @@ public static enum TypeSpec
 
   public static final TypeSpec INTMAX_T = SLLONG;
   public static final TypeSpec UINTMAX_T = ULLONG;
+  public static final TypeSpec PTRDIFF_T = SINT;
+  public static final TypeSpec SIZE_T = UINT;
 
   public final String str;
 
@@ -128,6 +131,11 @@ public static enum TypeSpec
     assert this.integer;
     return signed ? values()[this.ordinal() + 1] : this;
   }
+
+  public boolean isScalar ()
+  {
+    return integer || floating || this == POINTER;
+  }
 }
 
 public static interface TypeVisitor
@@ -192,7 +200,6 @@ public static final class Qual
   public boolean isVolatile;
   public boolean isRestrict;
   public boolean isAtomic;
-  private int    m_align;
   public final ExtAttributes extAttrs = new ExtAttributes();
 
   public Spec spec;
@@ -212,24 +219,20 @@ public static final class Qual
     this.extAttrs.combine( q.extAttrs );
   }
 
-  public final int alignOf ()
-  {
-    return Math.max( m_align, this.spec.align );
-  }
-
   /**
    * Is a type valid for a re-declaration of the same symbol.
    * @param qual
    * @return
    */
-  public final boolean same ( Qual qual )
+  public final boolean compatible ( Qual qual )
   {
     return this == qual ||
-           isAtomic == qual.isAtomic && isConst == qual.isConst && isRestrict == qual.isRestrict &&
+           isConst == qual.isConst &&
            isVolatile == qual.isVolatile &&
-           m_align == qual.m_align &&
+           isRestrict == qual.isRestrict &&
+           isAtomic == qual.isAtomic &&
            extAttrs.same( qual.extAttrs ) &&
-           spec.same( qual.spec );
+           spec.compatible( qual.spec );
   }
 
   @Override public final String toString ()
@@ -248,6 +251,12 @@ public static final class Qual
   {
     return toString();
   }
+
+  public final boolean isConstMember ()
+  {
+    return (spec.type == TypeSpec.STRUCT || spec.type == TypeSpec.UNION) &&
+            ((StructUnionSpec)spec).isConstMember();
+  }
 }
 
 public static abstract class Spec
@@ -256,7 +265,7 @@ public static abstract class Spec
   public final ExtAttributes extAttrs = new ExtAttributes();
   protected boolean complete;
   private int size;
-  int align;
+  private int align;
 
   public Spec ( final TypeSpec type, boolean complete )
   {
@@ -286,7 +295,13 @@ public static abstract class Spec
     return this.size;
   }
 
-  public boolean same ( Spec o )
+  public final int alignOf ()
+  {
+    assert this.align > 0;
+    return this.align;
+  }
+
+  public boolean compatible ( Spec o )
   {
     return o == this || this.type == o.type && extAttrs.same( o.extAttrs );
   }
@@ -355,9 +370,9 @@ public static final class BasedSpec extends Spec
     return this.on.isError();
   }
 
-  @Override public boolean same ( Spec o )
+  @Override public boolean compatible ( Spec o )
   {
-    return super.same( o ) && this.on.same( ((BasedSpec)o).on );
+    return super.compatible( o ) && this.on.compatible( ((BasedSpec) o).on );
   }
 
   @Override public final String toString ()
@@ -377,9 +392,9 @@ public static abstract class DerivedSpec extends Spec
   }
 
   @Override
-  public boolean same ( Spec o )
+  public boolean compatible ( Spec o )
   {
-    return super.same(o) && this.of.same( ((DerivedSpec)o).of );
+    return super.compatible( o ) && this.of.compatible( ((DerivedSpec) o).of );
   }
 
   @Override public String toString ()
@@ -410,15 +425,15 @@ public static final class PointerSpec extends DerivedSpec
     return false;
   }
 
-  @Override public final boolean same ( Spec o )
+  @Override public final boolean compatible ( Spec o )
   {
     return
-      super.same(o) && this.staticSize == ((PointerSpec)o).staticSize;
+      super.compatible( o ) && this.staticSize == ((PointerSpec)o).staticSize;
   }
 
   @Override public final String toString ()
   {
-    return staticSize > 0 ? "ptr to /static "+ staticSize+"/ "+ of : "ptr to "+ of;
+    return staticSize > 0 ? "pointer to /static "+ staticSize+"/ "+ of : "pointer to "+ of;
   }
 }
 
@@ -446,12 +461,12 @@ public static final class ArraySpec extends DerivedSpec
     return false;
   }
 
-  @Override public boolean same ( Spec o )
+  @Override public boolean compatible ( Spec o )
   {
-    if (!super.same(o))
+    if (!super.compatible( o ))
       return false;
     ArraySpec x = (ArraySpec) o;
-    return this._static == x._static && this.asterisk == x.asterisk && this.nelem == x.nelem;
+    return this.nelem < 0 || x.nelem < 0 || this.nelem == x.nelem;
   }
 
   @Override public final String toString ()
@@ -480,7 +495,7 @@ public static abstract class TagSpec extends Spec
     this.name = name;
   }
 
-  @Override public boolean same ( Spec o )
+  @Override public boolean compatible ( Spec o )
   {
     return this == o;
   }
@@ -495,7 +510,8 @@ public static final class StructUnionSpec extends TagSpec
 {
   private boolean m_error;
   private Member[] m_fields;
-  public HashMap<Ident,Member> lookup;
+  private HashMap<Ident,Member> m_lookup;
+  private boolean m_constMember; //< at least one member is const
 
   public StructUnionSpec ( final TypeSpec type, final Ident name )
   {
@@ -524,11 +540,33 @@ public static final class StructUnionSpec extends TagSpec
     assert m_fields == null;
     this.complete = fields != null;
     m_fields = fields;
+
+    // Scan the fields for const-ness
+    if (fields != null)
+    {
+      m_lookup = new HashMap<Ident, Member>( (int)(fields.length / 0.75)+1 );
+      for (Member f : fields)
+      {
+        m_lookup.put( f.name, f );
+        if (f.type.isConst || f.type.isConstMember())
+          m_constMember = true;
+      }
+    }
   }
 
   public Member[] getFields ()
   {
     return m_fields;
+  }
+
+  public Member lookupMember ( Ident name )
+  {
+    return m_lookup != null ? m_lookup.get( name ) : null;
+  }
+
+  public boolean isConstMember ()
+  {
+    return m_constMember;
   }
 }
 
@@ -577,12 +615,13 @@ public static final class FunctionSpec extends DerivedSpec
     return v.visitFunction( q, this );
   }
 
-  @Override public boolean same ( Spec o )
+  @Override public boolean compatible ( Spec o )
   {
     if (o == this)
       return true;
-    if (!super.same( o ))
+    if (!super.compatible( o ))
       return false;
+    // FIXME: 6.7.6.3[15]
     FunctionSpec x = (FunctionSpec)o;
     if (this.oldStyle != x.oldStyle) return false;
     if (this.params == null) return x.params == null;
@@ -592,7 +631,7 @@ public static final class FunctionSpec extends DerivedSpec
     {
       final Param pa = this.params[i];
       final Param pb = x.params[i];
-      if (!pa.type.same( pb.type ) || !pa.extAttrs.same(pb.extAttrs))
+      if (!pa.type.compatible( pb.type ) || !pa.extAttrs.same(pb.extAttrs))
         return false;
     }
 
@@ -638,10 +677,16 @@ public static class Param extends SourceRange
 public static class Member extends Param
 {
   public int offset;
+  public int bitFieldWidth;
 
   public Member ( final ISourceRange rng, final Ident name, final Qual type )
   {
     super(rng, name, type);
+  }
+
+  public final boolean isBitField ()
+  {
+    return bitFieldWidth > 0;
   }
 }
 
@@ -649,7 +694,7 @@ public static TypeSpec integerPromotion ( TypeSpec spec )
 {
   // 6.3.1.1 [2]
   assert spec.integer;
-  if (spec.ordinal() < TypeSpec.SINT.ordinal())
+  if (spec.ordinal() > TypeSpec.VOID.ordinal() && spec.ordinal() < TypeSpec.SINT.ordinal())
     return (spec.width - (spec.signed?1:0) <= TypeSpec.SINT.width) ? TypeSpec.SINT : TypeSpec.UINT;
   else
     return spec;

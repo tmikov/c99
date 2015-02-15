@@ -88,11 +88,6 @@ public final Ast leftAppend ( Ast newChild, Ast t )
   }
 }
 
-public final Ast ident ( Symbol sym, CParser.Location loc )
-{
-  return new Ast0( "ident:" + sym.name ).value(sym).location(loc);
-}
-
 public final Ast constant ( Constant.ArithC v, CParser.Location loc )
 {
   return new Ast0( "const:"+ v.toString() ).value(v).location( loc );

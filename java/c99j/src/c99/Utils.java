@@ -54,6 +54,7 @@ public static byte[] asciiBytes ( String x )
 
 public static boolean equals ( byte[] a, int offA, byte[] b, int offB, int len )
 {
+  assert offA + len <= a.length && offB + len <= b.length;
   final int end = offA + len;
   for ( ; offA < end; ++offA, ++offB )
     if (a[offA] != b[offB])
@@ -62,4 +63,16 @@ public static boolean equals ( byte[] a, int offA, byte[] b, int offB, int len )
   return true;
 }
 
+public static int compare ( byte[] a, int offA, int lenA, byte[] b, int offB, int lenB )
+{
+  int len = Math.min(lenA, lenB);
+  int end = offA + len;
+  for ( ; offA < end; ++offA, ++offB )
+  {
+    int d = (a[offA] & 255) - (b[offB] & 255);
+    if (d != 0)
+      return d;
+  }
+  return len < lenB ? -1 : (len < lenA ? +1 : 0);
+}
 } // class

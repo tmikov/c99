@@ -46,5 +46,10 @@ public final void pedWarning ( CParser.Location loc, String msg, Object... args 
   warning( loc, msg, args );
 }
 
+public final void extWarning ( CParser.Location loc, String msg, Object... args )
+{
+  warning( loc, msg, args );
+}
+
 } // class
 

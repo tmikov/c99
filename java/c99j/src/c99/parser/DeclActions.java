@@ -4,7 +4,6 @@ import java.util.Collection;
 
 import c99.*;
 import c99.Types.*;
-import c99.Types;
 import c99.parser.ast.Ast;
 import c99.parser.tree.*;
 
@@ -15,14 +14,19 @@ public class DeclActions extends AstActions
 private Scope m_topScope;
 
 private SimpleSpec m_specs[];
+private Qual m_stdQuals[];
 
-private Spec stdSpec ( TypeSpec ts )
+protected Spec stdSpec ( TypeSpec ts )
 {
   return m_specs[ts.ordinal() - TypeSpec.VOID.ordinal()];
 }
+protected Qual stdQual ( TypeSpec ts )
+{
+  return m_stdQuals[ts.ordinal() - TypeSpec.VOID.ordinal()];
+}
 
 private static final SimpleSpec s_errorSpec = new SimpleSpec( TypeSpec.ERROR, -1, 0 );
-private static final Qual s_errorQual = new Qual(s_errorSpec);
+protected static final Qual s_errorQual = new Qual(s_errorSpec);
 
 protected void init ( CompilerOptions opts, IErrorReporter reporter, SymTable symTab )
 {
@@ -30,6 +34,7 @@ protected void init ( CompilerOptions opts, IErrorReporter reporter, SymTable sy
 
   // Initialize the basic type specs
   m_specs = new SimpleSpec[TypeSpec.LDOUBLE.ordinal() - TypeSpec.VOID.ordinal() + 1];
+  m_stdQuals = new Qual[m_specs.length];
   for ( int i = TypeSpec.VOID.ordinal(); i <= TypeSpec.LDOUBLE.ordinal(); ++i )
   {
     final TypeSpec type = TypeSpec.values()[i];
@@ -39,17 +44,21 @@ protected void init ( CompilerOptions opts, IErrorReporter reporter, SymTable sy
       size = type.sizeOf;
       align = Platform.alignment( m_opts, size );
     }
-    m_specs[i - TypeSpec.VOID.ordinal()] = new SimpleSpec( type, size, align );
+    int ind = i - TypeSpec.VOID.ordinal();
+    m_specs[ind] = new SimpleSpec( type, size, align );
+    m_stdQuals[ind] = new Qual( m_specs[ind] );
   }
 }
 
 public final Object FIXME ( String msg )
 {
+  assert false;
   return null;
 }
 
 public final Object FIXME ()
 {
+  assert false;
   return null;
 }
 
@@ -258,7 +267,7 @@ private final void calcAggSize ( StructUnionSpec spec )
   {
     for ( Member field : spec.getFields() )
     {
-      int falign = field.type.alignOf();
+      int falign = field.type.spec.alignOf();
       align = Math.max( falign, align );
       size = (size + falign-1) & ~(falign-1);
       field.offset = size;
@@ -271,7 +280,7 @@ private final void calcAggSize ( StructUnionSpec spec )
     for ( Member field : spec.getFields() )
     {
       field.offset = 0;
-      align = Math.max( field.type.alignOf(), align );
+      align = Math.max( field.type.spec.alignOf(), align );
       size = Math.max( field.type.spec.sizeOf(), size );
     }
   }
@@ -630,7 +639,7 @@ public final TDeclarator.Elem pointerDecl ( CParser.Location loc, TSpecNode qual
 
 public final TDeclarator.Elem arrayDecl (
   CParser.Location loc,
-  TSpecNode qualList, CParser.Location _static, CParser.Location asterisk, Ast size
+  TSpecNode qualList, CParser.Location _static, CParser.Location asterisk, TExpr.Expr size
 )
 {
   // FIXME: size
@@ -684,11 +693,32 @@ public final TInitDeclaratorList initDeclaratorList ( TInitDeclaratorList list, 
   return list;
 }
 
-private final PointerSpec newPointerSpec ( Qual to )
+protected final PointerSpec newPointerSpec ( Qual to )
 {
   int size = Platform.pointerSize( to );
   int align = Platform.alignment( m_opts, size );
   return new PointerSpec( to, size, align );
+}
+
+protected final ArraySpec newArraySpec ( ISourceRange loc, Qual to, int nelem )
+{
+  assert to.spec.isComplete() && to.spec.sizeOf() >= 0;
+
+  ArraySpec s = new ArraySpec( to );
+  s.nelem = nelem;
+  if (s.nelem >= 0)
+  {
+    int size = (s.nelem * to.spec.sizeOf()) & Integer.MAX_VALUE; // note: convert to unsigned
+    // Check for int32 overflow
+    if (size < s.nelem || size < to.spec.sizeOf())
+    {
+      error( loc, "Array size overflow" );
+      return null;
+    }
+
+    s.setSizeAlign( size, to.spec.alignOf() );
+  }
+  return s;
 }
 
 private Qual adjustParamType ( Qual qual )
@@ -715,37 +745,6 @@ private Qual adjustParamType ( Qual qual )
   return qual;
 }
 
-private static boolean compareDeclTypes ( Qual a, Qual b )
-{
-    // With array types, one of them or both may have an empty first dimension
-  if (a.spec.type == TypeSpec.ARRAY)
-  {
-    if (b.spec.type != TypeSpec.ARRAY)
-      return false;
-
-    ArraySpec sa = (ArraySpec)a.spec;
-    ArraySpec sb = (ArraySpec)b.spec;
-    if (sa.nelem >= 0 && sb.nelem >= 0 && sa.nelem != sb.nelem)
-      return false;
-
-    return sa.of.same( sb.of );
-  }
-
-  return a.same( b );
-}
-
-/** Is the type an array which is complete other than the dimension */
-private static boolean isArrayMostlyComplete ( Qual q )
-{
-  if (q.spec.type == TypeSpec.ARRAY)
-  {
-    ArraySpec s = (ArraySpec)q.spec;
-    if (s.nelem < 0 && s.of.spec.isComplete())
-      return true;
-  }
-  return false;
-}
-
 private static boolean isFunc ( Qual q )
 {
   return q.spec.type == TypeSpec.FUNCTION;
@@ -762,7 +761,9 @@ public final TDeclaration declaration ( TDeclarator dr, TSpecNode dsNode )
 
 public final TDeclaration mkTypeName ( TDeclarator dr, TSpecNode dsNode )
 {
-  return declaration( dr, dsNode );
+  TDeclaration decl = declaration( dr, dsNode );
+  validateType( decl );
+  return decl;
 }
 
 private final class TypeChecker implements TDeclarator.Visitor
@@ -836,7 +837,12 @@ private final class TypeChecker implements TDeclarator.Visitor
       return false;
     }
 
-    ArraySpec spec = new ArraySpec( this.qual );
+    ArraySpec spec = newArraySpec( elem, this.qual, -1 );
+    if (spec == null) // Should never happen, but we want to obey the function interface
+    {
+      haveError = true;
+      return false;
+    }
     spec._static = elem._static != null;
     spec.asterisk = elem.asterisk != null;
     TypeHelper th = new TypeHelper( elem );
@@ -1048,6 +1054,13 @@ private final void validateLinkage ( final TDeclaration di, final boolean hasIni
   }
 }
 
+public final Qual compositeType ( Qual a, Qual b )
+{
+  FIXME("");
+  assert false;
+  return null;
+}
+
 public final Decl declare ( TDeclaration di, boolean hasInit )
 {
   validateType( di );
@@ -1083,7 +1096,7 @@ redeclaration:
     while (impDecl.importedDecl != null)
       impDecl = impDecl.importedDecl;
 
-    if (!compareDeclTypes( impDecl.type, di.type ))
+    if (!impDecl.type.compatible( di.type ))
     {
       error( di, "'%s' redeclared differently; previous declaration here: %s",
              di.getIdent().name, SourceRange.formatRange(impDecl) );
@@ -1139,7 +1152,8 @@ redeclaration:
     di.sclass = SClass.NONE;
 
   Decl decl = new Decl(
-    di, Decl.Kind.VAR, m_topScope, di.sclass, di.linkage, di.getIdent(), di.type, di.defined, di.error
+    di, di.sclass != SClass.TYPEDEF ? Decl.Kind.VAR : Decl.Kind.TYPE, m_topScope,
+    di.sclass, di.linkage, di.getIdent(), di.type, di.defined, di.error
   );
   if (prevDecl == null) // We could arrive here in case of an incorrect redeclaration
     m_topScope.pushDecl( decl );

@@ -1,6 +1,6 @@
 package c99;
 
-public class Ident
+public class Ident implements Comparable<Ident>
 {
 public final byte[] bytes;
 public final String name;
@@ -46,4 +46,12 @@ public static int calcHashCode( byte val[], int off, int len )
   return h;
 }
 
+@Override
+public final int compareTo ( Ident o )
+{
+  if (this == o)
+    return 0;
+  return m_hash < o.m_hash ? -1 :
+          (m_hash > o.m_hash ? +1 : Utils.compare(this.bytes, 0, this.bytes.length, o.bytes, 0, o.bytes.length));
+}
 } // class

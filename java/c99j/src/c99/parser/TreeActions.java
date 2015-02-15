@@ -2,8 +2,8 @@ package c99.parser;
 
 import c99.Constant;
 import c99.parser.tree.TIdent;
+import c99.parser.tree.TStringLiteral;
 
-import static c99.parser.Trees.*;
 
 public class TreeActions extends DeclActions
 {
@@ -28,15 +28,15 @@ public TIdent symbolTree ( CParser.Location loc, Symbol sym )
   return BisonLexer.setLocation( new TIdent(null,sym), loc );
 }
 
-public TIntNumber intNumber ( CParser.Location loc, Constant.IntC value )
+public Trees.TIntNumber intNumber ( CParser.Location loc, Constant.IntC value )
 {
-  return BisonLexer.setLocation( new TIntNumber(null,value), loc );
+  return BisonLexer.setLocation( new Trees.TIntNumber(null,value), loc );
 }
 
-public TreeList treeList ( TreeList list, Tree elem )
+public Trees.TreeList treeList ( Trees.TreeList list, Trees.Tree elem )
 {
   if (list == null)
-    list = new TreeList();
+    list = new Trees.TreeList();
   list.add( elem );
   return list;
 }

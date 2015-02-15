@@ -145,7 +145,6 @@ import c99.parser.tree.*;
 %precedence IF
 %precedence ELSE
 
-%type<Ast> constant
 %type<Ast> enumerator-list
 %type<Ast> enumerator
 %type<Ast> initializer
@@ -163,32 +162,6 @@ import c99.parser.tree.*;
 %type<Ast> selection-statement
 %type<Ast> iteration-statement
 %type<Ast> jump-statement
-
-%type<Ast> primary-expression
-%type<Ast> generic-selection
-%type<Ast> generic-assoc-list
-%type<Ast> generic-association
-%type<Ast> postfix-expression
-%type<Ast> argument-expression-list
-%type<Ast> argument-expression-list_opt
-%type<Ast> unary-expression
-%type<String> unary-operator
-%type<Ast> cast-expression
-%type<Ast> multiplicative-expression
-%type<Ast> additive-expression
-%type<Ast> shift-expression
-%type<Ast> relational-expression
-%type<Ast> equality-expression
-%type<Ast> AND-expression
-%type<Ast> exclusive-OR-expression
-%type<Ast> inclusive-OR-expression
-%type<Ast> logical-AND-expression
-%type<Ast> logical-OR-expression
-%type<Ast> conditional-expression
-%type<Ast> assignment-expression assignment-expression_opt
-%type<String> assignment-operator
-%type<Ast> expression expression_opt
-%type<Ast> constant-expression
 
 %expect 1
 %start translation-unit
@@ -210,10 +183,10 @@ rule(<TStringLiteral>,string-literal):
   | string-literal[lit] STRING_CONST[c] { $$ = stringLiteral(@$, $lit, $c); }
   ;
 
-constant:
-    INT_NUMBER                          { $$ = constant($1,@1); }
-  | REAL_NUMBER                         { $$ = constant($1,@1); }
-  | CHAR_CONST                          { $$ = constant($1,@1); }
+rule(<TExpr.Expr>,constant):
+    INT_NUMBER                          { $$ = exprConstant(@1,$1); }
+  | REAL_NUMBER                         { $$ = exprConstant(@1,$1); }
+  | CHAR_CONST                          { $$ = exprConstant(@1,$1); }
 /*  | enumeration-constant*/
   ;
 
@@ -794,9 +767,9 @@ rule(<TDeclarator.Elem>,direct-abstract-declarator-elem):
 
 // (6.7.9)
 initializer:
-    assignment-expression               { $$ = ast("initializer",$1); }
-  | "{" initializer-list "}"            { $$ = ast("compound-initializer",$2); }
-  | "{" initializer-list "," "}"        { $$ = ast("compound-initializer",$2); }
+    assignment-expression               { $$ = FIXME(); }
+  | "{" initializer-list "}"            { $$ = FIXME(); }
+  | "{" initializer-list "," "}"        { $$ = FIXME(); }
   ;
 
 // (6.7.9)
@@ -823,10 +796,10 @@ designator-list:
 
 // (6.7.9)
 designator:
-    "[" constant-expression "]"         { $$ = ast("designator-index",$[constant-expression]); }
+    "[" constant-expression "]"         { $$ = FIXME(); }
   | "." any-identifier                  { FIXME(); }
 // GNU C extension
-  | "[" constant-expression[ce1] "..." constant-expression[ce2] "]" { $$ = ast("designator-range",$ce1,$ce2); }
+  | "[" constant-expression[ce1] "..." constant-expression[ce2] "]" { $$ = FIXME(); }
   ;
 
 // (6.7.10)
@@ -853,10 +826,10 @@ statement:
 // (6.8.1)
 labeled-statement:
     any-identifier ":" statement                { $$ = ast("label", $statement); }
-  | CASE constant-expression ":" statement      { $$ = ast("case", $[constant-expression], $statement); }
+  | CASE constant-expression ":" statement      { $$ = FIXME(); }
   | DEFAULT ":" statement                       { $$ = ast("default", null, $statement); }
 // GNU C Extension
-  | CASE constant-expression[ce1] "..." constant-expression[ce2] ":" statement { $$ = ast("case-range", $ce1, $ce2, $statement); }
+  | CASE constant-expression[ce1] "..." constant-expression[ce2] ":" statement { $$ = FIXME(); }
   ;
 
 // (6.8.2)
@@ -905,20 +878,20 @@ rule(<Ast>,block-item):
 
 // (6.8.3)
 expression-statement:
-    expression_opt ";" { $$ = ast("expression-statement",$1); }
+    expression_opt ";" { $$ = FIXME(); }
   ;
 
 // (6.8.4)
 selection-statement:
-    IF "(" expression ")" statement                         %prec IF   { $$ = ast("if",$expression,$statement,null); }
-  | IF "(" expression ")" statement[s1] ELSE statement[s2]  %prec ELSE { $$ = ast("if",$expression,$s1,$s2); }
-  | SWITCH "(" expression ")" statement                                { $$ = ast("switch",$expression,$statement); }
+    IF "(" expression ")" statement                         %prec IF   { $$ = ast("if",null,$statement,null); }
+  | IF "(" expression ")" statement[s1] ELSE statement[s2]  %prec ELSE { $$ = ast("if",null,$s1,$s2); }
+  | SWITCH "(" expression ")" statement                                { $$ = ast("switch",null,$statement); }
   ;
 
 // (6.8.5)
 iteration-statement:
-    WHILE "(" expression ")" statement           { $$ = ast("while",$expression,$statement); }
-  | DO statement WHILE "(" expression ")" ";"    { $$ = ast("do",$statement,$expression); }
+    WHILE "(" expression ")" statement           { $$ = ast("while",null,$statement); }
+  | DO statement WHILE "(" expression ")" ";"    { $$ = ast("do",$statement,null); }
   | FOR "(" expression_opt[e1] ";" expression_opt[e2] ";" expression_opt[e3] ")" statement
       { FIXME(); }
   | FOR "(" PushBlockScope declaration[dcl] expression_opt[e2] ";" expression_opt[e3] ")" statement
@@ -930,7 +903,7 @@ jump-statement:
     GOTO any-identifier ";"   { FIXME(); }
   | CONTINUE ";"              { $$ = ast("continue"); }
   | BREAK ";"                 { $$ = ast("break"); }
-  | RETURN expression_opt ";" { $$ = ast("return", $expression_opt); }
+  | RETURN expression_opt ";" { $$ = ast("return", null ); }
   ;
 
 asm-statement:
@@ -979,14 +952,14 @@ rule(,asm-labels,optn):
 // A.2.1 Expressions
 
 // (6.5.1)
-primary-expression:
-    identifier          { $$ = ident($1,@1); }
+rule(<TExpr.Expr>,primary-expression):
+    identifier          { $$ = exprIdent(@1,$1); }
   | constant
-  | string-literal      { FIXME(); }
-  | "(" expression ")"  { $$ = $expression; }
+  | string-literal      { $$ = exprStringLiteral($1); }
+  | "(" expression[e] ")"  { $$ = $e; }
 // GCC extension
   | "(" compound-statement ")" { FIXME(); }
-  | generic-selection
+  | generic-selection   { FIXME(); }
   ;
 
 // (6.5.1.1)
@@ -1007,174 +980,180 @@ generic-association:
   ;
 
 // (6.5.2)
-postfix-expression:
+rule(<TExpr.Expr>,postfix-expression):
     primary-expression
-  | postfix-expression "[" expression "]"                    { $$ = ast("subscript",$1,$expression); }
-  | postfix-expression "(" argument-expression-list_opt ")"  { $$ = ast("call",$1,$[argument-expression-list_opt]); }
-  | postfix-expression "." any-identifier                    { FIXME(); }
-  | postfix-expression "->" any-identifier                   { FIXME(); }
-  | postfix-expression "++"                                  { $$ = ast("post-inc",$1); }
-  | postfix-expression "--"                                  { $$ = ast("post-dec",$1); }
+  | postfix-expression "[" expression "]"
+        { @2.end = @4.end; $$ = m_subscript.expr(@2,$1,$3); }
+  | postfix-expression "(" argument-expression-list_opt ")"  { $$ = FIXME(); }
+  | postfix-expression "." any-identifier                    { $$ = m_dotMember.expr(@2,$1,$3); }
+  | postfix-expression "->" any-identifier                   { $$ = m_ptrMember.expr(@2,$1,$3); }
+  | postfix-expression "++"                                  { $$ = m_postInc.expr(@2,$1); }
+  | postfix-expression "--"                                  { $$ = m_postDec.expr(@2,$1); }
   | "(" type-name ")" "{" initializer-list "}"               { FIXME(); }
   | "(" type-name ")" "{" initializer-list "," "}"           { FIXME(); }
   ;
 
 // (6.5.2)
 argument-expression-list:
-    assignment-expression                               { $$ = ast("argument-expression-list",$1); }
-  | argument-expression-list "," assignment-expression  { $$ = astAppend($1,$3); }
+    assignment-expression
+  | argument-expression-list "," assignment-expression
   ;
 
 argument-expression-list_opt:
-    %empty { $$ = null; }
+    %empty
   | argument-expression-list
   ;
 
 // (6.5.3)
-unary-expression:
+rule(<TExpr.Expr>,unary-expression):
     postfix-expression
-  | "++" unary-expression               { $$ = ast("pre-inc", $2); }
-  | "--" unary-expression               { $$ = ast("pre-dec", $2); }
-  | unary-operator cast-expression      { $$ = ast($[unary-operator], $[cast-expression]); }
-  | SIZEOF unary-expression             { $$ = ast("sizeof-expr",$2); }
-  | SIZEOF "(" type-name ")"            { FIXME(); }
-  | _ALIGNOF "(" type-name ")"          { FIXME(); }
+  | "++" unary-expression               { $$ = m_preInc.expr(@1,$2); }
+  | "--" unary-expression               { $$ = m_preDec.expr(@1,$2); }
+  | "&" cast-expression                 { $$ = m_addr.expr(@1,$2); }
+  | "*" cast-expression                 { $$ = m_indirect.expr(@1,$2); }
+  | "+" cast-expression                 { $$ = m_uplus.expr(@1,$2); }
+  | "-" cast-expression                 { $$ = m_uminus.expr(@1,$2); }
+  | "~" cast-expression                 { $$ = m_bitwiseNot.expr(@1,$2); }
+  | "!" cast-expression                 { $$ = m_logNeg.expr(@1,$2); }
+  | SIZEOF unary-expression             { $$ = m_sizeOfExpr.expr(@1,$2); }
+  | SIZEOF "(" type-name ")"            { $$ = m_sizeOfType.expr(@1,$3); }
+  | _ALIGNOF "(" type-name ")"          { $$ = m_alignOfType.expr(@1,$3); }
 // GNU C extension
-  | GCC_ALIGNOF unary-expression        { FIXME(); }
-  | GCC_ALIGNOF "(" type-name ")"       { FIXME(); }
+  | GCC_ALIGNOF unary-expression
+        {
+          extWarning( @1, "'%s' is a GCC extension", $1.str );
+          $$ = m_alignOfExpr.expr(@1,$2);
+        }
+  | GCC_ALIGNOF "(" type-name ")"
+        {
+          extWarning( @1, "'%s' is a GCC extension", $1.str );
+          $$ = m_alignOfType.expr(@1,$3);
+        }
   | "&&" any-identifier                 { FIXME(); }
   ;
 
-// (6.5.3)
-unary-operator:
-    "&" { $$ = "address-of"; }
-  | "*" { $$ = "deref"; }
-  | "+" { $$ = "u-plus"; }
-  | "-" { $$ = "u-minus"; }
-  | "~" { $$ = "binary-not"; }
-  | "!" { $$ = "logical-not"; }
-  ;
-
 // (6.5.4)
-cast-expression:
+rule(<TExpr.Expr>,cast-expression):
     unary-expression
-  | "(" type-name ")" cast-expression   { FIXME(); }
+  | "(" type-name ")" cast-expression   { @1.end = @3.end; $$ = m_typecast.expr(@1,$2,$4); }
   ;
 
 // (6.5.5)
-multiplicative-expression:
+rule(<TExpr.Expr>,multiplicative-expression):
     cast-expression
-  | multiplicative-expression "*" cast-expression  { $$ = ast("mul",$1,$3); }
-  | multiplicative-expression "/" cast-expression  { $$ = ast("div",$1,$3); }
-  | multiplicative-expression "%" cast-expression  { $$ = ast("rem",$1,$3); }
+  | multiplicative-expression "*" cast-expression  { $$ = m_mul.expr(@2,$1,$3); }
+  | multiplicative-expression "/" cast-expression  { $$ = m_div.expr(@2,$1,$3); }
+  | multiplicative-expression "%" cast-expression  { $$ = m_remainder.expr(@2,$1,$3); }
   ;
 
 // (6.5.6)
-additive-expression:
+rule(<TExpr.Expr>,additive-expression):
     multiplicative-expression
-  | additive-expression "+" multiplicative-expression { $$ = ast("add",$1,$3); }
-  | additive-expression "-" multiplicative-expression { $$ = ast("sub",$1,$3); }
+  | additive-expression "+" multiplicative-expression { $$ = m_add.expr(@2,$1,$3); }
+  | additive-expression "-" multiplicative-expression { $$ = m_sub.expr(@2,$1,$3); }
   ;
 
 // (6.5.7)
-shift-expression:
+rule(<TExpr.Expr>,shift-expression):
     additive-expression
-  | shift-expression "<<" additive-expression        { $$ = ast("shl",$1,$3); }
-  | shift-expression ">>" additive-expression        { $$ = ast("shr",$1,$3); }
+  | shift-expression "<<" additive-expression        { $$ = m_lshift.expr(@2,$1,$3); }
+  | shift-expression ">>" additive-expression        { $$ = m_rshift.expr(@2,$1,$3); }
   ;
 
 // (6.5.8)
-relational-expression:
+rule(<TExpr.Expr>,relational-expression):
     shift-expression
-  | relational-expression "<" shift-expression       { $$ = ast("lt",$1,$3); }
-  | relational-expression ">" shift-expression       { $$ = ast("gt",$1,$3); }
-  | relational-expression "<=" shift-expression      { $$ = ast("le",$1,$3); }
-  | relational-expression ">=" shift-expression      { $$ = ast("ge",$1,$3); }
+  | relational-expression "<" shift-expression       { $$ = m_lt.expr(@2,$1,$3); }
+  | relational-expression ">" shift-expression       { $$ = m_gt.expr(@2,$1,$3); }
+  | relational-expression "<=" shift-expression      { $$ = m_le.expr(@2,$1,$3); }
+  | relational-expression ">=" shift-expression      { $$ = m_ge.expr(@2,$1,$3); }
   ;
 
 // (6.5.9)
-equality-expression:
+rule(<TExpr.Expr>,equality-expression):
     relational-expression
-  | equality-expression "==" relational-expression   { $$ = ast("eq",$1,$3); }
-  | equality-expression "!=" relational-expression   { $$ = ast("ne",$1,$3); }
+  | equality-expression "==" relational-expression   { $$ = m_eq.expr(@2,$1,$3); }
+  | equality-expression "!=" relational-expression   { $$ = m_ne.expr(@2,$1,$3); }
   ;
 
 // (6.5.10)
-AND-expression:
+rule(<TExpr.Expr>,AND-expression):
     equality-expression
-  | AND-expression "&" equality-expression           { $$ = ast("binary-and",$1,$3); }
+  | AND-expression "&" equality-expression           { $$ = m_bitwiseAnd.expr(@2,$1,$3); }
   ;
 
 // (6.5.11)
-exclusive-OR-expression:
+rule(<TExpr.Expr>,exclusive-OR-expression):
     AND-expression
-  | exclusive-OR-expression "^" AND-expression       { $$ = ast("binary-xor",$1,$3); }
+  | exclusive-OR-expression "^" AND-expression       { $$ = m_bitwiseXor.expr(@2,$1,$3); }
   ;
 
 // (6.5.12)
-inclusive-OR-expression:
+rule(<TExpr.Expr>,inclusive-OR-expression):
     exclusive-OR-expression
-  | inclusive-OR-expression "|" exclusive-OR-expression { $$ = ast("binary-or",$1,$3); }
+  | inclusive-OR-expression "|" exclusive-OR-expression { $$ = m_bitwiseOr.expr(@2,$1,$3); }
   ;
 
 // (6.5.13)
-logical-AND-expression:
+rule(<TExpr.Expr>,logical-AND-expression):
     inclusive-OR-expression
-  | logical-AND-expression "&&" inclusive-OR-expression  { $$ = ast("logical-and",$1,$3); }
+  | logical-AND-expression "&&" inclusive-OR-expression  { $$ = m_logAnd.expr(@2,$1,$3); }
   ;
 
 // (6.5.14)
-logical-OR-expression:
+rule(<TExpr.Expr>,logical-OR-expression):
     logical-AND-expression
-  | logical-OR-expression "||" logical-AND-expression    { $$ = ast("logical-or",$1,$3); }
+  | logical-OR-expression "||" logical-AND-expression    { $$ = m_logOr.expr(@2,$1,$3); }
   ;
 
 // (6.5.15)
-conditional-expression:
+rule(<TExpr.Expr>,conditional-expression):
     logical-OR-expression
-  | logical-OR-expression[e1] "?" expression[e2] ":" conditional-expression[e3] { $$ = ast("conditional",$e1,$e2,$e3); }
+  | logical-OR-expression[e1] "?" expression[e2] ":" conditional-expression[e3] { $$ = FIXME(); }
   ;
 
 // (6.5.16)
-assignment-expression:
+rule(<TExpr.Expr>,assignment-expression,opt):
     conditional-expression
-  | unary-expression assignment-operator assignment-expression  { $$ = ast($[assignment-operator],$1,$3); }
-  ;
-
-assignment-expression_opt:
-    %empty { $$ = null; }
-  | assignment-expression
+        {
+            c99.parser.tree.ExprFormatter.format( 0, new java.io.PrintWriter(System.out), $1 );
+            $$ = $1;
+        }
+  | unary-expression assignment-operator assignment-expression
   ;
 
 // (6.5.16)
-assignment-operator:
-    "="   { $$ = "assign"; }
-  | "*="  { $$ = "assign-mul"; }
-  | "/="  { $$ = "assign-div"; }
-  | "%="  { $$ = "assign-rem"; }
-  | "+="  { $$ = "assign-add"; }
-  | "-="  { $$ = "assign-sub"; }
-  | "<<=" { $$ = "assign-shl"; }
-  | ">>=" { $$ = "assign-shr"; }
-  | "&="  { $$ = "assign-binary-and"; }
-  | "^="  { $$ = "assign-binary-xor"; }
-  | "|="  { $$ = "assign-binary-or"; }
+rule(<TreeCode>,assignment-operator):
+    "="   { $$ = TreeCode.ASSIGN; }
+  | "*="  { $$ = TreeCode.ASSIGN_MUL; }
+  | "/="  { $$ = TreeCode.ASSIGN_DIV; }
+  | "%="  { $$ = TreeCode.ASSIGN_REM; }
+  | "+="  { $$ = TreeCode.ASSIGN_ADD; }
+  | "-="  { $$ = TreeCode.ASSIGN_SUB; }
+  | "<<=" { $$ = TreeCode.ASSIGN_LSHIFT; }
+  | ">>=" { $$ = TreeCode.ASSIGN_RSHIFT; }
+  | "&="  { $$ = TreeCode.ASSIGN_BITWISE_AND; }
+  | "^="  { $$ = TreeCode.ASSIGN_BITWISE_XOR; }
+  | "|="  { $$ = TreeCode.ASSIGN_BITWISE_OR; }
   ;
 
 // (6.5.17)
-expression:
+rule(<TExpr.Expr>,expression,opt):
     assignment-expression
-  | expression "," assignment-expression        { $$ = ast("comma",$1,$3); }
-  ;
-
-expression_opt:
-    %empty { $$ = null; }
-  | expression
+        {
+            c99.parser.tree.ExprFormatter.format( 0, new java.io.PrintWriter(System.out), $1 );
+            $$ = $1;
+        }
+  | expression "," assignment-expression        { $$ = FIXME(); }
   ;
 
 // (6.6)
-constant-expression:
+rule(<TExpr.Expr>,constant-expression):
     conditional-expression
+        {
+            c99.parser.tree.ExprFormatter.format( 0, new java.io.PrintWriter(System.out), $1 );
+            $$ = $1;
+        }
   ;
 
 end_grammar

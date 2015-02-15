@@ -1,5 +1,6 @@
 package c99.parser;
 
+import c99.Constant;
 import c99.ISourceRange;
 import c99.SourceRange;
 import c99.Types.*;
@@ -11,6 +12,7 @@ public static enum Kind
 {
   VAR,
   ENUM_CONST,
+  TYPE,
   TAG,
 }
 Decl prev;
@@ -22,6 +24,7 @@ public       SClass sclass;
 public final Linkage linkage;
 public final Symbol symbol;
 public final Qual type;
+public Constant.ArithC enumValue; // FIXME
 public boolean defined;
 public boolean error;
 
