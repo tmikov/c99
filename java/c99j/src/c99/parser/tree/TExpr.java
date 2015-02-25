@@ -134,6 +134,11 @@ public static final class EnumConst extends Constant
   {
     return "'"+m_decl.symbol.name+"'" + super.formatDetails();
   }
+
+  public Decl getDecl ()
+  {
+    return m_decl;
+  }
 }
 
 public static final class AttrOfType extends Constant

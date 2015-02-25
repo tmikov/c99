@@ -7,8 +7,6 @@ import c99.parser.tree.TExpr;
 import c99.parser.tree.TStringLiteral;
 import c99.parser.tree.TreeCode;
 
-import java.awt.*;
-
 public class ExprActions extends TreeActions
 {
 private Qual m_constChar;
@@ -84,7 +82,7 @@ private final boolean needModifiableLValue ( CParser.Location loc, TExpr.Expr op
   return true;
 }
 
-private TExpr.Expr implicitLoad ( TExpr.Expr op )
+public final TExpr.Expr implicitLoad ( TExpr.Expr op )
 {
   if (op.isError())
     return op;
@@ -597,6 +595,7 @@ public class RelationalExpression extends BinaryExpr
       PointerSpec lptr = (PointerSpec)left.getQual().spec;
       PointerSpec rptr = (PointerSpec)right.getQual().spec;
 
+      // FIXME: pointer sizes
       if (!lptr.of.spec.compatible( rptr.of.spec ))
       {
         error( loc, "%s: '%s' and '%s' are not pointers to compatible types", code.str,
@@ -619,7 +618,7 @@ public final class EqualityExpression extends RelationalExpression
   @Override
   protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
   {
-    // TODO: far/near pointers
+    // FIXME: far/near pointers
     if (left.getQual().spec.type == TypeSpec.POINTER && isNullPointerConst( right ))
     {
       return new TExpr.Binary( null, code, stdQual(TypeSpec.SINT), left, implicitCast( right, left.getQual() ) );
@@ -940,4 +939,356 @@ public final IntegerBinaryExpr m_bitwiseOr = new IntegerBinaryExpr( TreeCode.BIT
 
 public final LogicalExpression m_logAnd = new LogicalExpression( TreeCode.LOG_AND );
 public final LogicalExpression m_logOr = new LogicalExpression( TreeCode.LOG_OR );
+
+private final class IntConstEvaluator implements TExpr.ExprVisitor
+{
+  private TExpr.Expr m_errorNode;
+  private Constant.ArithC m_res;
+  private Qual m_resType;
+
+  private final boolean retError ( TExpr.Expr e )
+  {
+    m_res = null;
+    m_resType = null;
+    m_errorNode = e;
+    return false;
+  }
+
+  private final boolean retResult ( Constant.ArithC c, Qual type )
+  {
+    m_res = c;
+    m_resType = type;
+    return true;
+  }
+
+  public TExpr.Expr getErrorNode ()
+  {
+    return m_errorNode;
+  }
+
+  public Constant.ArithC getRes ()
+  {
+    return m_res;
+  }
+
+  public Qual getResType ()
+  {
+    return m_resType;
+  }
+
+  @Override public boolean visitError ( TExpr.Error e ) {
+    return retError( e );
+  }
+
+  @Override public boolean visitVarRef ( TExpr.VarRef e ) {
+    return retError( e );
+  }
+
+  @Override public boolean visitArithConstant ( TExpr.ArithConstant e ) {
+    return retResult( e.getValue(), e.getQual() );
+  }
+
+  @Override public boolean visitEnumConst ( TExpr.EnumConst e ) {
+    return retResult( e.getValue(), e.getQual() );
+  }
+
+  @Override public boolean visitAttrOfType ( TExpr.AttrOfType e ) {
+    return retResult( e.getValue(), e.getQual() );
+  }
+
+  @Override public boolean visitAttrOfExpr ( TExpr.AttrOfExpr e ) {
+    return retResult( e.getValue(), e.getQual() );
+  }
+
+  @Override public boolean visitStringLiteral ( TExpr.StringLiteral e ) {
+    return retError( e );
+  }
+
+  @Override public boolean visitCall ( TExpr.Call e ) {
+    return retError( e );
+  }
+
+  @Override public boolean visitSelectMember ( TExpr.SelectMember e ) {
+    if (!e.getBase().visit( this ))
+      return false;
+
+    // We simply calculate the address of the member (the base is constant)
+    switch (e.getCode())
+    {
+    case DOT_MEMBER:
+    case PTR_MEMBER:
+      Constant.IntC c = Constant.newIntConstant( TypeSpec.UINTPTR_T );
+      c.add( Constant.convert( c.spec, m_res ), Constant.makeLong( c.spec, e.getMember().offset ) );
+      return retResult( c, stdQual(c.spec) );
+    default:
+      assert false;
+      return false;
+    }
+  }
+
+  @Override public boolean visitUnary ( TExpr.Unary e )
+  {
+    if (!e.getOperand().visit( this ))
+      return false;
+
+    Constant.ArithC c;
+    final TypeSpec ts = e.getQual().spec.type;
+    switch (e.getCode())
+    {
+    case POST_INC:
+    case POST_DEC:
+    case PRE_INC:
+    case PRE_DEC:
+      return retError( e );
+
+    case ADDRESS:
+      // The operand, which we know is constant, must have calculated its own address. It is one of
+      // INDIRECT, DOT_MEMBER or PTR_MEMBER (otherwise it wouldn't be constant). We do nothing.
+    case INDIRECT:
+      // The operand, which we know is constant, must have calculated its own address.
+      // We do nothing (IMPLICIT_LOAD would do the actual loading)
+      return retResult( m_res, m_resType );
+
+    case U_PLUS:
+      c = Constant.newConstant( ts );
+      c.assign( m_res );
+      break;
+
+    case U_MINUS:
+      c = Constant.newConstant( ts );
+      c.neg( m_res );
+      break;
+
+    case BITWISE_NOT:
+      c = Constant.newConstant( ts );
+      ((Constant.IntC)c).not( (Constant.IntC)m_res );
+      break;
+
+    case LOG_NEG:
+      c = Constant.makeLong( ts, m_res.isZero() ? 1 : 0 );
+      break;
+
+    case IMPLICIT_CAST:
+      return performTypecast( e );
+
+    case IMPLICIT_LOAD:
+      return retError( e );
+
+    default:
+      c = null;
+      assert false : "Unsupported code "+ e.getCode();
+    }
+    return retResult( c, e.getQual() );
+  }
+
+  // factor out common code between TYPECAST AND IMPLICIT_CAST
+  private final boolean performTypecast ( TExpr.Unary e )
+  {
+    Qual type = e.getQual();
+    TypeSpec ts;
+
+    if (type.spec.type.arithmetic)
+      ts = type.spec.type;
+    else if (type.spec.type == TypeSpec.POINTER)
+      ts = TypeSpec.UINTPTR_T; // FIXME: different pointer sizes
+    else
+      return retError( e );
+
+    return retResult( Constant.convert(ts, m_res), type );
+  }
+
+  @Override public boolean visitTypecast ( TExpr.Typecast e )
+  {
+    if (!e.getOperand().visit( this ))
+      return false;
+
+    return performTypecast( e );
+  }
+
+  /** Add or subtract a constant to a pointer */
+  private final void performPointerAdd (
+    Constant.ArithC resc, TExpr.Expr ptre, Constant.ArithC ptrc, TExpr.Expr adde, Constant.ArithC addc,
+    boolean add
+  )
+  {
+    Spec ptrTo = ((PointerSpec)ptre.getQual().spec).of.spec;
+    assert ptrTo.isComplete();
+    assert ptrc.spec == TypeSpec.UINTPTR_T;
+    assert addc.spec.integer;
+
+    // Multiply the addend by sizeof(*ptr)
+    Constant.IntC tmp = Constant.makeLong( addc.spec, ptrTo.sizeOf() );
+    tmp.mul( tmp, addc );
+    addc = tmp;
+
+    ptrc = Constant.convert( resc.spec, ptrc );
+    addc = Constant.convert( resc.spec, addc );
+    if (add)
+      resc.add( ptrc, addc );
+    else
+      resc.sub( ptrc, addc );
+  }
+
+  /** Subtract two pointers resulting in a ptrdiff_t */
+  private final void performPointerSub (
+    Constant.ArithC resc, TExpr.Expr left, Constant.ArithC lc, TExpr.Expr right, Constant.ArithC rc
+  )
+  {
+    Spec ptrTo = ((PointerSpec)left.getQual().spec).of.spec;
+    assert ptrTo.isComplete();
+    // Both pointers are constants stored as uintptr_t
+    assert lc.spec == TypeSpec.UINTPTR_T && rc.spec == TypeSpec.UINTPTR_T;
+
+    // Subtract the pointers
+    Constant.IntC tmp = Constant.newIntConstant( lc.spec );
+    tmp.sub( lc, rc );
+
+    // Convert to signed (the difference could be negative)
+    tmp = (Constant.IntC)Constant.convert( tmp.spec.toSigned(), tmp );
+
+    // Divide by sizeof(*ptr)
+    tmp.div( tmp, Constant.makeLong( tmp.spec, ptrTo.sizeOf() ) );
+
+    // Convert to the final type
+    resc.castFrom( tmp );
+  }
+
+  @Override public boolean visitBinary ( TExpr.Binary e )
+  {
+    final TypeSpec ts = e.getQual().spec.type != TypeSpec.POINTER ? e.getQual().spec.type : TypeSpec.UINTPTR_T;
+
+    if (!e.getLeft().visit( this ))
+      return false;
+    Constant.ArithC lc = m_res;
+
+    // Short-circuit "||" and "&&". We must ignore the second operand even if it is not a constant
+    if (e.getCode() == TreeCode.LOG_OR && lc.isTrue())
+      return retResult( Constant.makeLong( ts, 1 ), e.getQual() );
+    else if (e.getCode() == TreeCode.LOG_AND && !lc.isTrue())
+      return retResult( Constant.makeLong( ts, 0 ), e.getQual() );
+
+    if (!e.getRight().visit( this ))
+      return false;
+    Constant.ArithC rc = m_res;
+
+    Constant.ArithC c = Constant.newConstant( ts );
+
+    switch (e.getCode())
+    {
+    case SUBSCRIPT: // left[right] corresponds to *(left + right)
+      // We must calculate the address of the element. The actual loading, if requested, would be done by
+      // IMPLICIT_LOAD (and would mean we are not a const expression)
+      c = Constant.newConstant( TypeSpec.UINTPTR_T );
+      if (e.getLeft().getQual().spec.type == TypeSpec.POINTER)
+        performPointerAdd( c, e.getLeft(), lc, e.getRight(), rc, true );
+      else if (e.getRight().getQual().spec.type == TypeSpec.POINTER)
+        performPointerAdd( c, e.getRight(), rc, e.getLeft(), lc, true );
+      else
+      {
+        assert false;
+        return retError( e );
+      }
+      break;
+
+    case MUL:
+      c.mul( lc, rc );
+      break;
+    case DIV:
+      if (rc.spec.integer && rc.isZero())
+      {
+        warning( e, "division by zero" );
+        return retError( e );
+      }
+      c.div( lc, rc );
+      break;
+    case REMAINDER:
+      if (rc.isZero())
+      {
+        error( e, "division by zero" );
+        return retError( e );
+      }
+      ((Constant.IntC)c).rem( (Constant.IntC)lc, (Constant.IntC)rc );
+      break;
+    case ADD:
+      if (e.getLeft().getQual().spec.type == TypeSpec.POINTER)
+        performPointerAdd( c, e.getLeft(), lc, e.getRight(), rc, true );
+      else if (e.getRight().getQual().spec.type == TypeSpec.POINTER)
+        performPointerAdd( c, e.getRight(), rc, e.getLeft(), lc, true );
+      else
+        c.add( Constant.convert(ts, lc), Constant.convert(ts, rc) );
+      break;
+    case SUB:
+      if (e.getRight().getQual().spec.type == TypeSpec.POINTER) // pointer - pointer?
+      {
+        assert e.getLeft().getQual().spec.type == TypeSpec.POINTER;
+        performPointerSub( c, e.getLeft(), lc, e.getRight(), rc );
+      }
+      else if (e.getLeft().getQual().spec.type == TypeSpec.POINTER) // pointer - int?
+        performPointerAdd( c, e.getLeft(), lc, e.getRight(), rc, false );
+      else
+        c.sub( Constant.convert( ts, lc ), Constant.convert( ts, rc ) );
+      break;
+    case LSHIFT:
+      ((Constant.IntC)c).shl( (Constant.IntC)lc, (Constant.IntC)rc );
+      break;
+    case RSHIFT:
+      ((Constant.IntC)c).shr( (Constant.IntC) lc, (Constant.IntC) rc );
+      break;
+    case LT:
+      ((Constant.IntC)c).setBool( lc.lt( rc ) );
+      break;
+    case GT:
+      ((Constant.IntC)c).setBool( lc.gt( rc ) );
+      break;
+    case LE:
+      ((Constant.IntC)c).setBool( lc.le( rc ) );
+      break;
+    case GE:
+      ((Constant.IntC)c).setBool( lc.ge( rc ) );
+      break;
+    case EQ:
+      ((Constant.IntC)c).setBool( lc.eq( rc ) );
+      break;
+    case NE:
+      ((Constant.IntC)c).setBool( lc.ne( rc ) );
+      break;
+    case BITWISE_AND:
+      ((Constant.IntC)c).and( (Constant.IntC)lc, (Constant.IntC)rc );
+      break;
+    case BITWISE_XOR:
+      ((Constant.IntC)c).xor( (Constant.IntC)lc, (Constant.IntC)rc );
+      break;
+    case BITWISE_OR:
+      ((Constant.IntC)c).or( (Constant.IntC)lc, (Constant.IntC)rc );
+      break;
+    case LOG_AND:
+      ((Constant.IntC)c).setBool( lc.isTrue() && rc.isTrue() );
+      break;
+    case LOG_OR:
+      ((Constant.IntC)c).setBool( lc.isTrue() || rc.isTrue() );
+      break;
+
+    default:
+      c = null;
+      assert false : "Unsupported code "+ e.getCode();
+      break;
+    }
+    return retResult( c, e.getQual() );
+  }
+}
+
+public final TExpr.ArithConstant needConstInteger ( TExpr.Expr e )
+{
+  if (e.isError())
+    return null;
+  IntConstEvaluator ev = new IntConstEvaluator();
+  if (!e.visit( ev ))
+  {
+    error( ev.getErrorNode(), "not a constant expression" );
+    return null;
+  }
+  // TODO: use the entire expression source range for the result
+  return new TExpr.ArithConstant( e, ev.getResType(), ev.getRes() );
+}
+
 }

@@ -643,6 +643,10 @@ public final TDeclarator.Elem arrayDecl (
 )
 {
   // FIXME: size
+  size = ((ExprActions) this).implicitLoad( size );
+  TExpr.ArithConstant ac = ((ExprActions) this).needConstInteger( size );
+  if (ac != null)
+    System.out.format( "Constant %s = %s\n", ac.getQual(), ac.getValue().toString() );
   return new TDeclarator.ArrayElem( loc, qualList, _static, asterisk );
 }
 

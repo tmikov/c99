@@ -52,6 +52,7 @@ public static enum TypeSpec
   public static final TypeSpec UINTMAX_T = ULLONG;
   public static final TypeSpec PTRDIFF_T = SINT;
   public static final TypeSpec SIZE_T = UINT;
+  public static final TypeSpec UINTPTR_T = ULONG;
 
   public final String str;
 
@@ -126,10 +127,15 @@ public static enum TypeSpec
     this.maxReal = 0;
   }
 
-  TypeSpec toUnsigned ()
+  public final TypeSpec toSigned ()
+  {
+    assert this.integer && this != BOOL;
+    return this.signed ? this : values()[this.ordinal() - 1];
+  }
+  public final TypeSpec toUnsigned ()
   {
     assert this.integer;
-    return signed ? values()[this.ordinal() + 1] : this;
+    return this.signed ? values()[this.ordinal() + 1] : this;
   }
 
   public boolean isScalar ()
