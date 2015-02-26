@@ -638,14 +638,14 @@ rule(<TDeclarator.Elem>,direct-declarator-elem):
   ;
 
 rule(<TDeclarator.Elem>,elem-nofunc):
-    "[" type-qualifier-list_opt assignment-expression_opt "]"
-        { $$ = arrayDecl(@$,$[type-qualifier-list_opt],null,null,$[assignment-expression_opt]); }
-  | "[" STATIC type-qualifier-list_opt assignment-expression "]"
-        { $$ = arrayDecl(@$,$[type-qualifier-list_opt],@STATIC,null,$[assignment-expression]); }
-  | "[" type-qualifier-list STATIC assignment-expression "]"
-        { $$ = arrayDecl(@$,$[type-qualifier-list],@STATIC,null,$[assignment-expression]); }
+    "[" type-qualifier-list_opt assignment-expression_opt[sz] "]"
+        { $$ = arrayDecl(@$,$[type-qualifier-list_opt],null,null,@sz,$sz); }
+  | "[" STATIC type-qualifier-list_opt assignment-expression[sz] "]"
+        { $$ = arrayDecl(@$,$[type-qualifier-list_opt],@STATIC,null,@sz,$sz); }
+  | "[" type-qualifier-list STATIC assignment-expression[sz] "]"
+        { $$ = arrayDecl(@$,$[type-qualifier-list],@STATIC,null,@sz,$sz); }
   | "[" type-qualifier-list_opt ASTERISK "]"
-        { $$ = arrayDecl(@$,$[type-qualifier-list_opt],null,@ASTERISK,null); }
+        { $$ = arrayDecl(@$,$[type-qualifier-list_opt],null,@ASTERISK,null,null); }
   ;
 
 rule(<TDeclarator.Elem>,elem-func):
@@ -748,16 +748,16 @@ rule(<TDeclarator>,direct-abstract-declarator_opt):
   ;
 
 rule(<TDeclarator.Elem>,direct-abstract-declarator-elem):
-    "[" type-qualifier-list assignment-expression_opt "]"
-        { $$ = arrayDecl(@$,$[type-qualifier-list],null,null,$[assignment-expression_opt]); }
-  | "[" assignment-expression_opt "]"
-        { $$ = arrayDecl(@$,null,null,null,$[assignment-expression_opt]); }
-  | "[" STATIC type-qualifier-list_opt assignment-expression "]"
-        { $$ = arrayDecl(@$,$[type-qualifier-list_opt],@STATIC,null,$[assignment-expression]); }
-  | "[" type-qualifier-list STATIC assignment-expression "]"
-        { $$ = arrayDecl(@$,$[type-qualifier-list],@STATIC,null,$[assignment-expression]); }
+    "[" type-qualifier-list assignment-expression_opt[sz] "]"
+        { $$ = arrayDecl(@$,$[type-qualifier-list],null,null,@sz,$sz); }
+  | "[" assignment-expression_opt[sz] "]"
+        { $$ = arrayDecl(@$,null,null,null,@sz,$sz); }
+  | "[" STATIC type-qualifier-list_opt assignment-expression[sz] "]"
+        { $$ = arrayDecl(@$,$[type-qualifier-list_opt],@STATIC,null,@sz,$sz); }
+  | "[" type-qualifier-list STATIC assignment-expression[sz] "]"
+        { $$ = arrayDecl(@$,$[type-qualifier-list],@STATIC,null,@sz,$sz); }
   | "[" ASTERISK "]"
-        { $$ = arrayDecl(@$,null,null,@ASTERISK,null); }
+        { $$ = arrayDecl(@$,null,null,@ASTERISK,null,null); }
   | newfunc-decl
   | "(" ")"
         { $$ = oldFuncDecl(@$,null); }
@@ -1113,10 +1113,6 @@ rule(<TExpr.Expr>,conditional-expression):
 // (6.5.16)
 rule(<TExpr.Expr>,assignment-expression,opt):
     conditional-expression
-        {
-            c99.parser.tree.ExprFormatter.format( 0, new java.io.PrintWriter(System.out), $1 );
-            $$ = $1;
-        }
   | unary-expression assignment-operator assignment-expression
   ;
 
@@ -1138,20 +1134,12 @@ rule(<TreeCode>,assignment-operator):
 // (6.5.17)
 rule(<TExpr.Expr>,expression,opt):
     assignment-expression
-        {
-            c99.parser.tree.ExprFormatter.format( 0, new java.io.PrintWriter(System.out), $1 );
-            $$ = $1;
-        }
   | expression "," assignment-expression        { $$ = FIXME(); }
   ;
 
 // (6.6)
-rule(<TExpr.Expr>,constant-expression):
-    conditional-expression
-        {
-            c99.parser.tree.ExprFormatter.format( 0, new java.io.PrintWriter(System.out), $1 );
-            $$ = $1;
-        }
+rule(<TExpr.ArithConstant>,constant-expression):
+    conditional-expression { $$ = constantIntegerExpression( @1, $1 ); }
   ;
 
 end_grammar

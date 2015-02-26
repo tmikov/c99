@@ -2,10 +2,7 @@ package c99.parser;
 
 import c99.*;
 import c99.Types.*;
-import c99.parser.tree.TDeclaration;
-import c99.parser.tree.TExpr;
-import c99.parser.tree.TStringLiteral;
-import c99.parser.tree.TreeCode;
+import c99.parser.tree.*;
 
 public class ExprActions extends TreeActions
 {
@@ -1277,10 +1274,13 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
   }
 }
 
-public final TExpr.ArithConstant needConstInteger ( TExpr.Expr e )
+public final TExpr.ArithConstant constantExpression ( CParser.Location loc, TExpr.Expr e )
 {
+  e = implicitLoad( e );
+  ExprFormatter.format( 0, new java.io.PrintWriter(System.out), e );
   if (e.isError())
     return null;
+
   IntConstEvaluator ev = new IntConstEvaluator();
   if (!e.visit( ev ))
   {
@@ -1288,7 +1288,28 @@ public final TExpr.ArithConstant needConstInteger ( TExpr.Expr e )
     return null;
   }
   // TODO: use the entire expression source range for the result
-  return new TExpr.ArithConstant( e, ev.getResType(), ev.getRes() );
+  if (!ev.getResType().spec.type.integer)
+  {
+    error( loc, "not an integer constant expression" );
+    return null;
+  }
+  System.out.format( "Constant %s = %s\n", ev.getResType(), ev.getRes().toString() );
+  return BisonLexer.setLocation( new TExpr.ArithConstant( null, ev.getResType(), ev.getRes() ), loc );
+}
+
+public final TExpr.ArithConstant constantIntegerExpression ( CParser.Location loc, TExpr.Expr e )
+{
+  TExpr.ArithConstant res;
+  if ( (res = constantExpression( loc, e )) == null)
+    return null;
+
+  if (!res.getQual().spec.type.integer)
+  {
+    error( loc, "not an integer constant expression" );
+    return null;
+  }
+
+  return res;
 }
 
 }

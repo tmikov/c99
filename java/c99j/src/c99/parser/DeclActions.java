@@ -606,14 +606,11 @@ public final TDeclarator.Elem pointerDecl ( CParser.Location loc, TSpecNode qual
 
 public final TDeclarator.Elem arrayDecl (
   CParser.Location loc,
-  TSpecNode qualList, CParser.Location _static, CParser.Location asterisk, TExpr.Expr size
+  TSpecNode qualList, CParser.Location _static, CParser.Location asterisk, CParser.Location exprLoc, TExpr.Expr size
 )
 {
   // FIXME: size
-  size = implicitLoad( size );
-  TExpr.ArithConstant ac = needConstInteger( size );
-  if (ac != null)
-    System.out.format( "Constant %s = %s\n", ac.getQual(), ac.getValue().toString() );
+  TExpr.ArithConstant ac = constantIntegerExpression( exprLoc, size );
   return new TDeclarator.ArrayElem( loc, qualList, _static, asterisk );
 }
 
