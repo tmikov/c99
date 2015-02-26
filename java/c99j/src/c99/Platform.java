@@ -186,17 +186,31 @@ public boolean checkAndCompleteAttrs ( ISourceRange loc, Types.Qual qual )
   return (attrs.flags() & QUAL_ERROR) == 0;
 }
 
-public int pointerSize ( Types.Qual qual )
+public int pointerSize ( Types.Qual to )
 {
-  final int flags = qual.extAttrs.flags();
+  final int flags = to.extAttrs.flags();
   if ((flags & (QUAL_X86HUGE | QUAL_X86FAR)) != 0)
     return 4;
   else if ((flags & QUAL_X86NEAR) != 0)
     return 2;
-  else if (qual.spec.type == TypeSpec.FUNCTION)
+  else if (to.spec.type == TypeSpec.FUNCTION)
     return m_env.opts.defCodePointers == 0 ? 2 : 4;
   else
     return m_env.opts.defDataPointers == 0 ? 2 : 4;
+}
+
+/** returns the unsgned integer type able to hold the pointer */
+public TypeSpec pointerUIntType ( Types.PointerSpec ptr )
+{
+  int ptrSize = pointerSize( ptr.of );
+  if (ptrSize <= TypeSpec.UCHAR.width)
+    return TypeSpec.UCHAR;
+  else if (ptrSize <= TypeSpec.UINT.width)
+    return TypeSpec.UINT;
+  else if (ptrSize <= TypeSpec.ULONG.width)
+    return TypeSpec.ULONG;
+  else
+    return TypeSpec.ULLONG;
 }
 
 public int alignment ( int size )
