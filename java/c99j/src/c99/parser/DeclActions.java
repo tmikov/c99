@@ -541,6 +541,7 @@ private final class TypeHelper
       return spec;
   }
 
+  /** Caller must check haveErr */
   Qual mkQual ( Spec spec )
   {
     assert spec != null;
@@ -735,6 +736,11 @@ private final class TypeChecker implements TDeclarator.Visitor
     final TypeHelper th = new TypeHelper( elem );
     th.accumulate( elem.qualList );
     this.qual = th.mkQual( newPointerSpec( this.qual ) );
+    if (th.haveErr)
+    {
+      haveError = true;
+      return false;
+    }
 
     return true;
   }
@@ -789,6 +795,11 @@ private final class TypeChecker implements TDeclarator.Visitor
     TypeHelper th = new TypeHelper( elem );
     th.accumulate( elem.qualList );
     this.qual = th.mkQual( spec );
+    if (th.haveErr)
+    {
+      haveError = true;
+      return false;
+    }
 
     return true;
   }
