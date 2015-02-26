@@ -7,9 +7,9 @@ private Constant () {}
 /** Arithmetic constant */
 public abstract static class ArithC
 {
-  public final Types.TypeSpec spec;
+  public final TypeSpec spec;
 
-  protected ArithC ( Types.TypeSpec spec_ )
+  protected ArithC ( TypeSpec spec_ )
   {
     assert spec_.arithmetic;
     this.spec = spec_;
@@ -42,7 +42,7 @@ public static final class IntC extends ArithC
 {
   private long m_value;
 
-  IntC ( Types.TypeSpec spec_ ) { super(spec_); }
+  IntC ( TypeSpec spec_ ) { super(spec_); }
 
   private void setValue ( long x )
   {
@@ -261,11 +261,11 @@ public static final class RealC extends ArithC
 {
   private double m_value;
 
-  RealC ( Types.TypeSpec spec_ ) { super(spec_); }
+  RealC ( TypeSpec spec_ ) { super(spec_); }
 
   private void setValue ( double x )
   {
-    if (this.spec != Types.TypeSpec.FLOAT)
+    if (this.spec != TypeSpec.FLOAT)
       m_value = x;
     else
       m_value = (float)x;
@@ -388,7 +388,7 @@ public static final class RealC extends ArithC
   }
 }
 
-public static ArithC newConstant ( Types.TypeSpec spec )
+public static ArithC newConstant ( TypeSpec spec )
 {
   switch (spec)
   {
@@ -416,26 +416,26 @@ public static ArithC newConstant ( Types.TypeSpec spec )
   }
 }
 
-public static IntC newIntConstant ( Types.TypeSpec spec )
+public static IntC newIntConstant ( TypeSpec spec )
 {
   return (IntC)newConstant( spec );
 }
 
-public static IntC makeLong ( Types.TypeSpec spec, long value )
+public static IntC makeLong ( TypeSpec spec, long value )
 {
   IntC c = newIntConstant( spec );
   c.setLong( value );
   return c;
 }
 
-public static RealC makeDouble ( Types.TypeSpec spec, double value )
+public static RealC makeDouble ( TypeSpec spec, double value )
 {
   RealC c = (RealC)newConstant( spec );
   c.setDouble( value );
   return c;
 }
 
-public static ArithC convert ( Types.TypeSpec toSpec, ArithC c )
+public static ArithC convert ( TypeSpec toSpec, ArithC c )
 {
   if (c.spec == toSpec)
     return c;

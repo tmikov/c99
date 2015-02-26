@@ -1,148 +1,11 @@
 package c99;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 
 public class Types
 {
 private Types () {}
-
-public static final int CHAR_BITS = Platform.CHAR_BITS;
-public static final int SHORT_BITS = Platform.SHORT_BITS;
-public static final int INT_BITS = Platform.INT_BITS;
-public static final int LONG_BITS = Platform.LONG_BITS;
-public static final int LONGLONG_BITS = Platform.LONGLONG_BITS;
-
-public static enum TypeSpec
-{
-  VOID("void"),
-
-  BOOL("bool",false,1),
-  // Note: the ordering matters. First <signed>, then <unsigned>, from smaller to larger
-  SCHAR("signed char",true,CHAR_BITS),
-  UCHAR("unsigned char",false,CHAR_BITS),
-  SSHORT("short",true,SHORT_BITS),
-  USHORT("unsigned short",false,SHORT_BITS),
-  SINT("int",true,INT_BITS),
-  UINT("unsigned",false,INT_BITS),
-  SLONG("long",true,LONG_BITS),
-  ULONG("unsigned long",false,LONG_BITS),
-  SLLONG("long long",true,LONGLONG_BITS),
-  ULLONG("unsibned long long",false,LONGLONG_BITS),
-  FLOAT("float",32, Float.MIN_VALUE, Float.MAX_VALUE),
-  DOUBLE("double",64, Double.MIN_VALUE, Double.MAX_VALUE),
-  LDOUBLE("long double",64, Double.MIN_VALUE, Double.MAX_VALUE),
-
-  ATOMIC("_Atomic"),
-  COMPLEX("_Complex"),
-  IMAGINARY("_Imaginary"),
-
-  ENUM("enum"),
-
-  ARRAY("[]"),
-  STRUCT("struct"),
-  UNION("union"),
-  FUNCTION("()"),
-  POINTER("*"),
-
-  ERROR("error");
-
-  public static final TypeSpec INTMAX_T = SLLONG;
-  public static final TypeSpec UINTMAX_T = ULLONG;
-  public static final TypeSpec PTRDIFF_T = SINT;
-  public static final TypeSpec SIZE_T = UINT;
-  public static final TypeSpec UINTPTR_T = ULONG;
-
-  public final String str;
-
-  public final boolean arithmetic;
-  public final boolean floating;
-  public final boolean integer;
-  public final boolean signed;
-  public final int width;
-  public final int sizeOf; //< sizeof()
-  public final long longMask;
-  public final long minValue;
-  public final long maxValue;
-  public final double minReal;
-  public final double maxReal;
-
-  TypeSpec ( String str )
-  {
-    this.str = str;
-    this.arithmetic = false;
-    this.floating = false;
-    this.integer = false;
-    this.signed = false;
-    this.width = 0;
-    this.sizeOf = 0;
-    this.longMask = 0;
-    this.minValue = 0;
-    this.maxValue = 0;
-    this.minReal = 0;
-    this.maxReal = 0;
-  }
-
-  TypeSpec ( String str, int width, double minReal, double maxReal )
-  {
-    assert width > 0;
-    this.str = str;
-    this.arithmetic = true;
-    this.floating = true;
-    this.integer = false;
-    this.signed = true;
-    this.width = width;
-    this.sizeOf = width / CHAR_BITS; assert width % CHAR_BITS == 0;
-    this.longMask = this.width < 64 ? (1L << this.width) - 1 : ~0L;
-    this.minValue = 0;
-    this.maxValue = 0;
-    this.minReal = minReal;
-    this.maxReal = maxReal;
-  }
-
-  TypeSpec ( String str, boolean signed, int width )
-  {
-    assert width > 0;
-    this.str = str;
-    this.arithmetic = true;
-    this.floating = false;
-    this.integer = true;
-    this.signed = signed;
-    this.width = width;
-    this.sizeOf = (width==1?8:width) / CHAR_BITS; assert (width==1?8:width) % CHAR_BITS == 0;
-    this.longMask = this.width < 64 ? (1L << this.width) - 1 : ~0L;
-
-    if (signed)
-    {
-      this.maxValue = this.longMask >>> 1;
-      this.minValue = -this.maxValue - 1;
-    }
-    else
-    {
-      this.minValue = 0;
-      this.maxValue = this.longMask;
-    }
-    this.minReal = 0;
-    this.maxReal = 0;
-  }
-
-  public final TypeSpec toSigned ()
-  {
-    assert this.integer && this != BOOL;
-    return this.signed ? this : values()[this.ordinal() - 1];
-  }
-  public final TypeSpec toUnsigned ()
-  {
-    assert this.integer;
-    return this.signed ? values()[this.ordinal() + 1] : this;
-  }
-
-  public boolean isScalar ()
-  {
-    return integer || floating || this == POINTER;
-  }
-}
 
 public static interface TypeVisitor
 {
@@ -710,7 +573,7 @@ public static TypeSpec usualArithmeticConversions ( TypeSpec s0, TypeSpec s1 )
 {
   // 6.3.1.8
 
-  Types.TypeSpec greaterRank = s0.ordinal() > s1.ordinal() ? s0 : s1;
+  TypeSpec greaterRank = s0.ordinal() > s1.ordinal() ? s0 : s1;
 
   if (greaterRank.floating)
     return greaterRank;

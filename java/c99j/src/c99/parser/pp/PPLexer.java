@@ -3,12 +3,7 @@ package c99.parser.pp;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 
-import c99.Constant;
-import c99.IErrorReporter;
-import c99.ISourceRange;
-import c99.SourceRange;
-import c99.Types;
-import c99.Utils;
+import c99.*;
 import c99.parser.Code;
 import c99.parser.SymTable;
 
@@ -379,14 +374,14 @@ loop:
 }
 
 private static final Constant.IntC s_charShift =
-  Constant.makeLong( Types.TypeSpec.UINT, Types.TypeSpec.UCHAR.width );
+  Constant.makeLong( TypeSpec.UINT, TypeSpec.UCHAR.width );
 
 private void parseCharConst ( int cur )
 {
   int start = m_cur;
   byte[] decoded = parseCharSequence( cur, '\'', "character constant" );
 
-  Constant.IntC value = Constant.makeLong( Types.TypeSpec.SINT, 0 );
+  Constant.IntC value = Constant.makeLong( TypeSpec.SINT, 0 );
 
   if (decoded.length == 0)
     reportError( m_workTok, "Empty character constant" );
@@ -394,9 +389,9 @@ private void parseCharConst ( int cur )
     value.setLong( decoded[0] & 255 );
   else
   {
-    Constant.IntC dig = Constant.newIntConstant( Types.TypeSpec.SINT );
+    Constant.IntC dig = Constant.newIntConstant( TypeSpec.SINT );
 
-    if (decoded.length > (Types.TypeSpec.SINT.width+7)/8)
+    if (decoded.length > (TypeSpec.SINT.width+7)/8)
       reportError( m_workTok, "Character constant is too long for its type" );
     else
       reportWarning( m_workTok, "Multi-character character constant" );
@@ -419,14 +414,14 @@ private void parseStringConst ( int cur )
   m_workTok.setStringConst( m_reader.getLineBuf(), start, m_cur - start, value );
 }
 
-private static final Constant.IntC s_int0 = Constant.makeLong( Types.TypeSpec.SINT, 0 );
-private static final Constant.IntC s_intMaxZero = Constant.makeLong( Types.TypeSpec.INTMAX_T, 0 );
-private static final Constant.IntC s_eight = Constant.makeLong( Types.TypeSpec.UINTMAX_T, 8 );
-private static final Constant.IntC s_ten = Constant.makeLong( Types.TypeSpec.UINTMAX_T, 10 );
-private static final Constant.IntC s_sixteen = Constant.makeLong( Types.TypeSpec.UINTMAX_T, 16 );
+private static final Constant.IntC s_int0 = Constant.makeLong( TypeSpec.SINT, 0 );
+private static final Constant.IntC s_intMaxZero = Constant.makeLong( TypeSpec.INTMAX_T, 0 );
+private static final Constant.IntC s_eight = Constant.makeLong( TypeSpec.UINTMAX_T, 8 );
+private static final Constant.IntC s_ten = Constant.makeLong( TypeSpec.UINTMAX_T, 10 );
+private static final Constant.IntC s_sixteen = Constant.makeLong( TypeSpec.UINTMAX_T, 16 );
 
 private static final Constant.IntC s_intMax_Max =
-   Constant.makeLong( Types.TypeSpec.UINTMAX_T, Types.TypeSpec.INTMAX_T.maxValue );
+   Constant.makeLong( TypeSpec.UINTMAX_T, TypeSpec.INTMAX_T.maxValue );
 
 // the valid suffixes are u[l], ull, l[u], ll[u]
 // state > 23 indicates end. bit 0 is unsigned, bits 1..2 long/long long
@@ -476,9 +471,9 @@ private final Constant.IntC parsePPInteger ( Token tok )
     }
   }
 
-  Constant.IntC res = Constant.makeLong( Types.TypeSpec.UINTMAX_T, 0 );
-  Constant.IntC tmp = Constant.newIntConstant( Types.TypeSpec.UINTMAX_T );
-  Constant.IntC digitC = Constant.newIntConstant( Types.TypeSpec.UINTMAX_T );
+  Constant.IntC res = Constant.makeLong( TypeSpec.UINTMAX_T, 0 );
+  Constant.IntC tmp = Constant.newIntConstant( TypeSpec.UINTMAX_T );
+  Constant.IntC digitC = Constant.newIntConstant( TypeSpec.UINTMAX_T );
 
   for (; i < to; ++i )
   {
@@ -559,28 +554,28 @@ private final Constant.IntC parsePPInteger ( Token tok )
   int typeOrd;
   int step = 1;
   if (mustBeLong == 1)
-    typeOrd = Types.TypeSpec.SLONG.ordinal();
+    typeOrd = TypeSpec.SLONG.ordinal();
   else if (mustBeLong == 2)
-    typeOrd = Types.TypeSpec.SLLONG.ordinal();
+    typeOrd = TypeSpec.SLLONG.ordinal();
   else
-    typeOrd = Types.TypeSpec.SINT.ordinal();
+    typeOrd = TypeSpec.SINT.ordinal();
   if (mustBeUnsigned)
   {
-    assert Types.TypeSpec.values()[typeOrd].signed && !Types.TypeSpec.values()[typeOrd+1].signed;
+    assert TypeSpec.values()[typeOrd].signed && !TypeSpec.values()[typeOrd+1].signed;
     ++typeOrd;
     step = 2;
   }
   else if (mustBeSigned)
     step = 2;
 
-  Types.TypeSpec type;
+  TypeSpec type;
   for( ;; typeOrd += step )
   {
-    type = Types.TypeSpec.values()[typeOrd];
+    type = TypeSpec.values()[typeOrd];
     tmp.setLong( type.maxValue );
     if (res.le( tmp ))
       break;
-    if (typeOrd + step > Types.TypeSpec.ULLONG.ordinal())
+    if (typeOrd + step > TypeSpec.ULLONG.ordinal())
     {
       if (!err)
       {
@@ -626,30 +621,30 @@ private final Constant.RealC parsePPReal ( Token tok )
 
   if (suff == 'f')
   {
-    if (x < Types.TypeSpec.FLOAT.minReal || x > Types.TypeSpec.FLOAT.maxReal)
+    if (x < TypeSpec.FLOAT.minReal || x > TypeSpec.FLOAT.maxReal)
     {
       reportError( tok, "Constant is outside of 'float' range" );
       x = 1;
     }
-    return Constant.makeDouble( Types.TypeSpec.FLOAT, x );
+    return Constant.makeDouble( TypeSpec.FLOAT, x );
   }
   else if (suff == 'l')
   {
-    if (x < Types.TypeSpec.LDOUBLE.minReal || x > Types.TypeSpec.LDOUBLE.maxReal)
+    if (x < TypeSpec.LDOUBLE.minReal || x > TypeSpec.LDOUBLE.maxReal)
     {
       reportError( tok, "Constant is outside of 'long double' range" );
       x = 1;
     }
-    return Constant.makeDouble( Types.TypeSpec.LDOUBLE, x );
+    return Constant.makeDouble( TypeSpec.LDOUBLE, x );
   }
   else
   {
-    if (x < Types.TypeSpec.DOUBLE.minReal || x > Types.TypeSpec.DOUBLE.maxReal)
+    if (x < TypeSpec.DOUBLE.minReal || x > TypeSpec.DOUBLE.maxReal)
     {
       reportError( tok, "Constant is outside of 'double' range" );
       x = 1;
     }
-    return Constant.makeDouble( Types.TypeSpec.DOUBLE, x );
+    return Constant.makeDouble( TypeSpec.DOUBLE, x );
   }
 }
 

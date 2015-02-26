@@ -127,7 +127,7 @@ public void setDefaultAttrs ( ISourceRange loc, Types.Qual qual )
       attrError( attrs, loc, "more than one 8086 pointer size (near/far/huge) specified" );
   }
 
-  if (qual.spec.type == Types.TypeSpec.FUNCTION) // Code
+  if (qual.spec.type == TypeSpec.FUNCTION) // Code
   {
     if (psize == 0)
       qual.extAttrs.add( m_env.opts.defCodePointers == 0 ? s_nearAttr : s_farAttr );

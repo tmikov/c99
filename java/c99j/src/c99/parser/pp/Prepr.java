@@ -11,14 +11,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Date;
 
-import c99.CompilerLimits;
-import c99.CompilerOptions;
-import c99.Constant;
-import c99.IErrorReporter;
-import c99.ISourceRange;
-import c99.SourceRange;
-import c99.Types;
-import c99.Utils;
+import c99.*;
 import c99.parser.Code;
 import c99.parser.SymTable;
 import c99.parser.Symbol;
@@ -1032,8 +1025,8 @@ private final boolean need ( Code code )
   }
 }
 
-private static final Constant.IntC s_zero = Constant.makeLong( Types.TypeSpec.INTMAX_T, 0 );
-private static final Constant.IntC s_one = Constant.makeLong( Types.TypeSpec.INTMAX_T, 1 );
+private static final Constant.IntC s_zero = Constant.makeLong( TypeSpec.INTMAX_T, 0 );
+private static final Constant.IntC s_one = Constant.makeLong( TypeSpec.INTMAX_T, 1 );
 
 // 6.10.1 [4] For the purposes of this
 // token conversion and evaluation, all signed integer types and all unsigned integer types
@@ -1042,13 +1035,13 @@ private static final Constant.IntC s_one = Constant.makeLong( Types.TypeSpec.INT
 private static Constant.IntC expandToMax ( Constant.IntC v )
 {
   return (Constant.IntC)Constant.convert(
-    Types.usualArithmeticConversions( v.spec, Types.TypeSpec.INTMAX_T ), v
+    Types.usualArithmeticConversions( v.spec, TypeSpec.INTMAX_T ), v
   );
 }
 
 private static void performUsualArithmeticConversions ( Constant.ArithC e[] )
 {
-  Types.TypeSpec spec = Types.usualArithmeticConversions( e[0].spec, e[1].spec );
+  TypeSpec spec = Types.usualArithmeticConversions( e[0].spec, e[1].spec );
   e[0] = Constant.convert( spec, e[0] );
   e[1] = Constant.convert( spec, e[1] );
 }

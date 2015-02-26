@@ -1,9 +1,6 @@
 package c99.parser.pp;
 
-import c99.Constant;
-import c99.SourceRange;
-import c99.Types;
-import c99.Utils;
+import c99.*;
 import c99.parser.Code;
 import c99.parser.Symbol;
 
@@ -198,7 +195,7 @@ public static class Token extends AbstractToken
   public final void setIntConst ( int value )
   {
     setTextWithOnwership( (""+value).getBytes() );
-    setIntConst( Constant.makeLong( Types.TypeSpec.SINT, value ) );
+    setIntConst( Constant.makeLong( TypeSpec.SINT, value ) );
   }
 
   public final Constant.IntC getIntConstValue ()
