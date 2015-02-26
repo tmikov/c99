@@ -7,6 +7,7 @@ public class BaseActions
 {
 protected CompEnv m_compEnv;
 protected SymTable m_symTab;
+protected Platform m_plat;
 
 protected CompilerOptions m_opts;
 protected IErrorReporter m_reporter;
@@ -30,6 +31,7 @@ protected void init ( CompEnv compEnv, SymTable symTab )
 {
   m_compEnv = compEnv;
   m_symTab = symTab;
+  m_plat = new Platform( m_compEnv );
 
   m_opts = compEnv.opts;
   m_reporter = compEnv.reporter;
@@ -44,7 +46,7 @@ protected void init ( CompEnv compEnv, SymTable symTab )
     if (type.sizeOf > 0)
     {
       size = type.sizeOf;
-      align = Platform.alignment( m_opts, size );
+      align = m_plat.alignment( size );
     }
     int ind = i - TypeSpec.VOID.ordinal();
     m_specs[ind] = new SimpleSpec( type, size, align );
@@ -84,8 +86,8 @@ public final void extWarning ( CParser.Location loc, String msg, Object... args 
 
 protected final PointerSpec newPointerSpec ( Qual to )
 {
-  int size = Platform.pointerSize( to );
-  int align = Platform.alignment( m_opts, size );
+  int size = m_plat.pointerSize( to );
+  int align = m_plat.alignment( size );
   return new PointerSpec( to, size, align );
 }
 

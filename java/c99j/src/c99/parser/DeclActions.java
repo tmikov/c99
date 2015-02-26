@@ -57,14 +57,14 @@ public final TExtAttr extAttr (
 )
 {
   ExtAttrDef def;
-  if ((def = Platform.findExtAttr(name)) == null)
+  if ((def = m_plat.findExtAttr(name)) == null)
   {
     error( locName, "unknown attribute '%s'", name );
     return null;
   }
   SourceRange rngAll = BisonLexer.fromLocation(locAll);
-  ExtAttr extAttr = Platform.parseExtAttr(
-    m_compEnv, rngAll, BisonLexer.fromLocation(locName), def, params
+  ExtAttr extAttr = m_plat.parseExtAttr(
+    rngAll, BisonLexer.fromLocation(locName), def, params
   );
   if (extAttr == null)
     return null;
@@ -556,7 +556,7 @@ private final class TypeHelper
     if (base != null && base.code == Code.TYPENAME)
       q.combine( ((TSpecDeclNode)base).decl.type );
 
-    Platform.setDefaultAttrs( m_compEnv, loc, q );
+    m_plat.setDefaultAttrs( loc, q );
 
     return q;
   }

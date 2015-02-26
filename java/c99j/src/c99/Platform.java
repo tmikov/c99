@@ -6,6 +6,8 @@ import java.util.HashMap;
 
 public class Platform
 {
+private final CompEnv m_env;
+
 public static final int CHAR_BITS = 8;
 public static final int SHORT_BITS = 16;
 public static final int INT_BITS = 16;
@@ -16,6 +18,12 @@ public static final int MIN_ALIGN = 1;
 public static final int MAX_ALIGN = 8;
 
 private static final HashMap<String,ExtAttrDef> s_attrDefs = new HashMap<String, ExtAttrDef>();
+
+public Platform ( CompEnv cenv )
+{
+  m_env = cenv;
+}
+
 private static void defAttr ( ExtAttrDef def )
 {
   s_attrDefs.put( def.name, def );
@@ -66,19 +74,19 @@ static {
 
 }
 
-public static ExtAttrDef findExtAttr ( String name )
+public ExtAttrDef findExtAttr ( String name )
 {
   return s_attrDefs.get( name );
 }
 
-public static ExtAttr parseExtAttr (
-  CompEnv env, ISourceRange locAll, ISourceRange locName, ExtAttrDef def, Trees.TreeList params
+public ExtAttr parseExtAttr (
+  ISourceRange locAll, ISourceRange locName, ExtAttrDef def, Trees.TreeList params
 )
 {
   // None of the supported attributes have parameters
   if (params != null && params.size() != 0)
   {
-    env.reporter.error( locAll, "attribute '%s' takes no parameters", def.name );
+    m_env.reporter.error( locAll, "attribute '%s' takes no parameters", def.name );
     return null;
   }
   return new ExtAttr(def);
@@ -91,16 +99,16 @@ private static final ExtAttr s_csAttr = new ExtAttr(s_def_x86cs);
 private static final ExtAttr s_farAttr = new ExtAttr(s_def_x86far);
 private static final ExtAttr s_hugeAttr = new ExtAttr(s_def_x86huge);
 
-private static void attrError ( CompEnv env, ExtAttributes attrs, ISourceRange loc, String msg, Object... args )
+private void attrError ( ExtAttributes attrs, ISourceRange loc, String msg, Object... args )
 {
   if ((attrs.flags() & QUAL_ERROR) == 0)
   {
     attrs.add( s_errorAttr );
-    env.reporter.error( loc, msg, args );
+    m_env.reporter.error( loc, msg, args );
   }
 }
 
-public static void setDefaultAttrs ( CompEnv env, ISourceRange loc, Types.Qual qual )
+public void setDefaultAttrs ( ISourceRange loc, Types.Qual qual )
 {
   final ExtAttributes attrs = qual.extAttrs;
 
@@ -109,20 +117,20 @@ public static void setDefaultAttrs ( CompEnv env, ISourceRange loc, Types.Qual q
   {
     attrs.add( s_nearAttr );
     if ((segs & (segs - 1)) != 0)
-      attrError( env, attrs, loc, "more than one 8086 segment qualifier specified" );
+      attrError( attrs, loc, "more than one 8086 segment qualifier specified" );
   }
 
   int psize;
   if ((psize = attrs.flags() & (QUAL_X86NEAR | QUAL_X86FAR | QUAL_X86HUGE)) != 0)
   {
     if ((psize & (psize - 1)) != 0)
-      attrError( env, attrs, loc, "more than one 8086 pointer size (near/far/huge) specified" );
+      attrError( attrs, loc, "more than one 8086 pointer size (near/far/huge) specified" );
   }
 
   if (qual.spec.type == Types.TypeSpec.FUNCTION) // Code
   {
     if (psize == 0)
-      qual.extAttrs.add( env.opts.defCodePointers == 0 ? s_nearAttr : s_farAttr );
+      qual.extAttrs.add( m_env.opts.defCodePointers == 0 ? s_nearAttr : s_farAttr );
     if ((psize & QUAL_X86NEAR) != 0)
     {
       if (segs == 0)
@@ -130,22 +138,22 @@ public static void setDefaultAttrs ( CompEnv env, ISourceRange loc, Types.Qual q
       else if ((segs & QUAL_X86CS) == 0)
       {
         qual.extAttrs.add( s_csAttr ); // Near code pointers can only be "cs:"
-        attrError(env, attrs, loc, "invalid segment qualifier for a pointer to function");
+        attrError(attrs, loc, "invalid segment qualifier for a pointer to function");
       }
     }
   }
   else  // Data
   {
     if (psize == 0)
-      qual.extAttrs.add( env.opts.defDataPointers == 0 ? s_nearAttr :
-                                (env.opts.defDataPointers == 1 ? s_farAttr : s_hugeAttr) );
+      qual.extAttrs.add( m_env.opts.defDataPointers == 0 ? s_nearAttr :
+                                (m_env.opts.defDataPointers == 1 ? s_farAttr : s_hugeAttr) );
 
     if ((psize & QUAL_X86NEAR) != 0 && segs == 0)
       qual.extAttrs.add( s_dsAttr ); // Near data pointers are "ds:" by default
   }
 }
 
-public static int pointerSize ( Types.Qual qual )
+public int pointerSize ( Types.Qual qual )
 {
   final int flags = qual.extAttrs.flags();
   if ((flags & (QUAL_X86HUGE | QUAL_X86FAR)) != 0)
@@ -159,9 +167,9 @@ public static int pointerSize ( Types.Qual qual )
   }
 }
 
-public static int alignment ( CompilerOptions opts, int size )
+public int alignment ( int size )
 {
-  return Math.min(size, opts.maxAlign);
+  return Math.min(size, m_env.opts.maxAlign);
 }
 
 } // class
