@@ -12,11 +12,11 @@ public class ExprActions extends TreeActions
 private Qual m_constChar;
 
 @Override
-protected void init ( CompilerOptions opts, IErrorReporter reporter, SymTable symTab )
+protected void init ( CompEnv compEnv, SymTable symTab )
 {
-  super.init( opts, reporter, symTab );
+  super.init( compEnv, symTab );
 
-  m_constChar = new Qual( stdSpec( opts.signedChar ? TypeSpec.SCHAR : TypeSpec.UCHAR ) );
+  m_constChar = new Qual( stdSpec( m_opts.signedChar ? TypeSpec.SCHAR : TypeSpec.UCHAR ) );
 }
 
 private final boolean isBitField ( TExpr.Expr op )

@@ -1,5 +1,6 @@
 package c99.driver;
 
+import c99.CompEnv;
 import c99.CompilerOptions;
 import c99.DummyErrorReporter;
 import c99.parser.BisonLexer;
@@ -77,7 +78,7 @@ public static void main ( String[] args )
     Prepr pp = new Prepr( opts, reporter, incSearch.finish( opts ),
                           fileName, new FileInputStream( fileName ), symTable );
     BisonLexer lex = new BisonLexer(reporter, symTable, pp);
-    CParser parser = new CParser(lex, opts, reporter, symTable);
+    CParser parser = new CParser(lex, new CompEnv( opts, reporter ), symTable);
     parser.setDebugLevel( debugLevel );
     parser.parse();
   }

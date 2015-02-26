@@ -1,6 +1,6 @@
 package c99.parser;
 
-public class ParserActions extends ExprActions
+public class ParserActions extends DeclActions
 {
 } // class
 

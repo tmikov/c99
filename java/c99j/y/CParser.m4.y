@@ -3,8 +3,7 @@
 %define package "c99.parser"
 %code imports {
 import c99.Constant;
-import c99.CompilerOptions;
-import c99.IErrorReporter;
+import c99.CompEnv;
 import c99.parser.ast.Ast;
 import static c99.Types.*;
 import static c99.parser.Trees.*;
@@ -14,11 +13,10 @@ import c99.parser.tree.*;
 %define parser_class_name {CParser}
 %define extends {ParserActions}
 
-%parse-param { CompilerOptions opts_ }
-%parse-param { IErrorReporter reporter_ }
+%parse-param { CompEnv cenv_ }
 %parse-param { SymTable symTab_ }
 %code init {
-  super.init( opts_, reporter_, symTab_ );
+  super.init( cenv_, symTab_ );
   pushScope(Scope.Kind.FILE);
 }
 

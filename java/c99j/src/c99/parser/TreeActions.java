@@ -5,7 +5,7 @@ import c99.parser.tree.TIdent;
 import c99.parser.tree.TStringLiteral;
 
 
-public class TreeActions extends DeclActions
+public class TreeActions extends AstActions
 {
 
 public TStringLiteral stringLiteral ( CParser.Location loc, byte[] value )
