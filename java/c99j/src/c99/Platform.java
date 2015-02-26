@@ -108,7 +108,36 @@ private void attrError ( ExtAttributes attrs, ISourceRange loc, String msg, Obje
   }
 }
 
-public void setDefaultAttrs ( ISourceRange loc, Types.Qual qual )
+public void setDefaultAttrs ( Types.Qual qual )
+{
+  final ExtAttributes attrs = qual.extAttrs;
+
+  assert (attrs.flags() & QUAL_X86SEGS) == 0;
+  assert (attrs.flags() & (QUAL_X86NEAR | QUAL_X86FAR | QUAL_X86HUGE)) == 0;
+
+  if (qual.spec.type == TypeSpec.FUNCTION) // Code
+  {
+    if (m_env.opts.defCodePointers == 0)
+    {
+      qual.extAttrs.add( s_nearAttr );
+      qual.extAttrs.add( s_csAttr ); // Near code pointers can only be "cs:"
+    }
+    else
+      qual.extAttrs.add( s_farAttr );
+  }
+  else  // Data
+  {
+    if (m_env.opts.defDataPointers == 0)
+    {
+      qual.extAttrs.add( s_nearAttr );
+      qual.extAttrs.add( s_dsAttr );
+    }
+    else
+      qual.extAttrs.add( m_env.opts.defDataPointers == 1 ? s_farAttr : s_hugeAttr );
+  }
+}
+
+public boolean checkAndCompleteAttrs ( ISourceRange loc, Types.Qual qual )
 {
   final ExtAttributes attrs = qual.extAttrs;
 
@@ -129,8 +158,12 @@ public void setDefaultAttrs ( ISourceRange loc, Types.Qual qual )
 
   if (qual.spec.type == TypeSpec.FUNCTION) // Code
   {
+    // For functions we always set the necessary attributes
     if (psize == 0)
+    {
       qual.extAttrs.add( m_env.opts.defCodePointers == 0 ? s_nearAttr : s_farAttr );
+      psize = attrs.flags() & (QUAL_X86NEAR | QUAL_X86FAR | QUAL_X86HUGE);
+    }
     if ((psize & QUAL_X86NEAR) != 0)
     {
       if (segs == 0)
@@ -144,13 +177,13 @@ public void setDefaultAttrs ( ISourceRange loc, Types.Qual qual )
   }
   else  // Data
   {
-    if (psize == 0)
-      qual.extAttrs.add( m_env.opts.defDataPointers == 0 ? s_nearAttr :
-                                (m_env.opts.defDataPointers == 1 ? s_farAttr : s_hugeAttr) );
-
+    // If we have a near pointer, set the segment specifier if not already set
     if ((psize & QUAL_X86NEAR) != 0 && segs == 0)
       qual.extAttrs.add( s_dsAttr ); // Near data pointers are "ds:" by default
+    // Otherwise leave things as default
   }
+
+  return (attrs.flags() & QUAL_ERROR) == 0;
 }
 
 public int pointerSize ( Types.Qual qual )
@@ -160,11 +193,10 @@ public int pointerSize ( Types.Qual qual )
     return 4;
   else if ((flags & QUAL_X86NEAR) != 0)
     return 2;
+  else if (qual.spec.type == TypeSpec.FUNCTION)
+    return m_env.opts.defCodePointers == 0 ? 2 : 4;
   else
-  {
-    assert false : "Default memory space must have been set";
-    return 0;
-  }
+    return m_env.opts.defDataPointers == 0 ? 2 : 4;
 }
 
 public int alignment ( int size )

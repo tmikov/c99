@@ -556,7 +556,8 @@ private final class TypeHelper
     if (base != null && base.code == Code.TYPENAME)
       q.combine( ((TSpecDeclNode)base).decl.type );
 
-    m_plat.setDefaultAttrs( loc, q );
+    if (!m_plat.checkAndCompleteAttrs( loc, q ))
+      haveErr = true;
 
     return q;
   }
