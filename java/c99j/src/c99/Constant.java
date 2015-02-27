@@ -98,6 +98,25 @@ public static final class IntC extends ArithC
     return m_value;
   }
 
+  /**
+   * Check if the value can be represented as signed Java long (64-bit). If it is a signed value,
+   * then by definition it can as we use long to store it. If it is unsigned, its highest bit must be
+   * clear.
+   *
+   * @return true if the value canbe represented as a signed Java long
+   */
+  public final boolean fitsInLong ()
+  {
+    return this.spec.signed || m_value >= 0;
+  }
+
+  public final long asLong ()
+  {
+    if (!fitsInLong())
+      throw new IllegalStateException( "Value cannot be represented as long" );
+    return m_value;
+  }
+
   @Override
   public final void assign ( final ArithC a )
   {
