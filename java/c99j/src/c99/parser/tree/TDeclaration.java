@@ -3,10 +3,7 @@ package c99.parser.tree;
 import c99.ISourceRange;
 import c99.SourceRange;
 import c99.Types;
-import c99.parser.BisonLexer;
-import c99.parser.CParser;
-import c99.parser.Linkage;
-import c99.parser.Symbol;
+import c99.parser.*;
 
 /**
  * We need to accumulate parameter declarations because of reduce/reduce conflicts
@@ -18,12 +15,11 @@ public final class TDeclaration extends SourceRange
   public final TDeclarator declarator;
   public TDeclSpec ds;
 
-  public Linkage linkage;
   public Types.SClass sclass;
+  public Linkage linkage;
   public Types.Qual type;
   public boolean defined;
   public boolean error;
-
 
   public TDeclaration ( ISourceRange rng, TSpecNode dsNode, TDeclarator declarator )
   {

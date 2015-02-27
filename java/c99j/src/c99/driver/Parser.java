@@ -1,15 +1,16 @@
 package c99.driver;
 
-import c99.CompEnv;
-import c99.CompilerOptions;
-import c99.DummyErrorReporter;
+import c99.*;
 import c99.parser.BisonLexer;
 import c99.parser.CParser;
+import c99.parser.Decl;
 import c99.parser.SymTable;
 import c99.parser.pp.Prepr;
 import c99.parser.pp.SearchPathFactory;
+import c99.parser.tree.*;
 
 import java.io.FileInputStream;
+import java.io.PrintWriter;
 import java.util.Arrays;
 
 public class Parser
@@ -78,7 +79,10 @@ public static void main ( String[] args )
     Prepr pp = new Prepr( opts, reporter, incSearch.finish( opts ),
                           fileName, new FileInputStream( fileName ), symTable );
     BisonLexer lex = new BisonLexer(reporter, symTable, pp);
-    CParser parser = new CParser(lex, new CompEnv( opts, reporter ), symTable);
+    CParser parser = new CParser(
+      lex,
+      new CompEnv( opts, reporter, new OurVisitor(new PrintWriter(System.out))), symTable
+    );
     parser.setDebugLevel( debugLevel );
     parser.parse();
   }
@@ -87,4 +91,69 @@ public static void main ( String[] args )
     e.printStackTrace();
   }
 }
+
+private static final class OurVisitor implements Visitor.TranslationUnit
+{
+  private final PrintWriter m_out;
+  private int m_indent;
+
+  private OurVisitor ( PrintWriter out )
+  {
+    m_out = out;
+  }
+
+  @Override
+  public void visitRecordDecl ( TSpecAggNode specNode, Decl decl, boolean definition )
+  {
+    m_out.format( "RecordDecl <%s> %s%s\n", SourceRange.formatRange(decl), decl.type.readableType(),
+            definition ? " definition" : " forward ref");
+    if (definition)
+    {
+      m_indent += 2;
+      Types.StructUnionSpec agg = (Types.StructUnionSpec) decl.type.spec;
+      for (Types.Member m : agg.getFields())
+        visitField( agg, m );
+      m_indent -= 2;
+    }
+    m_out.flush();
+  }
+
+  private void visitField ( Types.StructUnionSpec agg, Types.Member m )
+  {
+    ExprFormatter.printIndent( m_indent, m_out );
+    m_out.format( "FieldDecl <%s> %s: %s\n", SourceRange.formatRange(m), m.name.name, m.type.readableType() );
+  }
+
+  @Override
+  public Visitor.DeclaratorList visitDeclaratorList ( TSpecNode specNode )
+  {
+    return new Visitor.DeclaratorList()
+    {
+      @Override
+      public void visitDeclaration ( TDeclaration tDecl, Decl decl )
+      {
+        m_out.format( "Decl <%s> %s %s %s: %s\n", SourceRange.formatRange(decl),
+                decl.sclass, decl.linkage, decl.symbol.name,
+                decl.type.readableType() );
+      }
+
+      @Override
+      public void visitEmptyDeclaration ( TDeclaration tDecl )
+      {
+        if (false)
+        {
+          m_out.format( "EmptyDecl <%s> %s %s: %s\n", SourceRange.formatRange(tDecl),
+                  tDecl.sclass, tDecl.linkage, tDecl.type.readableType() );
+        }
+      }
+
+      @Override public void end ()
+      {
+        m_out.flush();
+      }
+    };
+  }
+}
+
+
 }

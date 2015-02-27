@@ -104,6 +104,7 @@ private final Spec referenceAgg ( TSpecAggNode node )
 {
   final Decl tagDecl;
   final TypeSpec tagSpec = node.code == Code.STRUCT ? TypeSpec.STRUCT : TypeSpec.UNION;
+  boolean fwdDecl = false;
 
   assert node.identTree != null;
   final Symbol ident = node.identTree.ident;
@@ -122,11 +123,13 @@ private final Spec referenceAgg ( TSpecAggNode node )
       Spec spec = new StructUnionSpec( tagSpec, null );
       tagDecl = new Decl( node, Decl.Kind.TAG, m_topScope, SClass.NONE, Linkage.NONE,
                           null, new Qual( spec ), false, true );
+      fwdDecl = true;
     }
   }
   else
   {
     // Forward declaration of tag
+    fwdDecl = true;
     Spec spec = new StructUnionSpec( tagSpec, ident );
     tagDecl = new Decl( node.identTree, Decl.Kind.TAG, m_topScope, SClass.NONE, Linkage.NONE,
                         ident, new Qual( spec ), false, false );
@@ -135,6 +138,8 @@ private final Spec referenceAgg ( TSpecAggNode node )
       warning( tagDecl, "declaration of '%s' will not be visible outside of the function", spec.readableType() );
   }
 
+  if (fwdDecl)
+    m_compEnv.visitor.visitRecordDecl( node, tagDecl, false );
   return tagDecl.type.spec;
 }
 
@@ -213,6 +218,7 @@ private final Spec declareAgg ( TSpecAggNode node )
   spec.setFields( fields );
   calcAggSize( spec );
 
+  m_compEnv.visitor.visitRecordDecl( node, tagDecl, true );
   return spec;
 }
 
@@ -722,7 +728,7 @@ public final TDeclaration mkDeclaration ( TDeclarator dr, TSpecNode dsNode )
 public final TDeclaration mkTypeName ( TDeclarator dr, TSpecNode dsNode )
 {
   TDeclaration decl = mkDeclaration( dr, dsNode );
-  validateType( decl );
+  validateAndBuildType( decl );
   return decl;
 }
 
@@ -915,7 +921,12 @@ private final class TypeChecker implements TDeclarator.Visitor
   }
 }
 
-private final void validateType ( TDeclaration decl )
+/**
+ * Validate the type described in TDeclaration and generate the TypeSpec chain for it.
+ * Store the result in {@code decl.type}
+ * @param decl
+ */
+private final void validateAndBuildType ( TDeclaration decl )
 {
   final TDeclSpec ds;
   {
@@ -950,7 +961,7 @@ private final void validateType ( TDeclaration decl )
  * @param di
  * @param hasInit
  */
-private final void validateLinkage ( final TDeclaration di, final boolean hasInit )
+private final void validateAndSetLinkage ( final TDeclaration di, final boolean hasInit )
 {
   final TDeclSpec ds = di.ds;
   di.sclass = ds.sc;
@@ -1059,17 +1070,10 @@ private final void validateLinkage ( final TDeclaration di, final boolean hasIni
   }
 }
 
-public final Qual compositeType ( Qual a, Qual b )
-{
-  FIXME("");
-  assert false;
-  return null;
-}
-
 public final Decl declare ( TDeclaration di, boolean hasInit )
 {
-  validateType( di );
-  validateLinkage( di, hasInit );
+  validateAndBuildType( di );
+  validateAndSetLinkage( di, hasInit );
 
   /*
     Check for re-declaration.
@@ -1172,15 +1176,26 @@ redeclaration:
 
 public final void declareList ( TSpecNode specNode, TInitDeclaratorList ideclList )
 {
+  Visitor.DeclaratorList visitor = m_compEnv.visitor.visitDeclaratorList( specNode );
+
   if (ideclList != null && ideclList.size() > 0)
   {
     for ( TInitDeclarator idecl : ideclList )
-      declare( mkDeclaration( idecl.declarator, specNode ), idecl.init );
+    {
+      TDeclaration tDecl = mkDeclaration( idecl.declarator, specNode );
+      Decl decl = declare( tDecl, idecl.init );
+      visitor.visitDeclaration( tDecl, decl );
+    }
   }
   else
   {
-    validateType( mkDeclaration( new TDeclarator( specNode, null ), specNode ) );
+    TDeclaration tDecl = mkDeclaration( new TDeclarator( specNode, null ), specNode );
+    validateAndBuildType( tDecl );
+    validateAndSetLinkage( tDecl, false );
+    visitor.visitEmptyDeclaration( tDecl );
   }
+
+  visitor.end();
 }
 
 } // class
