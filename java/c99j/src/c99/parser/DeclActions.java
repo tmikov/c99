@@ -227,7 +227,7 @@ private final void calcAggSize ( StructUnionSpec spec )
   if (spec.isError())
     return;
 
-  int size = 0;
+  long size = 0;
   int align = 1;
 
   if (spec.type == TypeSpec.STRUCT)

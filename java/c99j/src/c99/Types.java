@@ -140,7 +140,7 @@ public static abstract class Spec
   public TypeSpec type;
   public final ExtAttributes extAttrs = new ExtAttributes();
   protected boolean complete;
-  private int size;
+  private long size;
   private int align;
 
   public Spec ( final TypeSpec type, boolean complete )
@@ -159,13 +159,13 @@ public static abstract class Spec
     return this.complete;
   }
 
-  public final void setSizeAlign ( int size, int align )
+  public final void setSizeAlign ( long size, int align )
   {
     this.size = size;
     this.align = align;
   }
 
-  public final int sizeOf ()
+  public final long sizeOf ()
   {
     assert isComplete();
     return this.size;
@@ -281,7 +281,7 @@ public static abstract class DerivedSpec extends Spec
 
 public static final class PointerSpec extends DerivedSpec
 {
-  public int staticSize; // from ArraySpec.size and _static
+  public long staticSize; // from ArraySpec.size and _static
 
   public PointerSpec ( Qual of, int size, int align )
   {
@@ -315,7 +315,7 @@ public static final class PointerSpec extends DerivedSpec
 
 public static final class ArraySpec extends DerivedSpec
 {
-  public int nelem;
+  public long nelem;
   public boolean _static;
   public boolean asterisk;
 
@@ -552,7 +552,7 @@ public static class Param extends SourceRange
 
 public static class Member extends Param
 {
-  public int offset;
+  public long offset;
   public int bitFieldWidth;
 
   public Member ( final ISourceRange rng, final Ident name, final Qual type )

@@ -99,8 +99,8 @@ protected final ArraySpec newArraySpec ( ISourceRange loc, Qual to, int nelem )
   s.nelem = nelem;
   if (s.nelem >= 0)
   {
-    int size = (s.nelem * to.spec.sizeOf()) & Integer.MAX_VALUE; // note: convert to unsigned
-    // Check for int32 overflow
+    long size = (s.nelem * to.spec.sizeOf()) & Long.MAX_VALUE; // note: convert to unsigned
+    // Check for int64 overflow
     if (size < s.nelem || size < to.spec.sizeOf())
     {
       error( loc, "Array size overflow" );
