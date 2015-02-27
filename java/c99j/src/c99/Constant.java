@@ -120,6 +120,11 @@ public static final class IntC extends ArithC
     return m_value == 0;
   }
 
+  public final int sign ()
+  {
+    return m_value < 0 ? -1 : (m_value == 0 ? 0 : +1);
+  }
+
   @Override
   public final boolean lt ( final ArithC a )
   {
