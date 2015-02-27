@@ -215,9 +215,9 @@ function-definition:
 
 rule(<Ast>,specified-declarator-func):
     declaration-specifiers-nots[ds] declarator-func-notyp[decl]
-        { $$ = declare(declaration($decl,$ds),true); }
+        { $$ = declare(mkDeclaration($decl,$ds),true); }
   | declaration-specifiers-ts[ds]   declarator-func[decl]
-        { $$ = declare(declaration($decl,$ds),true); }
+        { $$ = declare(mkDeclaration($decl,$ds),true); }
   ;
 
 // (6.9.1)
@@ -437,12 +437,12 @@ rule(,struct-declarator-list-notyp,optn):
 
 // (6.7.2.1)
 struct-declarator:
-    declarator[decl]                        { declare(declaration($decl,$<TSpecNode>0),false); }
+    declarator[decl]                        { declare(mkDeclaration($decl,$<TSpecNode>0),false); }
   | declarator_opt ":" constant-expression  { FIXME(); }
   ;
 
 struct-declarator-notyp:
-    declarator-notyp[decl]                  { declare(declaration($decl,$<TSpecNode>0),false); }
+    declarator-notyp[decl]                  { declare(mkDeclaration($decl,$<TSpecNode>0),false); }
   | declarator-notyp_opt ":" constant-expression  { FIXME(); }
   ;
 
@@ -687,21 +687,21 @@ rule(<TDeclList>,parameter-list):
 // (6.7.6)
 rule(<TDeclaration>,parameter-declaration):
     declaration-specifiers-nots pointer direct-declarator-prm
-        { $$ = declaration($[direct-declarator-prm].append($pointer), $[declaration-specifiers-nots]); }
+        { $$ = mkDeclaration($[direct-declarator-prm].append($pointer), $[declaration-specifiers-nots]); }
   | declaration-specifiers-ts   pointer direct-declarator-prm
-        { $$ = declaration($[direct-declarator-prm].append($pointer), $[declaration-specifiers-ts]); }
+        { $$ = mkDeclaration($[direct-declarator-prm].append($pointer), $[declaration-specifiers-ts]); }
   | declaration-specifiers-nots         direct-declarator-prmnotyp
-        { $$ = declaration($[direct-declarator-prmnotyp], $[declaration-specifiers-nots]); }
+        { $$ = mkDeclaration($[direct-declarator-prmnotyp], $[declaration-specifiers-nots]); }
   | declaration-specifiers-ts           direct-declarator-prm
-        { $$ = declaration($[direct-declarator-prm], $[declaration-specifiers-ts]); }
+        { $$ = mkDeclaration($[direct-declarator-prm], $[declaration-specifiers-ts]); }
   | declaration-specifiers-nots pointer direct-abstract-declarator_opt
-        { $$ = declaration($[direct-abstract-declarator_opt].append($pointer), $[declaration-specifiers-nots]); }
+        { $$ = mkDeclaration($[direct-abstract-declarator_opt].append($pointer), $[declaration-specifiers-nots]); }
   | declaration-specifiers-ts   pointer direct-abstract-declarator_opt
-        { $$ = declaration($[direct-abstract-declarator_opt].append($pointer), $[declaration-specifiers-ts]); }
+        { $$ = mkDeclaration($[direct-abstract-declarator_opt].append($pointer), $[declaration-specifiers-ts]); }
   | declaration-specifiers-nots         direct-abstract-declarator_opt
-        { $$ = declaration($[direct-abstract-declarator_opt], $[declaration-specifiers-nots]); }
+        { $$ = mkDeclaration($[direct-abstract-declarator_opt], $[declaration-specifiers-nots]); }
   | declaration-specifiers-ts           direct-abstract-declarator_opt
-        { $$ = declaration($[direct-abstract-declarator_opt], $[declaration-specifiers-ts]); }
+        { $$ = mkDeclaration($[direct-abstract-declarator_opt], $[declaration-specifiers-ts]); }
   ;
 
 /*

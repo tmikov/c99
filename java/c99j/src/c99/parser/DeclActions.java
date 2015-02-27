@@ -714,14 +714,14 @@ private static boolean isArray ( Qual q )
   return q.spec.type == TypeSpec.ARRAY;
 }
 
-public final TDeclaration declaration ( TDeclarator dr, TSpecNode dsNode )
+public final TDeclaration mkDeclaration ( TDeclarator dr, TSpecNode dsNode )
 {
   return new TDeclaration( dr, dsNode, dr );
 }
 
 public final TDeclaration mkTypeName ( TDeclarator dr, TSpecNode dsNode )
 {
-  TDeclaration decl = declaration( dr, dsNode );
+  TDeclaration decl = mkDeclaration( dr, dsNode );
   validateType( decl );
   return decl;
 }
@@ -1175,11 +1175,11 @@ public final void declaration ( TSpecNode specNode, TInitDeclaratorList ideclLis
   if (ideclList != null && ideclList.size() > 0)
   {
     for ( TInitDeclarator idecl : ideclList )
-      declare( declaration( idecl.declarator, specNode ), idecl.init );
+      declare( mkDeclaration( idecl.declarator, specNode ), idecl.init );
   }
   else
   {
-    validateType( declaration( new TDeclarator( specNode, null ), specNode ) );
+    validateType( mkDeclaration( new TDeclarator( specNode, null ), specNode ) );
   }
 }
 
