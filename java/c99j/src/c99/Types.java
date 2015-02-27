@@ -79,7 +79,14 @@ public static final class Qual
     this.spec = spec;
   }
 
-  public void combine ( Qual q )
+  public final Qual copy ()
+  {
+    Qual q = new Qual(spec);
+    q.combine( this ); // save us some typing
+    return q;
+  }
+
+  public final void combine ( Qual q )
   {
     this.isConst |= q.isConst;
     this.isVolatile |= q.isVolatile;

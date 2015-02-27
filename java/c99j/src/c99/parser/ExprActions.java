@@ -773,7 +773,13 @@ public final SelectMemberExpr m_dotMember = new SelectMemberExpr(TreeCode.DOT_ME
       return null;
     }
 
-    return new TExpr.SelectMember( null, code, m.type, agg, aggSpec, m );
+    // 6.5.2.3#3
+    // If the first expression has qualified type, the result has the so-qualified version of the
+    // type of the designated member.
+    // TZM: I extend this a bit by combining the member's qualifier with the base one
+    Qual comb = m.type.copy();
+    comb.combine( agg.getQual() );
+    return new TExpr.SelectMember( null, code, comb, agg, aggSpec, m );
   }
 };
 
@@ -813,7 +819,13 @@ public final SelectMemberExpr m_ptrMember = new SelectMemberExpr(TreeCode.PTR_ME
       return null;
     }
 
-    return new TExpr.SelectMember( null, code, m.type, agg, aggSpec, m );
+    // 6.5.2.3#4
+    // If the first expression is a pointer to a qualified type, the result has the so-qualified
+    // version of the type of the designated member.
+    // TZM: I extend this a bit by combining the member's qualifier with the base one
+    Qual comb = m.type.copy();
+    comb.combine( ptrSpec.of );
+    return new TExpr.SelectMember( null, code, comb, agg, aggSpec, m );
   }
 };
 
