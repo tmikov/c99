@@ -103,7 +103,12 @@ protected final ArraySpec newArraySpec ( ISourceRange loc, Qual to, int nelem )
     // Check for int64 overflow
     if (size < s.nelem || size < to.spec.sizeOf())
     {
-      error( loc, "Array size overflow" );
+      error( loc, "Array size integer overflow" );
+      return null;
+    }
+    if (size > TypeSpec.SIZE_T.maxValue)
+    {
+      error( loc, "Array size doesn't fit in size_t" );
       return null;
     }
 

@@ -229,6 +229,7 @@ private final void calcAggSize ( StructUnionSpec spec )
 
   long size = 0;
   int align = 1;
+  boolean overflowError = false;
 
   if (spec.type == TypeSpec.STRUCT)
   {
@@ -238,7 +239,23 @@ private final void calcAggSize ( StructUnionSpec spec )
       align = Math.max( falign, align );
       size = (size + falign-1) & ~(falign-1);
       field.offset = size;
-      size += field.type.spec.sizeOf();
+
+      if (!overflowError)
+      {
+        long nsize = size + field.type.spec.sizeOf();
+        if (nsize < size)
+        {
+          overflowError = true;
+          error( field, "Object size integer overflow" );
+        }
+        else if (nsize > TypeSpec.SIZE_T.maxValue)
+        {
+          overflowError = true;
+          error( field, "Object size doesn't fit in size_t" );
+        }
+        else
+          size = nsize;
+      }
     }
   }
   else
@@ -254,6 +271,7 @@ private final void calcAggSize ( StructUnionSpec spec )
 
   size = (size + align-1) & ~(align-1);
   spec.setSizeAlign( size, align );
+  spec.orError( overflowError );
 }
 
 public final TSpecNode specAgg (
