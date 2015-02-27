@@ -261,9 +261,9 @@ declaration-list:
 declaration:
     static_assert-declaration
   | declaration-specifiers-nots[spec] init-declarator-list-notyp_opt[list] ";"
-        { declaration( $spec, $list ); }
+        { declareList( $spec, $list ); }
   | declaration-specifiers-ts[spec]   init-declarator-list_opt[list] ";"
-        { declaration( $spec, $list ); }
+        { declareList( $spec, $list ); }
   ;
 
 rule(<TSpecNode>,declaration-specifiers-nots):

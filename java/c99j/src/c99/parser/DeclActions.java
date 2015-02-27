@@ -1170,7 +1170,7 @@ redeclaration:
   return decl;
 }
 
-public final void declaration ( TSpecNode specNode, TInitDeclaratorList ideclList )
+public final void declareList ( TSpecNode specNode, TInitDeclaratorList ideclList )
 {
   if (ideclList != null && ideclList.size() > 0)
   {
