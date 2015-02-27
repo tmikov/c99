@@ -1289,7 +1289,6 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
 public final TExpr.ArithConstant constantExpression ( ISourceRange loc, TExpr.Expr e )
 {
   e = implicitLoad( e );
-  ExprFormatter.format( 0, new java.io.PrintWriter(System.out), e );
   if (e.isError())
     return null;
 
@@ -1305,7 +1304,6 @@ public final TExpr.ArithConstant constantExpression ( ISourceRange loc, TExpr.Ex
     error( loc, "not an integer constant expression" );
     return null;
   }
-  System.out.format( "Constant %s = %s\n", ev.getResType(), ev.getRes().toString() );
   return new TExpr.ArithConstant( loc, ev.getResType(), ev.getRes() );
 }
 
