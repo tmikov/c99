@@ -159,6 +159,11 @@ public static abstract class Spec
     return this.complete;
   }
 
+  public final void setAlign ( int align )
+  {
+    this.align = align;
+  }
+
   public final void setSizeAlign ( long size, int align )
   {
     this.size = size;
@@ -315,14 +320,23 @@ public static final class PointerSpec extends DerivedSpec
 
 public static final class ArraySpec extends DerivedSpec
 {
-  public long nelem;
+  private long m_nelem;
   public boolean _static;
   public boolean asterisk;
 
   public ArraySpec ( Qual of )
   {
     super( TypeSpec.ARRAY, false, of );
-    this.nelem = -1;
+    this.m_nelem = -1;
+    setAlign( of.spec.alignOf() );
+  }
+
+  public ArraySpec ( Qual of, long nelem, long size )
+  {
+    super( TypeSpec.ARRAY, true, of );
+    assert of.spec.isComplete();
+    this.m_nelem = nelem;
+    setSizeAlign( size, of.spec.alignOf() );
   }
 
   @Override
@@ -337,22 +351,37 @@ public static final class ArraySpec extends DerivedSpec
     return false;
   }
 
+  public final boolean hasNelem ()
+  {
+    return m_nelem >= 0;
+  }
+
+  public final long getNelem ()
+  {
+    assert m_nelem >= 0;
+    return m_nelem;
+  }
+
   @Override public boolean compatible ( Spec o )
   {
     if (!super.compatible( o ))
       return false;
     ArraySpec x = (ArraySpec) o;
-    return this.nelem < 0 || x.nelem < 0 || this.nelem == x.nelem;
+    return this.m_nelem < 0 || x.m_nelem < 0 || this.m_nelem == x.m_nelem;
   }
 
   @Override public final String toString ()
   {
     StringBuilder buf = new StringBuilder();
-    buf.append( "array[ " );
+    buf.append( "array[" );
     if (_static)
       buf.append( "static" );
-    if (nelem >= 0)
-      buf.append( nelem );
+    if (m_nelem >= 0)
+    {
+      if (_static)
+        buf.append(' ');
+      buf.append( m_nelem );
+    }
     if (asterisk)
       buf.append( '*' );
     buf.append( ']' );

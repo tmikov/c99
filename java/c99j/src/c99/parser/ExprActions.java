@@ -1286,7 +1286,7 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
   }
 }
 
-public final TExpr.ArithConstant constantExpression ( CParser.Location loc, TExpr.Expr e )
+public final TExpr.ArithConstant constantExpression ( ISourceRange loc, TExpr.Expr e )
 {
   e = implicitLoad( e );
   ExprFormatter.format( 0, new java.io.PrintWriter(System.out), e );
@@ -1306,10 +1306,10 @@ public final TExpr.ArithConstant constantExpression ( CParser.Location loc, TExp
     return null;
   }
   System.out.format( "Constant %s = %s\n", ev.getResType(), ev.getRes().toString() );
-  return BisonLexer.setLocation( new TExpr.ArithConstant( null, ev.getResType(), ev.getRes() ), loc );
+  return new TExpr.ArithConstant( loc, ev.getResType(), ev.getRes() );
 }
 
-public final TExpr.ArithConstant constantIntegerExpression ( CParser.Location loc, TExpr.Expr e )
+public final TExpr.ArithConstant constantIntegerExpression ( ISourceRange loc, TExpr.Expr e )
 {
   TExpr.ArithConstant res;
   if ( (res = constantExpression( loc, e )) == null)
@@ -1322,6 +1322,11 @@ public final TExpr.ArithConstant constantIntegerExpression ( CParser.Location lo
   }
 
   return res;
+}
+
+public final TExpr.ArithConstant constantIntegerExpression ( CParser.Location loc, TExpr.Expr e )
+{
+  return constantIntegerExpression( BisonLexer.fromLocation(loc), e );
 }
 
 }

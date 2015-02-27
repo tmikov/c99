@@ -626,12 +626,12 @@ public final TDeclarator.Elem pointerDecl ( CParser.Location loc, TSpecNode qual
 
 public final TDeclarator.Elem arrayDecl (
   CParser.Location loc,
-  TSpecNode qualList, CParser.Location _static, CParser.Location asterisk, CParser.Location exprLoc, TExpr.Expr size
+  TSpecNode qualList, CParser.Location _static, CParser.Location asterisk, CParser.Location nelemLoc, TExpr.Expr nelem
 )
 {
-  // FIXME: size
-  TExpr.ArithConstant ac = constantIntegerExpression( exprLoc, size );
-  return new TDeclarator.ArrayElem( loc, qualList, _static, asterisk );
+  return new TDeclarator.ArrayElem(
+    loc, qualList, _static, asterisk, nelemLoc, nelem != null ? implicitLoad(nelem) : null
+  );
 }
 
 public final TIdentList identList ()
@@ -695,7 +695,7 @@ private Qual adjustParamType ( Qual qual )
     ArraySpec arraySpec = (ArraySpec)qual.spec;
     PointerSpec ptrSpec = newPointerSpec( arraySpec.of );
     if (arraySpec._static)
-      ptrSpec.staticSize = arraySpec.nelem;
+      ptrSpec.staticSize = arraySpec.hasNelem() ? arraySpec.getNelem() : -1;
     Qual q = new Qual( ptrSpec );
     q.combine( qual ); // Keep the C99 array qualifiers
 
@@ -802,7 +802,42 @@ private final class TypeChecker implements TDeclarator.Visitor
       return false;
     }
 
-    ArraySpec spec = newArraySpec( elem, this.qual, -1 );
+    long nelem = -1; // -1 indicates no size specified
+
+    if (elem.nelem != null)
+    {
+      if (elem.nelem.isError())
+      {
+        haveError = true;
+        return false;
+      }
+
+      TExpr.ArithConstant c = constantIntegerExpression( elem.nelemLoc, elem.nelem );
+      if (c == null) // not a constant integer?
+      {
+        haveError = true;
+        return false;
+      }
+
+      Constant.IntC ic = (Constant.IntC) c.getValue();
+      if (ic.sign() < 0)
+      {
+        error( elem, "negative array size" );
+        haveError = true;
+        ic = Constant.makeLong( ic.spec, 1 ); // Replace with a normal value to continue error checking
+      }
+
+      if (!ic.fitsInLong())
+      {
+        error( elem, "array size integer overflow" );
+        haveError = true;
+        ic = Constant.makeLong( ic.spec, 1 ); // Replace with a normal value to continue error checking
+      }
+
+      nelem = ic.asLong();
+    }
+
+    ArraySpec spec = newArraySpec( elem, this.qual, nelem );
     if (spec == null) // Should never happen, but we want to obey the function interface
     {
       haveError = true;
@@ -1104,9 +1139,14 @@ redeclaration:
         impDecl.setRange( di );
       impDecl.defined = true;
     }
-    // Complete the array size, if it wasn't provided before
-    if (isArray( impDecl.type ) && ((ArraySpec)impDecl.type.spec).nelem < 0)
-      ((ArraySpec)impDecl.type.spec).nelem = ((ArraySpec)di.type.spec).nelem;
+    // FIXME: WTF?
+    // Complete the declaration, if it wasn't before
+    if (!impDecl.type.spec.isComplete() && di.type.spec.isComplete())
+    {
+      Qual completed = di.type.copy();
+      completed.combine( impDecl.type );
+      impDecl.type = completed;
+    }
 
     if (prevDecl.scope != m_topScope)
     {

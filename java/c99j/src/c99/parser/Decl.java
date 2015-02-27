@@ -23,7 +23,7 @@ public final Scope scope;
 public       SClass sclass;
 public final Linkage linkage;
 public final Symbol symbol;
-public final Qual type;
+public Qual type;
 public Constant.ArithC enumValue; // FIXME
 public boolean defined;
 public boolean error;

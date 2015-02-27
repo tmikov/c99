@@ -1,5 +1,6 @@
 package c99.parser.tree;
 
+import c99.Constant;
 import c99.ISourceRange;
 import c99.SourceRange;
 import c99.parser.*;
@@ -100,19 +101,25 @@ public static final class PointerElem extends Elem
   }
 }
 
-// FIXME: size
 public static final class ArrayElem extends Elem
 {
   public TSpecNode qualList;
   public SourceRange _static;
   public SourceRange asterisk;
+  public SourceRange nelemLoc;
+  public final TExpr.Expr nelem;
 
-  public ArrayElem ( CParser.Location loc, TSpecNode qualList, CParser.Location _static, CParser.Location asterisk )
+  public ArrayElem (
+    CParser.Location loc, TSpecNode qualList, CParser.Location _static, CParser.Location asterisk,
+    CParser.Location nelemLoc, TExpr.Expr nelem
+  )
   {
     super( loc, Code.L_BRACKET );
     this.qualList = qualList;
     this._static = _static == null ? null : BisonLexer.fromLocation( _static );
     this.asterisk = asterisk == null ? null : BisonLexer.fromLocation( asterisk );
+    this.nelemLoc = nelemLoc == null ? null : BisonLexer.fromLocation( nelemLoc );
+    this.nelem = nelem;
   }
 }
 

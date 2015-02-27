@@ -91,30 +91,37 @@ protected final PointerSpec newPointerSpec ( Qual to )
   return new PointerSpec( to, size, align );
 }
 
-protected final ArraySpec newArraySpec ( ISourceRange loc, Qual to, int nelem )
+/**
+ *
+ * @param loc
+ * @param to
+ * @param nelem < 0 means not specified
+ * @return
+ */
+protected final ArraySpec newArraySpec ( ISourceRange loc, Qual to, long nelem )
 {
   assert to.spec.isComplete() && to.spec.sizeOf() >= 0;
 
-  ArraySpec s = new ArraySpec( to );
-  s.nelem = nelem;
-  if (s.nelem >= 0)
+  if (nelem >= 0)
   {
-    long size = (s.nelem * to.spec.sizeOf()) & Long.MAX_VALUE; // note: convert to unsigned
     // Check for int64 overflow
-    if (size < s.nelem || size < to.spec.sizeOf())
+    if (nelem != 0 && to.spec.sizeOf() > (Long.MAX_VALUE / nelem))
     {
-      error( loc, "Array size integer overflow" );
+      error( loc, "array size integer overflow" );
       return null;
     }
+    long size = (nelem * to.spec.sizeOf()) & Long.MAX_VALUE; // note: convert to unsigned
+
     if (size > TypeSpec.SIZE_T.maxValue)
     {
-      error( loc, "Array size doesn't fit in size_t" );
+      error( loc, "array size doesn't fit in size_t" );
       return null;
     }
 
-    s.setSizeAlign( size, to.spec.alignOf() );
+    return new ArraySpec( to, nelem, size );
   }
-  return s;
+  else
+    return new ArraySpec( to );
 }
 } // class
 
