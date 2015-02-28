@@ -47,6 +47,14 @@ public Scope pushScope ( Scope.Kind kind )
   return m_topScope = new Scope( kind, m_topScope );
 }
 
+private final Scope topNonStructScope ()
+{
+  Scope res = m_topScope;
+  while (res.kind == Scope.Kind.AGGREGATE)
+    res = res.getParent();
+  return res;
+}
+
 public final String stringLiteralString ( CParser.Location loc, TStringLiteral lit )
 {
   return Utils.asciiString(lit.value);
@@ -105,6 +113,7 @@ private final Spec referenceAgg ( TSpecAggNode node )
   final Decl tagDecl;
   final TypeSpec tagSpec = node.code == Code.STRUCT ? TypeSpec.STRUCT : TypeSpec.UNION;
   boolean fwdDecl = false;
+  final Scope declScope = topNonStructScope(); // a forward decl would go in this scope
 
   assert node.identTree != null;
   final Symbol ident = node.identTree.ident;
@@ -121,7 +130,7 @@ private final Spec referenceAgg ( TSpecAggNode node )
 
       // Error recovery: return an anonymous tag
       Spec spec = new StructUnionSpec( tagSpec, null );
-      tagDecl = new Decl( node, Decl.Kind.TAG, m_topScope, SClass.NONE, Linkage.NONE,
+      tagDecl = new Decl( node, Decl.Kind.TAG, declScope, SClass.NONE, Linkage.NONE,
                           null, new Qual( spec ), false, true );
       fwdDecl = true;
     }
@@ -131,10 +140,10 @@ private final Spec referenceAgg ( TSpecAggNode node )
     // Forward declaration of tag
     fwdDecl = true;
     Spec spec = new StructUnionSpec( tagSpec, ident );
-    tagDecl = new Decl( node.identTree, Decl.Kind.TAG, m_topScope, SClass.NONE, Linkage.NONE,
+    tagDecl = new Decl( node.identTree, Decl.Kind.TAG, declScope, SClass.NONE, Linkage.NONE,
                         ident, new Qual( spec ), false, false );
-    m_topScope.pushTag( tagDecl );
-    if (m_topScope.kind == Scope.Kind.PARAM)
+    declScope.pushTag( tagDecl );
+    if (declScope.kind == Scope.Kind.PARAM)
       warning( tagDecl, "declaration of '%s' will not be visible outside of the function", spec.readableType() );
   }
 
@@ -149,13 +158,14 @@ private final Spec declareAgg ( TSpecAggNode node )
     return referenceAgg( node );
 
   final TypeSpec tagSpec = node.code == Code.STRUCT ? TypeSpec.STRUCT : TypeSpec.UNION;
+  final Scope declScope = topNonStructScope(); // a forward decl would go in this scope
 
   Decl tagDecl = null;
   Symbol ident = node.identTree.ident;
   boolean haveErr = node.memberScope.error;
 
   // Check for redefinition: it must have been defined in the current scope
-  if (ident != null && ident.topTag != null && ident.topTag.scope == m_topScope)
+  if (ident != null && ident.topTag != null && ident.topTag.scope == declScope)
   {
     if (ident.topTag.type.spec.type == tagSpec)
     {
@@ -189,10 +199,10 @@ private final Spec declareAgg ( TSpecAggNode node )
   if (tagDecl == null) // If not completing a previous forward declaration
   {
     Spec spec = new StructUnionSpec( tagSpec, ident );
-    tagDecl = new Decl( node, Decl.Kind.TAG, m_topScope, SClass.NONE, Linkage.NONE, ident,
+    tagDecl = new Decl( node, Decl.Kind.TAG, declScope, SClass.NONE, Linkage.NONE, ident,
                         new Qual( spec ), true, haveErr );
-    m_topScope.pushTag( tagDecl );
-    if (m_topScope.kind == Scope.Kind.PARAM)
+    declScope.pushTag( tagDecl );
+    if (declScope.kind == Scope.Kind.PARAM)
       warning( rng, "declaration of '%s' will not be visible outside of the function", spec.readableType() );
   }
 
