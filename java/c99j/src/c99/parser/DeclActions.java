@@ -730,6 +730,11 @@ private static boolean isArray ( Qual q )
   return q.spec.type == TypeSpec.ARRAY;
 }
 
+public final TInitDeclarator mkInitDeclarator ( TDeclarator decl, boolean init )
+{
+  return new TInitDeclarator( decl, init );
+}
+
 public final TDeclaration mkDeclaration ( TDeclarator dr, TSpecNode dsNode )
 {
   return new TDeclaration( dr, dsNode, dr );

@@ -303,16 +303,16 @@ rule(<TInitDeclaratorList>,init-declarator-list-notyp,opt):
 // (6.7)
 rule(<TInitDeclarator>,init-declarator):
     declarator[decl] asm-label_opt
-        { $$ = new TInitDeclarator($decl,false); }
+        { $$ = mkInitDeclarator($decl,false); }
   | declarator[decl] asm-label_opt "=" initializer
-        { $$ = new TInitDeclarator($decl,true); }
+        { $$ = mkInitDeclarator($decl,true); }
   ;
 
 rule(<TInitDeclarator>,init-declarator-notyp):
     declarator-notyp[decl] asm-label_opt
-        { $$ = new TInitDeclarator($decl,false); }
+        { $$ = mkInitDeclarator($decl,false); }
   | declarator-notyp[decl] asm-label_opt "=" initializer
-        { $$ = new TInitDeclarator($decl,true); }
+        { $$ = mkInitDeclarator($decl,true); }
   ;
 
 rule(,asm-label,optn):
@@ -439,12 +439,12 @@ rule(<TInitDeclaratorList>,struct-declarator-list-notyp,opt):
 
 // (6.7.2.1)
 rule(<TInitDeclarator>,struct-declarator):
-    declarator[decl]                        { $$ = new TInitDeclarator($decl,false); }
+    declarator[decl]                        { $$ = mkInitDeclarator($decl,false); }
   | declarator_opt ":" constant-expression  { FIXME(); }
   ;
 
 rule(<TInitDeclarator>,struct-declarator-notyp):
-    declarator-notyp[decl]                  { $$ = new TInitDeclarator($decl,false); }
+    declarator-notyp[decl]                  { $$ = mkInitDeclarator($decl,false); }
   | declarator-notyp_opt ":" constant-expression  { FIXME(); }
   ;
 
