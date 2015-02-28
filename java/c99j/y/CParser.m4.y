@@ -409,8 +409,10 @@ struct-declaration-list:
 // (6.7.2.1)
 struct-declaration:
     static_assert-declaration
-  | declaration-specifiers-nots struct-declarator-list-notyp_opt ";"
-  | declaration-specifiers-ts   struct-declarator-list_opt ";"
+  | declaration-specifiers-nots[spec] struct-declarator-list-notyp_opt[list] ";"
+        { declareList( $spec, $list ); }
+  | declaration-specifiers-ts[spec]   struct-declarator-list_opt[list] ";"
+        { declareList( $spec, $list ); }
   ;
 
 // (6.7.2.1)
@@ -425,24 +427,24 @@ rule(<TSpecNode>,specifier-or-qualifier):
   ;
 
 // (6.7.2.1)
-rule(,struct-declarator-list,optn):
-    struct-declarator
-  | struct-declarator-list "," _PUSH0 struct-declarator
+rule(<TInitDeclaratorList>,struct-declarator-list,opt):
+    struct-declarator[decl]                                    { $$ = initDeclaratorList(null,$decl); }
+  | struct-declarator-list[list] "," struct-declarator[decl]   { $$ = initDeclaratorList($list,$decl); }
   ;
 
-rule(,struct-declarator-list-notyp,optn):
-    struct-declarator-notyp
-  | struct-declarator-list-notyp "," _PUSH0 struct-declarator
+rule(<TInitDeclaratorList>,struct-declarator-list-notyp,opt):
+    struct-declarator-notyp[decl]                              { $$ = initDeclaratorList(null,$decl); }
+  | struct-declarator-list-notyp[list] "," struct-declarator[decl] { $$ = initDeclaratorList($list,$decl); }
   ;
 
 // (6.7.2.1)
-struct-declarator:
-    declarator[decl]                        { declare(mkDeclaration($decl,$<TSpecNode>0),false); }
+rule(<TInitDeclarator>,struct-declarator):
+    declarator[decl]                        { $$ = new TInitDeclarator($decl,false); }
   | declarator_opt ":" constant-expression  { FIXME(); }
   ;
 
-struct-declarator-notyp:
-    declarator-notyp[decl]                  { declare(mkDeclaration($decl,$<TSpecNode>0),false); }
+rule(<TInitDeclarator>,struct-declarator-notyp):
+    declarator-notyp[decl]                  { $$ = new TInitDeclarator($decl,false); }
   | declarator-notyp_opt ":" constant-expression  { FIXME(); }
   ;
 
