@@ -799,7 +799,7 @@ private final class TypeChecker implements TDeclarator.Visitor
     {
       error( elem, "array of functions" );
       haveError = true;
-      this.qual = s_errorQual;
+      return false;
     }
     else if (!qual.spec.isComplete())
     {
