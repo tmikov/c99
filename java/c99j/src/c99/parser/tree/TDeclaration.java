@@ -7,7 +7,8 @@ import c99.parser.*;
 
 /**
  * We need to accumulate parameter declarations because of reduce/reduce conflicts
- * in the grammar otherwise
+ * in the grammar. That where we store each declaration. Then, for consistency,
+ * we use the same object for all declarations, even if we consume it immediately.
  */
 public final class TDeclaration extends SourceRange
 {

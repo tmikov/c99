@@ -1,11 +1,8 @@
 package c99.parser.tree;
 
-import c99.Constant;
 import c99.ISourceRange;
 import c99.SourceRange;
 import c99.parser.*;
-
-import java.util.ArrayList;
 
 /**
  * Created by tmikov on 1/5/15.
@@ -125,13 +122,13 @@ public static final class ArrayElem extends Elem
 
 public static final class FuncElem extends Elem
 {
-  public final TDeclList declList;
+  public final Scope paramScope;
   public final TIdentList identList;
 
-  public FuncElem ( CParser.Location loc, TDeclList declList, TIdentList identList )
+  public FuncElem ( CParser.Location loc, Scope paramScope, TIdentList identList )
   {
     super( loc, Code.L_PAREN );
-    this.declList = declList;
+    this.paramScope = paramScope;
     this.identList = identList;
   }
 }

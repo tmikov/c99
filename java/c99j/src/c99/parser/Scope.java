@@ -11,6 +11,7 @@ public final Kind kind;
 private final Scope m_parent;
 private final LinkedList<Decl> m_decls = new LinkedList<Decl>();
 private final LinkedList<Decl> m_tags = new LinkedList<Decl>();
+private boolean m_ellipsis;
 
 boolean error;
 
@@ -78,4 +79,15 @@ public final Collection<Decl> decls ()
   return m_decls;
 }
 
+public boolean getEllipsis ()
+{
+  assert this.kind == Kind.PARAM;
+  return m_ellipsis;
+}
+
+public void setEllipsis ()
+{
+  assert this.kind == Kind.PARAM;
+  m_ellipsis = true;
+}
 }

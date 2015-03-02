@@ -213,11 +213,11 @@ function-definition:
         { popScope($PushParamScope); FIXME(); }
   ;
 
-rule(<Ast>,specified-declarator-func):
+specified-declarator-func:
     declaration-specifiers-nots[ds] declarator-func-notyp[decl]
-        { $$ = declare(mkDeclaration($decl,$ds),true); }
+        { finishDeclarator($ds,$decl,true); }
   | declaration-specifiers-ts[ds]   declarator-func[decl]
-        { $$ = declare(mkDeclaration($decl,$ds),true); }
+        { finishDeclarator($ds,$decl,true); }
   ;
 
 // (6.9.1)
@@ -260,10 +260,8 @@ declaration-list:
 
 declaration:
     static_assert-declaration
-  | declaration-specifiers-nots[spec] init-declarator-list-notyp_opt[list] ";"
-        { declareList( $spec, $list ); }
-  | declaration-specifiers-ts[spec]   init-declarator-list_opt[list] ";"
-        { declareList( $spec, $list ); }
+  | declaration-specifiers-nots init-declarator-list-notyp_opt ";"
+  | declaration-specifiers-ts   init-declarator-list_opt ";"
   ;
 
 rule(<TSpecNode>,declaration-specifiers-nots):
@@ -290,29 +288,39 @@ rule(<TSpecNode>,specifier-nots):
   ;
 
 // (6.7)
-rule(<TInitDeclaratorList>,init-declarator-list,opt):
-    init-declarator[idecl]                                { $$ = initDeclaratorList(null,$idecl); }
-  | init-declarator-list[list] "," init-declarator[idecl] { $$ = initDeclaratorList($list,$idecl); }
+init-declarator-list_opt:
+    %empty                  { emptyDeclaration($<TSpecNode>0); }
+  | init-declarator-list
+  ;
+init-declarator-list:
+    init-declarator
+  | init-declarator-list "," _PUSH0 init-declarator
   ;
 
-rule(<TInitDeclaratorList>,init-declarator-list-notyp,opt):
-    init-declarator-notyp[idecl]                                { $$ = initDeclaratorList(null,$idecl); }
-  | init-declarator-list-notyp[list] "," init-declarator[idecl] { $$ = initDeclaratorList($list,$idecl); }
+init-declarator-list-notyp_opt:
+    %empty                  { emptyDeclaration($<TSpecNode>0); }
+  | init-declarator-list-notyp
+  ;
+init-declarator-list-notyp:
+    init-declarator-notyp
+  | init-declarator-list-notyp "," _PUSH0 init-declarator
   ;
 
 // (6.7)
-rule(<TInitDeclarator>,init-declarator):
+init-declarator:
     declarator[decl] asm-label_opt
-        { $$ = mkInitDeclarator($decl,false); }
-  | declarator[decl] asm-label_opt "=" initializer
-        { $$ = mkInitDeclarator($decl,true); }
+        { finishDeclarator( $<TSpecNode>0, $decl, false ); }
+  | declarator[decl] asm-label_opt "="
+        { finishDeclarator( $<TSpecNode>0, $decl, true ); }
+        initializer
   ;
 
-rule(<TInitDeclarator>,init-declarator-notyp):
+init-declarator-notyp:
     declarator-notyp[decl] asm-label_opt
-        { $$ = mkInitDeclarator($decl,false); }
-  | declarator-notyp[decl] asm-label_opt "=" initializer
-        { $$ = mkInitDeclarator($decl,true); }
+        { finishDeclarator( $<TSpecNode>0, $decl, false ); }
+  | declarator-notyp[decl] asm-label_opt "="
+        { finishDeclarator( $<TSpecNode>0, $decl, true ); }
+        initializer
   ;
 
 rule(,asm-label,optn):
@@ -409,10 +417,8 @@ struct-declaration-list:
 // (6.7.2.1)
 struct-declaration:
     static_assert-declaration
-  | declaration-specifiers-nots[spec] struct-declarator-list-notyp_opt[list] ";"
-        { declareList( $spec, $list ); }
-  | declaration-specifiers-ts[spec]   struct-declarator-list_opt[list] ";"
-        { declareList( $spec, $list ); }
+  | declaration-specifiers-nots struct-declarator-list-notyp_opt ";"
+  | declaration-specifiers-ts   struct-declarator-list_opt ";"
   ;
 
 // (6.7.2.1)
@@ -427,24 +433,32 @@ rule(<TSpecNode>,specifier-or-qualifier):
   ;
 
 // (6.7.2.1)
-rule(<TInitDeclaratorList>,struct-declarator-list,opt):
-    struct-declarator[decl]                                    { $$ = initDeclaratorList(null,$decl); }
-  | struct-declarator-list[list] "," struct-declarator[decl]   { $$ = initDeclaratorList($list,$decl); }
+struct-declarator-list_opt:
+    %empty { emptyDeclaration( $<TSpecNode>0 ); }
+  | struct-declarator-list
+  ;
+struct-declarator-list:
+    struct-declarator
+  | struct-declarator-list "," _PUSH0 struct-declarator
   ;
 
-rule(<TInitDeclaratorList>,struct-declarator-list-notyp,opt):
-    struct-declarator-notyp[decl]                              { $$ = initDeclaratorList(null,$decl); }
-  | struct-declarator-list-notyp[list] "," struct-declarator[decl] { $$ = initDeclaratorList($list,$decl); }
+struct-declarator-list-notyp_opt:
+    %empty { emptyDeclaration( $<TSpecNode>0 ); }
+  | struct-declarator-list-notyp
+  ;
+struct-declarator-list-notyp:
+    struct-declarator-notyp
+  | struct-declarator-list-notyp "," _PUSH0 struct-declarator
   ;
 
 // (6.7.2.1)
-rule(<TInitDeclarator>,struct-declarator):
-    declarator[decl]                        { $$ = mkInitDeclarator($decl,false); }
+struct-declarator:
+    declarator[decl]                        { finishDeclarator($<TSpecNode>0,$decl,false); }
   | declarator_opt ":" constant-expression  { FIXME(); }
   ;
 
-rule(<TInitDeclarator>,struct-declarator-notyp):
-    declarator-notyp[decl]                  { $$ = mkInitDeclarator($decl,false); }
+struct-declarator-notyp:
+    declarator-notyp[decl]                  { finishDeclarator($<TSpecNode>0,$decl,false); }
   | declarator-notyp_opt ":" constant-expression  { FIXME(); }
   ;
 
@@ -656,10 +670,11 @@ rule(<TDeclarator.Elem>,elem-func):
   ;
 
 rule(<TDeclarator.Elem>,oldfunc-decl):
-    "(" identifier-list_opt ")" { $$ = oldFuncDecl(@$, $[identifier-list_opt]); }
+    "(" PushParamScope identifier-list_opt ")"
+        { popScope($PushParamScope); $$ = oldFuncDecl(@$, $[identifier-list_opt]); }
   ;
 rule(<TDeclarator.Elem>,newfunc-decl):
-    "(" parameter-type-list ")" { $$ = funcDecl(@$, $[parameter-type-list]); }
+    "(" PushParamScope parameter-type-list ")" { $$ = funcDecl(@$, popScope($PushParamScope)); }
   ;
 
 // (6.7.6)
@@ -675,35 +690,27 @@ rule(<TSpecNode>,type-qualifier-list,opt):
   ;
 
 // (6.7.6)
-rule(<TDeclList>,parameter-type-list):
+parameter-type-list:
     parameter-list
-  | parameter-list "," "..."            { $$ = $[parameter-list].setEllipsis(); }
+  | parameter-list "," "..."            { topScope().setEllipsis(); }
   ;
 
 // (6.7.6)
-rule(<TDeclList>,parameter-list):
-    parameter-declaration                           { $$ = declList(null,$[parameter-declaration]); }
-  | parameter-list[left] "," parameter-declaration  { $$ = declList($left,$[parameter-declaration]); }
+parameter-list:
+    parameter-declaration
+  | parameter-list "," parameter-declaration
   ;
 
 // (6.7.6)
-rule(<TDeclaration>,parameter-declaration):
-    declaration-specifiers-nots pointer direct-declarator-prm
-        { $$ = mkDeclaration($[direct-declarator-prm].append($pointer), $[declaration-specifiers-nots]); }
-  | declaration-specifiers-ts   pointer direct-declarator-prm
-        { $$ = mkDeclaration($[direct-declarator-prm].append($pointer), $[declaration-specifiers-ts]); }
-  | declaration-specifiers-nots         direct-declarator-prmnotyp
-        { $$ = mkDeclaration($[direct-declarator-prmnotyp], $[declaration-specifiers-nots]); }
-  | declaration-specifiers-ts           direct-declarator-prm
-        { $$ = mkDeclaration($[direct-declarator-prm], $[declaration-specifiers-ts]); }
-  | declaration-specifiers-nots pointer direct-abstract-declarator_opt
-        { $$ = mkDeclaration($[direct-abstract-declarator_opt].append($pointer), $[declaration-specifiers-nots]); }
-  | declaration-specifiers-ts   pointer direct-abstract-declarator_opt
-        { $$ = mkDeclaration($[direct-abstract-declarator_opt].append($pointer), $[declaration-specifiers-ts]); }
-  | declaration-specifiers-nots         direct-abstract-declarator_opt
-        { $$ = mkDeclaration($[direct-abstract-declarator_opt], $[declaration-specifiers-nots]); }
-  | declaration-specifiers-ts           direct-abstract-declarator_opt
-        { $$ = mkDeclaration($[direct-abstract-declarator_opt], $[declaration-specifiers-ts]); }
+parameter-declaration:
+    declaration-specifiers-nots[spec] pointer direct-declarator-prm[decl]          { finishDeclarator($spec,$decl.append($pointer)); }
+  | declaration-specifiers-ts[spec]   pointer direct-declarator-prm[decl]          { finishDeclarator($spec,$decl.append($pointer)); }
+  | declaration-specifiers-nots[spec]         direct-declarator-prmnotyp[decl]     { finishDeclarator($spec,$decl); }
+  | declaration-specifiers-ts[spec]           direct-declarator-prm[decl]          { finishDeclarator($spec,$decl); }
+  | declaration-specifiers-nots[spec] pointer direct-abstract-declarator_opt[decl] { finishDeclarator($spec,$decl.append($pointer)); }
+  | declaration-specifiers-ts[spec]   pointer direct-abstract-declarator_opt[decl] { finishDeclarator($spec,$decl.append($pointer)); }
+  | declaration-specifiers-nots[spec]         direct-abstract-declarator_opt[decl] { finishDeclarator($spec,$decl); }
+  | declaration-specifiers-ts[spec]           direct-abstract-declarator_opt[decl] { finishDeclarator($spec,$decl); }
   ;
 
 /*
