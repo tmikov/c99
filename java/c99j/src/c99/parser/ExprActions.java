@@ -1139,7 +1139,7 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
   }
 
   /** Subtract two pointers resulting in a ptrdiff_t */
-  private final void performPointerSub (
+  private final boolean performPointerSub (
     Constant.ArithC resc, TExpr.Expr left, Constant.ArithC lc, TExpr.Expr right, Constant.ArithC rc
   )
   {
@@ -1147,6 +1147,9 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
     assert ptrTo.isComplete();
     // Both pointers are constants stored as uintptr_t
     assert lc.spec == TypeSpec.UINTPTR_T && rc.spec == TypeSpec.UINTPTR_T;
+
+    if (ptrTo.sizeOf() == 0)
+      return false;
 
     // Subtract the pointers
     Constant.IntC tmp = Constant.newIntConstant( lc.spec );
@@ -1160,6 +1163,7 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
 
     // Convert to the final type
     resc.castFrom( tmp );
+    return true;
   }
 
   @Override public boolean visitBinary ( TExpr.Binary e )
@@ -1230,7 +1234,11 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
       if (e.getRight().getQual().spec.type == TypeSpec.POINTER) // pointer - pointer?
       {
         assert e.getLeft().getQual().spec.type == TypeSpec.POINTER;
-        performPointerSub( c, e.getLeft(), lc, e.getRight(), rc );
+        if (!performPointerSub( c, e.getLeft(), lc, e.getRight(), rc ))
+        {
+          warning( e, "division by zero in pointer subtraction" );
+          return retError( e );
+        }
       }
       else if (e.getLeft().getQual().spec.type == TypeSpec.POINTER) // pointer - int?
         performPointerAdd( c, e.getLeft(), lc, e.getRight(), rc, false );
