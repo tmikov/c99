@@ -1027,7 +1027,7 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
     case DOT_MEMBER:
     case PTR_MEMBER:
       Constant.IntC c = Constant.newIntConstant( TypeSpec.UINTPTR_T );
-      c.add( Constant.convert( c.spec, m_res ), Constant.makeLong( c.spec, e.getMember().offset ) );
+      c.add( Constant.convert( c.spec, m_res ), Constant.makeLong( c.spec, e.getMember().getOffset() ) );
       return retResult( c, stdQual(c.spec) );
     default:
       assert false;
@@ -1294,45 +1294,34 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
   }
 }
 
+private final TExpr.ArithConstant errorVal ( ISourceRange loc )
+{
+  return new TExpr.ArithConstant( loc, s_errorQual, Constant.makeLong( TypeSpec.SINT, 0 ) );
+}
+
 public final TExpr.ArithConstant constantExpression ( ISourceRange loc, TExpr.Expr e )
 {
   e = implicitLoad( e );
   if (e.isError())
-    return null;
+    return errorVal( loc );
 
   IntConstEvaluator ev = new IntConstEvaluator();
   if (!e.visit( ev ))
   {
     error( ev.getErrorNode(), "not a constant expression" );
-    return null;
+    return errorVal( loc );
   }
-  // TODO: use the entire expression source range for the result
   if (!ev.getResType().spec.type.integer)
   {
     error( loc, "not an integer constant expression" );
-    return null;
+    return errorVal( loc );
   }
   return new TExpr.ArithConstant( loc, ev.getResType(), ev.getRes() );
 }
 
-public final TExpr.ArithConstant constantIntegerExpression ( ISourceRange loc, TExpr.Expr e )
+public final TExpr.ArithConstant constantExpression ( CParser.Location loc, TExpr.Expr e )
 {
-  TExpr.ArithConstant res;
-  if ( (res = constantExpression( loc, e )) == null)
-    return null;
-
-  if (!res.getQual().spec.type.integer)
-  {
-    error( loc, "not an integer constant expression" );
-    return null;
-  }
-
-  return res;
-}
-
-public final TExpr.ArithConstant constantIntegerExpression ( CParser.Location loc, TExpr.Expr e )
-{
-  return constantIntegerExpression( BisonLexer.fromLocation(loc), e );
+  return constantExpression( BisonLexer.fromLocation(loc), e );
 }
 
 }

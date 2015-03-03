@@ -454,19 +454,19 @@ struct-declarator-list-notyp:
 // (6.7.2.1)
 struct-declarator:
     declarator[decl]                        { finishDeclarator($<TSpecNode>0,$decl,false); }
-  | declarator_opt ":" constant-expression  { FIXME(); }
+  | declarator_opt[decl] ":" constant-expression[w]  { finishBitfield($<TSpecNode>0,$decl,@w,$w); }
   ;
 
 struct-declarator-notyp:
     declarator-notyp[decl]                  { finishDeclarator($<TSpecNode>0,$decl,false); }
-  | declarator-notyp_opt ":" constant-expression  { FIXME(); }
+  | declarator-notyp_opt[decl] ":" constant-expression[w]  { finishBitfield($<TSpecNode>0,$decl,@w,$w); }
   ;
 
 // (6.7.2.2)
 rule(<TSpecNode>,enum-specifier):
     ENUM any-identifier_opt "{" enumerator-list "}"             { FIXME(); }
   | ENUM any-identifier_opt "{" enumerator-list "," "}"         { FIXME(); }
-  | ENUM any-identifier                                         { FIXME(); }  
+  | ENUM any-identifier                                         { FIXME(); }
   ;
 
 // (6.7.2.2)
@@ -1148,7 +1148,7 @@ rule(<TExpr.Expr>,expression,opt):
 
 // (6.6)
 rule(<TExpr.ArithConstant>,constant-expression):
-    conditional-expression { $$ = constantIntegerExpression( @1, $1 ); }
+    conditional-expression[e] { $$ = constantExpression(@e,$e); }
   ;
 
 end_grammar

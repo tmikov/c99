@@ -1,6 +1,5 @@
 package c99.parser;
 
-import java.sql.Struct;
 import java.util.Collection;
 
 import c99.*;
@@ -225,73 +224,146 @@ private final StructUnionSpec declareAgg (
   int i = 0;
   for ( Decl d : decls )
   {
-    fields[i++] = new Member( d, d.symbol, d.type );
+    fields[i++] = new Member( d, d.symbol, d.type, d.bitfieldWidth );
     haveErr |= d.error;
   }
 
   spec.orError( haveErr );
   spec.setFields( fields );
-  calcAggSize( spec );
+  calcAggSize( tagDecl, spec );
 
   return spec;
 }
+
+private static final class OverflowException extends Exception
+{
+  public OverflowException ( String message )
+  {
+    super( message );
+  }
+}
+
+private final long sizeAdd ( long size, long inc ) throws OverflowException
+{
+  assert size >= 0 && inc >= 0;
+  long nsize = size + inc;
+  if (nsize < size)
+    throw new OverflowException( "size integer overflow" );
+  if (nsize > TypeSpec.SIZE_T.maxValue)
+    throw new OverflowException( "size exceeds size_t range" );
+  return nsize;
+}
+
+private static final boolean DEBUG_CALC_AGG_SIZE = false;
 
 /**
  * Calculathe struct/union size and alignment and assign field offsets
  * @param spec
  */
-private final void calcAggSize ( StructUnionSpec spec )
+private final void calcAggSize ( ISourceRange loc, StructUnionSpec spec )
 {
-  assert spec.isComplete();
-
   if (spec.isError())
     return;
 
+  assert spec.isComplete();
+
   long size = 0;
+  /** bits available in the last consumed byte of 'size' */
+  int bitsAvail = 0;
   int align = 1;
-  boolean overflowError = false;
+  Member curField = null; // We use that for tracking which field threw
 
-  if (spec.type == TypeSpec.STRUCT)
+  try
   {
-    for ( Member field : spec.getFields() )
+    if (spec.type == TypeSpec.STRUCT)
     {
-      int falign = field.type.spec.alignOf();
-      align = Math.max( falign, align );
-      size = (size + falign-1) & ~(falign-1);
-      field.offset = size;
-
-      if (!overflowError)
+      for ( Member field : spec.getFields() )
       {
-        long nsize = size + field.type.spec.sizeOf();
-        if (nsize < size)
+        curField = field; // record the current field in case we throw an exception
+
+        int falign = field.type.spec.alignOf();
+        align = Math.max( falign, align ); // Update the whole struct alignment
+
+        // Offset of the next suitably aligned storage unit
+        long noffset = sizeAdd( size, falign - 1 ) & ~((long)falign-1);
+
+        if (!field.isBitField())
         {
-          overflowError = true;
-          error( field, "Object size integer overflow" );
-        }
-        else if (nsize > TypeSpec.SIZE_T.maxValue)
-        {
-          overflowError = true;
-          error( field, "Object size doesn't fit in size_t" );
+          bitsAvail = 0;
+          field.setOffset( noffset );
+          size = sizeAdd( size, field.type.spec.sizeOf() );
         }
         else
-          size = nsize;
+        {
+          // Combining a bit-field with previous fields, which may or may not be bit-fields themselves.
+          // The rules are subtle. The field must be accessible through a storage unit with the alignment
+          // of the bit-field's base type
+
+          int consumedBits; // the number of consumed bits relative to noffset
+
+          // Calculate the number of bits available between the current position and 'noffset'
+          final int bits = (int)(noffset - size)*TypeSpec.UCHAR.width + bitsAvail;
+
+          if (field.getBitFieldWidth() <= bits) // Can we pack this field in the 'hole'?
+          {
+            noffset -= field.type.spec.sizeOf();
+            consumedBits = (int)(size - noffset) * TypeSpec.UCHAR.width - bitsAvail;
+          }
+          else // Allocate a new storage unit
+            consumedBits = 0;
+
+          field.setOffset( noffset );
+          field.setBitOffset( m_plat.memoryBitOffset( field.type.spec.type, consumedBits, field.getBitFieldWidth() ) );
+          // Note that we handle the special case of "type :0;" here
+          consumedBits += field.getBitFieldWidth() != 0 ? field.getBitFieldWidth() : bits;
+          size = sizeAdd( noffset, (consumedBits + TypeSpec.UCHAR.width - 1)/TypeSpec.UCHAR.width );
+          bitsAvail = (TypeSpec.UCHAR.width - consumedBits % TypeSpec.UCHAR.width) % TypeSpec.UCHAR.width;
+        }
+
+        if (DEBUG_CALC_AGG_SIZE)
+        {
+          System.out.format( "[%d]", field.getOffset() );
+          if (field.isBitField())
+            System.out.format( " bitfield [%d:%d]", field.getBitOffset(), field.getBitFieldWidth() );
+          System.out.format( " size %d align %d: field %s:%s",
+                  field.type.spec.sizeOf(), field.type.spec.alignOf(),
+                  field.name != null ? field.name.name : "<anon>",
+                  field.type.readableType() );
+          System.out.println();
+        }
       }
     }
-  }
-  else
-  {
-    assert spec.type == TypeSpec.UNION;
-    for ( Member field : spec.getFields() )
+    else
     {
-      field.offset = 0;
-      align = Math.max( field.type.spec.alignOf(), align );
-      size = Math.max( field.type.spec.sizeOf(), size );
+      assert spec.type == TypeSpec.UNION;
+      for ( Member field : spec.getFields() )
+      {
+        field.setOffset( 0 );
+        align = Math.max( field.type.spec.alignOf(), align );
+        size = Math.max( field.type.spec.sizeOf(), size );
+      }
     }
-  }
 
-  size = (size + align-1) & ~(align-1);
+    curField = null;
+    size = sizeAdd( size, align - 1 ) & ~(align-1);
+  }
+  catch (OverflowException e)
+  {
+    spec.orError( true );
+    if (curField != null)
+    {
+      error( curField, "'%s' field '%s': %s",
+              spec.readableType(), curField.name != null ? curField.name.name : "<anonymous>", e.getMessage() );
+    }
+    else
+      error( loc, "'%s' %s", spec.readableType(), e.getMessage() );
+  }
   spec.setSizeAlign( size, align );
-  spec.orError( overflowError );
+  if (DEBUG_CALC_AGG_SIZE)
+  {
+    System.out.format( "'%s' size %d align %d", spec.readableType(), spec.sizeOf(), spec.alignOf() );
+    System.out.println();
+  }
 }
 
 public final TSpecNode specAgg (
@@ -662,10 +734,10 @@ public final TIdentList identListAdd (
   CParser.Location loc, TIdentList list, Symbol sym
 )
 {
-  Member m;
+  Types.Param m;
   if ( (m = list.get( sym )) == null)
   {
-    m = new Member( null, sym, null );
+    m = new Types.Param( null, sym, null );
     BisonLexer.setLocation( m, loc );
     list.put( sym, m );
   }
@@ -782,12 +854,9 @@ private final class TypeChecker implements TDeclarator.Visitor
         return false;
       }
 
-      TExpr.ArithConstant c = constantIntegerExpression( elem.nelemLoc, elem.nelem );
-      if (c == null) // not a constant integer?
-      {
+      TExpr.ArithConstant c = constantExpression( elem.nelemLoc, elem.nelem );
+      if (c.isError()) // not a constant integer?
         haveError = true;
-        return false;
-      }
 
       Constant.IntC ic = (Constant.IntC) c.getValue();
       if (ic.sign() < 0)
@@ -853,10 +922,10 @@ private final class TypeChecker implements TDeclarator.Visitor
       if (elem.paramScope.getEllipsis())
         FIXME( "implement ellipsis" );
       Collection<Decl> decls = elem.paramScope.decls();
-      spec.params = new Member[decls.size()];
+      spec.params = new Param[decls.size()];
       int i = 0;
       for ( Decl d : decls )
-        spec.params[i++] = new Member( d, d.symbol, d.type ); // FIXME: coordinates
+        spec.params[i++] = new Param( d, d.symbol, d.type ); // FIXME: coordinates
     }
     else // old-style function
     {
@@ -864,9 +933,9 @@ private final class TypeChecker implements TDeclarator.Visitor
         spec.params = new Member[0];
       else
       {
-        spec.params = new Member[elem.identList.size()];
+        spec.params = new Param[elem.identList.size()];
         int i = 0;
-        for ( Member m : elem.identList.values() )
+        for ( Param m : elem.identList.values() )
           spec.params[i++] = m; // FIXME: coordinates
       }
     }
@@ -1165,6 +1234,75 @@ public final void finishDeclarator ( TSpecNode specNode, TDeclarator declarator,
 public final void finishDeclarator ( TSpecNode specNode, TDeclarator declarator )
 {
   finishDeclarator( specNode, declarator, false );
+}
+
+/** A width to use for bit-fields in case of error */
+private final Constant.IntC m_errBitFieldWidth = Constant.makeLong( TypeSpec.SINT, 1 );
+
+public final void finishBitfield (
+  TSpecNode specNode, TDeclarator declarator, CParser.Location widthLoc, TExpr.ArithConstant width
+)
+{
+  TDeclaration tDecl = mkDeclaration( declarator, specNode );
+  Decl decl = declare( tDecl, false );
+
+  Constant.IntC ic;
+  if (width.isError())
+  {
+    decl.error = true;
+    ic = m_errBitFieldWidth;
+  }
+  else
+    ic = (Constant.IntC)width.getValue();
+
+  final String fieldName = decl.symbol != null ? decl.symbol.name : "<anonymous>";
+
+  if (ic.sign() < 0)
+  {
+    error( widthLoc, "negative bit-field width for field '%s'", fieldName );
+    decl.error = true;
+    ic = m_errBitFieldWidth;
+  }
+
+  if (decl.error)
+    return;
+
+  if (!decl.type.spec.type.integer)
+  {
+    error( decl, "'%s': invalid type of bit-field '%s'. Must be integer", decl.type.readableType(), fieldName );
+    decl.error = true;
+    return;
+  }
+
+  if (ic.isZero())
+  {
+    if (decl.symbol != null)
+    {
+      error( decl, "zero-width bit-field '%s' must be anonymous", fieldName );
+      decl.error = true;
+      ic = m_errBitFieldWidth;
+    }
+  }
+  else
+  {
+    if (!ic.fitsInLong())
+    {
+      error( widthLoc, "bit-field '%s' width integer overflow", fieldName );
+      decl.error = true;
+      ic = m_errBitFieldWidth;
+    }
+    else
+    if (ic.asLong() > decl.type.spec.type.width)
+    {
+      error( widthLoc, "width of bit-field '%s' (%d bits) exceeds width of its type (%d bits)",
+              fieldName, ic.asLong(), decl.type.spec.type.width );
+      decl.error = true;
+      ic = m_errBitFieldWidth;
+    }
+  }
+
+  assert ic.fitsInLong();
+  decl.bitfieldWidth = (int)ic.asLong();
 }
 
 public final void emptyDeclaration ( TSpecNode specNode )

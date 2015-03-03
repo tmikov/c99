@@ -581,17 +581,56 @@ public static class Param extends SourceRange
 
 public static class Member extends Param
 {
-  public long offset;
-  public int bitFieldWidth;
+  private long m_offset;
+  /** -1 means not a bit-field */
+  private final int m_bitFieldWidth;
+  /** bit offset within the base-type sized unit, if a bit-field */
+  private int m_bitOffset;
 
-  public Member ( final ISourceRange rng, final Ident name, final Qual type )
+  /**
+   *
+   * @param rng
+   * @param name
+   * @param type
+   * @param bitFieldWidth -1 means not a bit-field
+   */
+  public Member ( final ISourceRange rng, final Ident name, final Qual type, final int bitFieldWidth )
   {
     super(rng, name, type);
+    m_bitFieldWidth = bitFieldWidth;
+  }
+
+  public final long getOffset ()
+  {
+    return m_offset;
+  }
+  public final void setOffset ( long offset )
+  {
+    m_offset = offset;
   }
 
   public final boolean isBitField ()
   {
-    return bitFieldWidth > 0;
+    return m_bitFieldWidth >= 0;
+  }
+
+  public final int getBitFieldWidth ()
+  {
+    assert isBitField();
+    return m_bitFieldWidth;
+  }
+
+  public final int getBitOffset ()
+  {
+    assert isBitField();
+    return m_bitOffset;
+  }
+
+  public final void setBitOffset ( int bitOffset )
+  {
+    assert isBitField();
+    assert bitOffset >= 0 && bitOffset+m_bitFieldWidth <= type.spec.type.width;
+    m_bitOffset = bitOffset;
   }
 }
 

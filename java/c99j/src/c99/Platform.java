@@ -8,6 +8,8 @@ public class Platform
 {
 private final CompEnv m_env;
 
+public static final boolean LITTLE_ENDIAN = true;
+
 public static final int CHAR_BITS = 8;
 public static final int SHORT_BITS = 16;
 public static final int INT_BITS = 16;
@@ -216,6 +218,24 @@ public TypeSpec pointerUIntType ( Types.PointerSpec ptr )
 public int alignment ( int size )
 {
   return Math.min(size, m_env.opts.maxAlign);
+}
+
+// Convert the bit offset so it matches the storage layout.
+
+/**
+ * Convert a bit-offset in a bit-field storage unit to a number matching the
+ * storage layout so that incrementing bit offsets are stored in incrementing
+ * memory addresses.
+ * @param baseType
+ * @param offset
+ * @return
+ */
+public int memoryBitOffset ( TypeSpec baseType, int bitOffset, int bitWidth )
+{
+  if (LITTLE_ENDIAN)
+    return bitOffset;
+  else // big endian
+    return baseType.width - bitOffset - bitWidth;
 }
 
 } // class
