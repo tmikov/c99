@@ -108,7 +108,7 @@ public final TSpecNode specTypename ( CParser.Location loc, Decl decl )
   return BisonLexer.setLocation( new TSpecDeclNode( null, Code.TYPENAME, decl ), loc );
 }
 
-private final StructUnionSpec referenceAgg (
+public final TSpecNode referenceAgg (
   final CParser.Location loc, final Code code, final CParser.Location identLoc, final Symbol ident
 )
 {
@@ -152,21 +152,18 @@ private final StructUnionSpec referenceAgg (
       warning( tagDecl, "declaration of '%s' will not be visible outside of the function", spec.readableType() );
   }
 
-  return (StructUnionSpec)tagDecl.type.spec;
+  return new TSpecAggNode( tagDecl, code, (StructUnionSpec) tagDecl.type.spec );
 }
 
-private final StructUnionSpec declareAgg (
-  final CParser.Location loc, final Code code, final CParser.Location identLoc, Symbol ident,
-  Scope memberScope
+public final Decl beginDeclareAgg (
+  final CParser.Location loc, final Code code, final CParser.Location identLoc, Symbol ident
 )
 {
-  assert memberScope != null;
-
   final TypeSpec tagSpec = code == Code.STRUCT ? TypeSpec.STRUCT : TypeSpec.UNION;
   final Scope declScope = topNonStructScope(); // a forward decl would go in this scope
 
   Decl tagDecl = null;
-  boolean haveErr = memberScope.error;
+  boolean haveErr = false;
 
   // Check for redefinition: it must have been defined in the current scope
   if (ident != null && ident.topTag != null && ident.topTag.scope == declScope)
@@ -210,10 +207,21 @@ private final StructUnionSpec declareAgg (
       warning( aggLoc, "declaration of '%s' will not be visible outside of the function", spec.readableType() );
   }
 
-  tagDecl.defined = true;
-
   // Update the location to this one in all cases
   BisonLexer.setLocation( tagDecl, aggLoc );
+
+  tagDecl.orError( haveErr );
+
+  return tagDecl;
+}
+
+public final TSpecNode declareAgg ( Code tagCode, Decl tagDecl, Scope memberScope )
+{
+  assert memberScope != null;
+
+  boolean haveErr = tagDecl.error || memberScope.error;
+
+  tagDecl.defined = true;
 
   final StructUnionSpec spec = (StructUnionSpec)tagDecl.type.spec;
   final Collection<Decl> decls = memberScope.decls();
@@ -229,18 +237,15 @@ private final StructUnionSpec declareAgg (
   }
 
   spec.orError( haveErr );
+  tagDecl.orError( haveErr );
   spec.setFields( fields );
   calcAggSize( tagDecl, spec );
 
-  return spec;
+  return new TSpecAggNode( tagDecl, tagCode, spec );
 }
 
-private static final class OverflowException extends Exception
-{
-  public OverflowException ( String message )
-  {
-    super( message );
-  }
+private static final class OverflowException extends Exception {
+  public OverflowException ( String message ) { super( message ); }
 }
 
 private final long sizeAdd ( long size, long inc ) throws OverflowException
@@ -365,21 +370,6 @@ private final void calcAggSize ( ISourceRange loc, StructUnionSpec spec )
     System.out.println();
   }
 }
-
-public final TSpecNode specAgg (
-  CParser.Location loc, Code tagCode,
-  CParser.Location identLoc, Symbol ident, Scope memberScope
-)
-{
-  StructUnionSpec spec;
-  if (memberScope == null)
-    spec = referenceAgg( loc, tagCode, identLoc, ident );
-  else
-    spec = declareAgg( loc, tagCode, identLoc, ident, memberScope );
-
-  return BisonLexer.setLocation( new TSpecAggNode( null, tagCode, spec ), loc );
-}
-
 
 public final TSpecNode appendSpecNode ( TSpecNode a, TSpecNode b )
 {

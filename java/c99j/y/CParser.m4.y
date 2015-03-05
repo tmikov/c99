@@ -396,10 +396,12 @@ rule(<TSpecNode>,type-specifier-notyp):
 
 // (6.7.2.1)
 rule(<TSpecNode>,struct-or-union-specifier):
-    struct-or-union[code] any-identifier_opt[ident] "{" PushAggScope struct-declaration-list "}"
-      { $$ = specAgg(@code, $code, @ident, $ident, popScope($PushAggScope)); }
+    struct-or-union[code] any-identifier_opt[ident] "{"
+            { $<Decl>$ = beginDeclareAgg(@code, $code, @ident, $ident ); }[decl]
+        PushAggScope struct-declaration-list "}"
+            { $$ = declareAgg($code, $<Decl>decl, popScope($PushAggScope)); }
   | struct-or-union[code] any-identifier[ident]
-      { $$ = specAgg(@code, $code, @ident, $ident, null); }
+            { $$ = referenceAgg(@code, $code, @ident, $ident); }
   ;
 
 // (6.7.2.1)

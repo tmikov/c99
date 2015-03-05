@@ -65,4 +65,9 @@ public Decl ( ISourceRange rng, Scope scope, Decl importedDecl, boolean error )
   this.error = importedDecl.error | error;
 }
 
+public final void orError ( boolean f )
+{
+  this.error |= f;
+}
+
 }
