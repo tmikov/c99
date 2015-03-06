@@ -15,10 +15,9 @@ public static enum Kind
   TYPE,
   TAG,
 }
-Decl prev;
-
-public final Decl importedDecl;
 public final Kind kind;
+Decl prev;
+public final Decl importedDecl;
 public final Scope scope;
 public       SClass sclass;
 public final Linkage linkage;
