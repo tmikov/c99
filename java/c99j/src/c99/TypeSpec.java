@@ -15,7 +15,7 @@ UINT("unsigned",false, Platform.INT_BITS),
 SLONG("long",true, Platform.LONG_BITS),
 ULONG("unsigned long",false, Platform.LONG_BITS),
 SLLONG("long long",true, Platform.LONGLONG_BITS),
-ULLONG("unsibned long long",false, Platform.LONGLONG_BITS),
+ULLONG("unsigned long long",false, Platform.LONGLONG_BITS),
 FLOAT("float",32, Float.MIN_VALUE, Float.MAX_VALUE),
 DOUBLE("double",64, Double.MIN_VALUE, Double.MAX_VALUE),
 LDOUBLE("long double",64, Double.MIN_VALUE, Double.MAX_VALUE),
@@ -126,8 +126,4 @@ public final TypeSpec toUnsigned ()
   return this.signed ? values()[this.ordinal() + 1] : this;
 }
 
-public boolean isScalar ()
-{
-  return integer || floating || this == POINTER;
-}
 }
