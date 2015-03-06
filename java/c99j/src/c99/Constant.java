@@ -117,6 +117,18 @@ public static final class IntC extends ArithC
     return m_value;
   }
 
+  public final boolean fitsInULong ()
+  {
+    return true;
+  }
+
+  public final long asULong ()
+  {
+    if (!fitsInULong())
+      throw new IllegalStateException( "Value cannot be represented as ulong" );
+    return m_value;
+  }
+
   @Override
   public final void assign ( final ArithC a )
   {

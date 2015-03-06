@@ -23,7 +23,7 @@ public       SClass sclass;
 public final Linkage linkage;
 public final Symbol symbol;
 public Qual type;
-public Constant.ArithC enumValue; // FIXME
+public Constant.IntC enumValue;
 public int bitfieldWidth = -1; //< -1 means not a bit-field
 public boolean defined;
 public boolean error;

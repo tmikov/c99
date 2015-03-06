@@ -5,15 +5,14 @@ import java.util.LinkedList;
 
 public class Scope
 {
-public static enum Kind { FILE, BLOCK, PARAM, AGGREGATE }
+public static enum Kind { FILE, BLOCK, PARAM, AGGREGATE, ENUM }
 
 public final Kind kind;
 private final Scope m_parent;
 private final LinkedList<Decl> m_decls = new LinkedList<Decl>();
 private final LinkedList<Decl> m_tags = new LinkedList<Decl>();
-private boolean m_ellipsis;
 
-boolean error;
+private boolean m_error;
 
 public Scope ( Kind kind, final Scope parent )
 {
@@ -21,14 +20,24 @@ public Scope ( Kind kind, final Scope parent )
   m_parent = parent;
 }
 
-public Scope getParent ()
+public final Scope getParent ()
 {
   return m_parent;
 }
 
-public void pushDecl ( Decl decl )
+public final void orError ( boolean err )
 {
-  error |= decl.error;
+  m_error |= err;
+}
+
+public boolean isError ()
+{
+  return m_error;
+}
+
+public final void pushDecl ( Decl decl )
+{
+  orError( decl.error );
   m_decls.add( decl );
 
   assert decl.prev == null;
@@ -41,9 +50,9 @@ public void pushDecl ( Decl decl )
   }
 }
 
-public void pushTag ( Decl decl )
+public final void pushTag ( Decl decl )
 {
-  error |= decl.error;
+  orError( decl.error );
   m_tags.add( decl );
 
   assert decl.prev == null;
@@ -56,7 +65,7 @@ public void pushTag ( Decl decl )
   }
 }
 
-public void pop ()
+public final void pop ()
 {
   for ( Decl d : m_decls )
     if (d.symbol != null)
@@ -79,15 +88,4 @@ public final Collection<Decl> decls ()
   return m_decls;
 }
 
-public boolean getEllipsis ()
-{
-  assert this.kind == Kind.PARAM;
-  return m_ellipsis;
-}
-
-public void setEllipsis ()
-{
-  assert this.kind == Kind.PARAM;
-  m_ellipsis = true;
-}
 }

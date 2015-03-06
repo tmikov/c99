@@ -238,4 +238,80 @@ public int memoryBitOffset ( TypeSpec baseType, int bitOffset, int bitWidth )
     return baseType.width - bitOffset - bitWidth;
 }
 
+public static final Constant.IntC s_minInt[] =
+    new Constant.IntC[TypeSpec.INT_LAST.ordinal() - TypeSpec.INT_FIRST.ordinal() + 1];
+public static final Constant.IntC s_maxInt[] =
+    new Constant.IntC[TypeSpec.INT_LAST.ordinal() - TypeSpec.INT_FIRST.ordinal() + 1];
+
+static {
+  for ( int i = TypeSpec.INT_FIRST.ordinal(); i <= TypeSpec.INT_LAST.ordinal(); ++i )
+  {
+    TypeSpec ts = TypeSpec.values()[i];
+    assert ts.integer;
+    s_minInt[i - TypeSpec.INT_FIRST.ordinal()] = Constant.makeLong( ts, ts.minValue );
+    s_maxInt[i - TypeSpec.INT_FIRST.ordinal()] = Constant.makeLong( ts, ts.maxValue );
+  }
+}
+
+public static Constant.IntC minInt ( TypeSpec ts )
+{
+  assert ts.integer;
+  return s_minInt[ts.ordinal() - TypeSpec.INT_FIRST.ordinal()];
+}
+public static Constant.IntC maxInt ( TypeSpec ts )
+{
+  assert ts.integer;
+  return s_maxInt[ts.ordinal() - TypeSpec.INT_FIRST.ordinal()];
+}
+
+/**
+ * Determine the enum base type based on platform specifics. For example, on an 8-bit CPU we might want
+ * to use a byte to store an enum whose values fit in a byte. In the standard case for 32-bit CPUs we
+ * just return the passed value.
+ *
+ * @param baseSpec
+ * @param minValue
+ * @param maxValue
+ * @return
+ */
+public TypeSpec determineEnumBaseSpec ( TypeSpec baseSpec, Constant.IntC minValue, Constant.IntC maxValue )
+{
+  assert baseSpec == minValue.spec && baseSpec == maxValue.spec;
+
+  if (false)
+    return baseSpec;
+  else
+  {
+    if (baseSpec.signed)
+    {
+      if (!minValue.fitsInLong() || !maxValue.fitsInLong())
+        return baseSpec;
+      long mi = minValue.asLong();
+      long ma = maxValue.asLong();
+
+      for ( int i = TypeSpec.SCHAR.ordinal(); i <= TypeSpec.SLLONG.ordinal(); i += 2 )
+      {
+        final TypeSpec ts = TypeSpec.values()[i];
+        if (mi >= ts.minValue && ma <= ts.maxValue)
+          return ts;
+      }
+    }
+    else
+    {
+      if (!minValue.fitsInULong() || !maxValue.fitsInULong())
+        return baseSpec;
+      long ma = maxValue.asULong();
+
+      for ( int i = TypeSpec.UCHAR.ordinal(); i <= TypeSpec.ULLONG.ordinal(); i += 2 )
+      {
+        final TypeSpec ts = TypeSpec.values()[i];
+        if (!Constant.unsignedLessThan( ts.maxValue, ma ))
+          return ts;
+      }
+    }
+
+    return baseSpec;
+  }
+}
+
 } // class

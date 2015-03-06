@@ -34,6 +34,8 @@ POINTER("*"),
 
 ERROR("error");
 
+public static final TypeSpec INT_FIRST = BOOL;
+public static final TypeSpec INT_LAST = ULLONG;
 public static final TypeSpec INTMAX_T = SLLONG;
 public static final TypeSpec UINTMAX_T = ULLONG;
 public static final TypeSpec PTRDIFF_T = SINT;

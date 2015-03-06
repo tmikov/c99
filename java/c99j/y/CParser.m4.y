@@ -17,7 +17,7 @@ import c99.parser.tree.*;
 %parse-param { SymTable symTab_ }
 %code init {
   super.init( cenv_, symTab_ );
-  pushScope(Scope.Kind.FILE);
+  pushFileScope();
 }
 
 %define parse.error verbose
@@ -143,8 +143,6 @@ import c99.parser.tree.*;
 %precedence IF
 %precedence ELSE
 
-%type<Ast> enumerator-list
-%type<Ast> enumerator
 %type<Ast> initializer
 %type<Ast> initializer-list
 %type<Ast> designation designation_opt
@@ -397,9 +395,9 @@ rule(<TSpecNode>,type-specifier-notyp):
 // (6.7.2.1)
 rule(<TSpecNode>,struct-or-union-specifier):
     struct-or-union[code] any-identifier_opt[ident] "{"
-            { $<Decl>$ = beginDeclareAgg(@code, $code, @ident, $ident ); }[decl]
-        PushAggScope struct-declaration-list "}"
-            { $$ = declareAgg($code, $<Decl>decl, popScope($PushAggScope)); }
+            { $<Decl>$ = beginDeclareAgg(@code, $code, @ident, $ident); }[decl]
+        PushAggScope[scope] struct-declaration-list "}"
+            { $$ = declareAgg($code, $<Decl>decl, popScope($scope)); }
   | struct-or-union[code] any-identifier[ident]
             { $$ = referenceAgg(@code, $code, @ident, $ident); }
   ;
@@ -466,24 +464,34 @@ struct-declarator-notyp:
 
 // (6.7.2.2)
 rule(<TSpecNode>,enum-specifier):
-    ENUM any-identifier_opt "{" enumerator-list "}"             { FIXME(); }
-  | ENUM any-identifier_opt "{" enumerator-list "," "}"         { FIXME(); }
-  | ENUM any-identifier                                         { FIXME(); }
+    ENUM[code] any-identifier_opt[ident] "{"
+            { $<Decl>$ = beginDeclareAgg(@code, $code, @ident, $ident ); }[decl]
+        PushEnumScope[scope] enumerator-list comma_opt "}"
+            { $$ = declareAgg($code, $<Decl>decl, popScope($scope)); }
+  | ENUM[code] any-identifier[ident]
+            { $$ = referenceAgg(@code, $code, @ident, $ident); }
+  ;
+
+comma_opt:
+    %empty
+  | ","
   ;
 
 // (6.7.2.2)
 enumerator-list:
-    enumerator                       { $$ = ast( "enumerator-list", $1 ); }
-  | enumerator-list "," enumerator   { $$ = astAppend( $1, $3 ); }
+    enumerator
+  | enumerator-list "," enumerator
   ;
 
 // (6.7.2.2)
 enumerator:
-    enumeration-constant                          { FIXME(); }
-  | enumeration-constant "=" constant-expression  { FIXME(); }
+    enumeration-constant[ident]
+        { declareEnumConstant(@ident,$ident,null,null); }
+  | enumeration-constant[ident] "=" constant-expression[val]
+        { declareEnumConstant(@ident,$ident,@val,$val); }
   ;
 
-enumeration-constant:
+rule(<Symbol>,enumeration-constant):
     any-identifier
   ;
 
@@ -694,7 +702,7 @@ rule(<TSpecNode>,type-qualifier-list,opt):
 // (6.7.6)
 parameter-type-list:
     parameter-list
-  | parameter-list "," "..."            { topScope().setEllipsis(); }
+  | parameter-list "," "..."            { ((ParamScope)topScope()).setEllipsis(); }
   ;
 
 // (6.7.6)
@@ -848,13 +856,16 @@ compound-statement:
   ;
 
 rule(<Scope>,PushBlockScope):
-    %empty { $$ = pushScope(Scope.Kind.BLOCK); }
+    %empty { $$ = pushBlockScope(); }
 
-rule(<Scope>,PushParamScope):
-    %empty { $$ = pushScope(Scope.Kind.PARAM); }
+rule(<ParamScope>,PushParamScope):
+    %empty { $$ = pushParamScope(); }
 
 rule(<Scope>,PushAggScope):
-    %empty { $$ = pushScope(Scope.Kind.AGGREGATE); }
+    %empty { $$ = pushAggScope(); }
+
+rule(<EnumScope>,PushEnumScope):
+    %empty { $$ = pushEnumScope(); }
 
 // EXT: This is a GNU C extension
 //

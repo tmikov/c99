@@ -8,7 +8,7 @@ private Visitor () {};
 
 public static interface TranslationUnit
 {
-  public void visitRecordDecl ( TSpecAggNode specNode, Decl decl, boolean definition );
+  public void visitRecordDecl ( TSpecTagNode specNode, Decl decl, boolean definition );
   public DeclaratorList visitDeclaratorList ( TSpecNode specNode );
 }
 

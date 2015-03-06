@@ -139,15 +139,15 @@ public static abstract class Spec
 {
   public TypeSpec type;
   public final ExtAttributes extAttrs = new ExtAttributes();
-  protected boolean complete;
-  private long size;
-  private int align;
+  protected boolean m_complete;
+  private long m_size;
+  private int m_align;
 
   public Spec ( final TypeSpec type, boolean complete )
   {
     this.type = type;
-    this.complete = complete;
-    this.size = -1;
+    m_complete = complete;
+    m_size = -1;
   }
 
   public abstract boolean visit ( Qual q, TypeVisitor v );
@@ -156,30 +156,30 @@ public static abstract class Spec
 
   public final boolean isComplete ()
   {
-    return this.complete;
+    return m_complete;
   }
 
   public final void setAlign ( int align )
   {
-    this.align = align;
+    m_align = align;
   }
 
   public final void setSizeAlign ( long size, int align )
   {
-    this.size = size;
-    this.align = align;
+    m_size = size;
+    m_align = align;
   }
 
   public final long sizeOf ()
   {
     assert isComplete();
-    return this.size;
+    return m_size;
   }
 
   public final int alignOf ()
   {
-    assert this.align > 0;
-    return this.align;
+    assert m_align > 0;
+    return m_align;
   }
 
   public boolean compatible ( Spec o )
@@ -327,7 +327,7 @@ public static final class ArraySpec extends DerivedSpec
   public ArraySpec ( Qual of )
   {
     super( TypeSpec.ARRAY, false, of );
-    this.m_nelem = -1;
+    m_nelem = -1;
     setAlign( of.spec.alignOf() );
   }
 
@@ -335,7 +335,7 @@ public static final class ArraySpec extends DerivedSpec
   {
     super( TypeSpec.ARRAY, true, of );
     assert of.spec.isComplete();
-    this.m_nelem = nelem;
+    m_nelem = nelem;
     setSizeAlign( size, of.spec.alignOf() );
   }
 
@@ -367,7 +367,7 @@ public static final class ArraySpec extends DerivedSpec
     if (!super.compatible( o ))
       return false;
     ArraySpec x = (ArraySpec) o;
-    return this.m_nelem < 0 || x.m_nelem < 0 || this.m_nelem == x.m_nelem;
+    return m_nelem < 0 || x.m_nelem < 0 || m_nelem == x.m_nelem;
   }
 
   @Override public final String toString ()
@@ -393,6 +393,7 @@ public static final class ArraySpec extends DerivedSpec
 public static abstract class TagSpec extends Spec
 {
   public final Ident name;
+  private boolean m_error;
 
   public TagSpec ( final TypeSpec type, final Ident name )
   {
@@ -405,6 +406,17 @@ public static abstract class TagSpec extends Spec
     return this == o;
   }
 
+  @Override
+  public boolean isError ()
+  {
+    return m_error;
+  }
+
+  public final void orError ( boolean err )
+  {
+    m_error |= err;
+  }
+
   public String toString ()
   {
     return this.name != null ? this.type.str + " " + this.name.name : this.type.str;
@@ -413,7 +425,6 @@ public static abstract class TagSpec extends Spec
 
 public static final class StructUnionSpec extends TagSpec
 {
-  private boolean m_error;
   private Member[] m_fields;
   private HashMap<Ident,Member> m_lookup;
   private boolean m_constMember; //< at least one member is const
@@ -421,6 +432,7 @@ public static final class StructUnionSpec extends TagSpec
   public StructUnionSpec ( final TypeSpec type, final Ident name )
   {
     super( type, name );
+    assert type == TypeSpec.STRUCT || type == TypeSpec.UNION;
   }
 
   @Override
@@ -429,21 +441,10 @@ public static final class StructUnionSpec extends TagSpec
     return v.visitStructUnion( q, this );
   }
 
-  @Override
-  public boolean isError ()
-  {
-    return this.m_error;
-  }
-
-  public void orError ( boolean err )
-  {
-    this.m_error |= err;
-  }
-
   public void setFields ( Member[] fields )
   {
     assert m_fields == null;
-    this.complete = fields != null;
+    m_complete = fields != null;
     m_fields = fields;
 
     // Scan the fields for const-ness
@@ -477,7 +478,7 @@ public static final class StructUnionSpec extends TagSpec
 
 public static final class EnumSpec extends TagSpec
 {
-  public SimpleSpec spec;
+  private SimpleSpec m_baseSpec;
 
   public EnumSpec ( final Ident name )
   {
@@ -494,6 +495,20 @@ public static final class EnumSpec extends TagSpec
   public boolean isError ()
   {
     return false;
+  }
+
+  public SimpleSpec getBaseSpec ()
+  {
+    assert m_baseSpec != null;
+    return m_baseSpec;
+  }
+
+  public void setBaseSpec ( SimpleSpec baseSpec )
+  {
+    assert m_baseSpec == null;
+    m_baseSpec = baseSpec;
+    setSizeAlign( baseSpec.sizeOf(), baseSpec.alignOf() );
+    m_complete = baseSpec.isComplete();
   }
 }
 

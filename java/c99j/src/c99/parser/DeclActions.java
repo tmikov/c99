@@ -1,5 +1,6 @@
 package c99.parser;
 
+import java.util.Arrays;
 import java.util.Collection;
 
 import c99.*;
@@ -10,6 +11,9 @@ import static c99.parser.Trees.*;
 
 public class DeclActions extends ExprActions
 {
+private static final boolean DEBUG_CALC_AGG_SIZE = false;
+private static final boolean DEBUG_ENUM = false;
+
 private Scope m_topScope;
 
 protected void init ( CompEnv compEnv, SymTable symTab )
@@ -34,7 +38,7 @@ public final Scope topScope ()
   return m_topScope;
 }
 
-public final Scope popScope ( Scope scope )
+public final <T extends Scope> T popScope ( T scope )
 {
   assert m_topScope == scope;
   m_topScope.pop();
@@ -42,15 +46,37 @@ public final Scope popScope ( Scope scope )
   return scope;
 }
 
-public final Scope pushScope ( Scope.Kind kind )
+private final <T extends Scope> T pushScope ( T scope )
 {
-  return m_topScope = new Scope( kind, m_topScope );
+  m_topScope = scope;
+  return scope;
+}
+
+public final Scope pushFileScope ()
+{
+  return m_topScope = new Scope( Scope.Kind.FILE, m_topScope );
+}
+public final Scope pushBlockScope ()
+{
+  return m_topScope = new Scope( Scope.Kind.BLOCK, m_topScope );
+}
+public final ParamScope pushParamScope ()
+{
+  return pushScope( new ParamScope( m_topScope ) );
+}
+public final Scope pushAggScope ()
+{
+  return pushScope( new Scope( Scope.Kind.AGGREGATE, m_topScope ) );
+}
+public final EnumScope pushEnumScope ()
+{
+  return pushScope( new EnumScope( m_topScope ) );
 }
 
 private final Scope topNonStructScope ()
 {
   Scope res = m_topScope;
-  while (res.kind == Scope.Kind.AGGREGATE)
+  while (res.kind == Scope.Kind.AGGREGATE || res.kind == Scope.Kind.ENUM)
     res = res.getParent();
   return res;
 }
@@ -113,7 +139,7 @@ public final TSpecNode referenceAgg (
 )
 {
   final Decl tagDecl;
-  final TypeSpec tagSpec = code == Code.STRUCT ? TypeSpec.STRUCT : TypeSpec.UNION;
+  final TypeSpec tagSpec = code == Code.ENUM ? TypeSpec.ENUM : (code == Code.STRUCT ? TypeSpec.STRUCT : TypeSpec.UNION);
   boolean fwdDecl = false;
   final Scope declScope = topNonStructScope(); // a forward decl would go in this scope
 
@@ -130,7 +156,7 @@ public final TSpecNode referenceAgg (
              code.str, ident.name, SourceRange.formatRange( ident.topTag ) );
 
       // Error recovery: return an anonymous tag
-      Spec spec = new StructUnionSpec( tagSpec, null );
+      Spec spec = tagSpec == TypeSpec.ENUM ? new EnumSpec( null ) : new StructUnionSpec( tagSpec, null );
       tagDecl = BisonLexer.setLocation(
         new Decl( null, Decl.Kind.TAG, declScope, SClass.NONE, Linkage.NONE, null, new Qual( spec ), false, true ),
         loc
@@ -142,7 +168,7 @@ public final TSpecNode referenceAgg (
   {
     // Forward declaration of tag
     fwdDecl = true;
-    Spec spec = new StructUnionSpec( tagSpec, ident );
+    Spec spec = tagSpec == TypeSpec.ENUM ? new EnumSpec( ident ) : new StructUnionSpec( tagSpec, ident );
     tagDecl = BisonLexer.setLocation(
       new Decl( null, Decl.Kind.TAG, declScope, SClass.NONE, Linkage.NONE, ident, new Qual( spec ), false, false ),
       identLoc
@@ -152,14 +178,14 @@ public final TSpecNode referenceAgg (
       warning( tagDecl, "declaration of '%s' will not be visible outside of the function", spec.readableType() );
   }
 
-  return new TSpecAggNode( tagDecl, code, (StructUnionSpec) tagDecl.type.spec );
+  return new TSpecTagNode( tagDecl, code, (TagSpec) tagDecl.type.spec );
 }
 
 public final Decl beginDeclareAgg (
   final CParser.Location loc, final Code code, final CParser.Location identLoc, Symbol ident
 )
 {
-  final TypeSpec tagSpec = code == Code.STRUCT ? TypeSpec.STRUCT : TypeSpec.UNION;
+  final TypeSpec tagSpec = code == Code.ENUM ? TypeSpec.ENUM : (code == Code.STRUCT ? TypeSpec.STRUCT : TypeSpec.UNION);
   final Scope declScope = topNonStructScope(); // a forward decl would go in this scope
 
   Decl tagDecl = null;
@@ -170,7 +196,7 @@ public final Decl beginDeclareAgg (
   {
     if (ident.topTag.type.spec.type == tagSpec)
     {
-      final StructUnionSpec prevSpec = (StructUnionSpec)ident.topTag.type.spec;
+      final TagSpec prevSpec = (TagSpec)ident.topTag.type.spec;
 
       if (prevSpec.isComplete()) // Already defined?
       {
@@ -199,7 +225,7 @@ public final Decl beginDeclareAgg (
 
   if (tagDecl == null) // If not completing a previous forward declaration
   {
-    Spec spec = new StructUnionSpec( tagSpec, ident );
+    Spec spec = tagSpec == TypeSpec.ENUM ? new EnumSpec( ident ) : new StructUnionSpec( tagSpec, ident );
     tagDecl = new Decl( null, Decl.Kind.TAG, declScope, SClass.NONE, Linkage.NONE, ident,
                         new Qual( spec ), true, haveErr );
     declScope.pushTag( tagDecl );
@@ -219,29 +245,160 @@ public final TSpecNode declareAgg ( Code tagCode, Decl tagDecl, Scope memberScop
 {
   assert memberScope != null;
 
-  boolean haveErr = tagDecl.error || memberScope.error;
-
-  tagDecl.defined = true;
-
-  final StructUnionSpec spec = (StructUnionSpec)tagDecl.type.spec;
+  final TagSpec tagSpec = (TagSpec)tagDecl.type.spec;
   final Collection<Decl> decls = memberScope.decls();
 
-  assert !spec.isComplete();
-  Member[] fields = new Member[decls.size()];
+  assert !tagSpec.isComplete();
 
-  int i = 0;
-  for ( Decl d : decls )
+  if (tagSpec.type == TypeSpec.ENUM)
   {
-    fields[i++] = new Member( d, d.symbol, d.type, d.bitfieldWidth );
-    haveErr |= d.error;
+    EnumScope enumScope = (EnumScope)memberScope;
+    Scope targetScope = topNonStructScope();
+
+    // Find the min and max values so that platform code can optionally select a narrower type for the enum
+    Constant.IntC minValue = null, maxValue = null;
+    for ( Decl d : decls )
+    {
+      if (d.kind != Decl.Kind.ENUM_CONST)
+        continue;
+
+      Constant.IntC tmp = (Constant.IntC)Constant.convert( enumScope.baseSpec, d.enumValue );
+      if (minValue == null)
+        minValue = maxValue = tmp;
+      else if (tmp.lt( minValue ))
+        minValue = tmp;
+      else if (tmp.gt( maxValue ))
+        maxValue = tmp;
+    }
+
+    if (minValue == null) // Perhaps it could happen during error recovery
+      minValue = maxValue = Constant.makeLong( enumScope.baseSpec, 0 );
+
+    SimpleSpec baseSpec = (SimpleSpec)stdSpec( m_plat.determineEnumBaseSpec( enumScope.baseSpec, minValue, maxValue ) );
+    EnumSpec enumSpec = (EnumSpec)tagSpec;
+    enumSpec.setBaseSpec( baseSpec );
+    Qual type = new Qual(enumSpec);
+
+    if (DEBUG_ENUM)
+      System.out.format( "defined '%s' based on '%s'\n", type.readableType(), enumSpec.getBaseSpec().readableType() );
+
+    // Declare all enum constants in the parent scope
+    for ( Decl d : decls )
+    {
+      if (d.kind != Decl.Kind.ENUM_CONST)
+        continue;
+      if (d.symbol.topDecl != null && d.symbol.topDecl.scope == targetScope)
+        continue; // Could happen when doing error recovery
+
+      Decl decl = new Decl(
+        d, Decl.Kind.ENUM_CONST, targetScope, SClass.NONE, Linkage.NONE, d.symbol, type, true, d.error
+      );
+      decl.enumValue = (Constant.IntC) Constant.convert( baseSpec.type, d.enumValue );
+
+      targetScope.pushDecl( decl );
+      if (DEBUG_ENUM)
+      {
+        System.out.format( " enum const '%s' = %s : %s\n", decl.symbol.name, decl.enumValue.toString(),
+                decl.enumValue.spec.str );
+      }
+    }
+  }
+  else
+  {
+    Member[] fields = new Member[decls.size()];
+
+    int i = 0;
+    for ( Decl d : decls )
+    {
+      if (d.kind == Decl.Kind.VAR)
+      {
+        fields[i++] = new Member( d, d.symbol, d.type, d.bitfieldWidth );
+        tagSpec.orError( true );
+      }
+    }
+    if (i < fields.length) // Could happen if there were type definitions in that scope
+      fields = Arrays.copyOf( fields, i );
+
+    StructUnionSpec aggSpec = (StructUnionSpec)tagSpec;
+    aggSpec.setFields( fields );
+    calcAggSize( tagDecl, aggSpec );
   }
 
-  spec.orError( haveErr );
-  tagDecl.orError( haveErr );
-  spec.setFields( fields );
-  calcAggSize( tagDecl, spec );
+  tagSpec.orError( tagDecl.error );
+  tagDecl.orError( tagSpec.isError() );
+  tagDecl.defined = true;
 
-  return new TSpecAggNode( tagDecl, tagCode, spec );
+  return new TSpecTagNode( tagDecl, tagCode, tagSpec );
+}
+
+private final Constant.IntC m_zero = Constant.makeLong( TypeSpec.SINT, 0 );
+private final Constant.IntC m_one = Constant.makeLong( TypeSpec.SINT, 1 );
+
+/**
+ * Declare an enumeration constant in the "enum" scope. Enum handling is a two-pass process. In the first
+ * pass, while we are parsing the enum and it still isn't complete, so we don't know its size, we declare each
+ * constant locally in the scope with a type and value determined by its initialization expression. When the
+ * enum is complete and the enum scope has been popped, we declare all of the constants with their completed
+ * enum type in the surrounding scope.
+ *
+ * @param identLoc
+ * @param ident
+ * @param valueLoc
+ * @param value
+ */
+public final void declareEnumConstant (
+  CParser.Location identLoc, Symbol ident, CParser.Location valueLoc, TExpr.ArithConstant value
+)
+{
+  EnumScope enumScope = (EnumScope)topScope();
+
+  if (value != null)
+  {
+    enumScope.orError( value.isError() );
+    enumScope.lastValue = (Constant.IntC)value.getValue(); // Note: even error ArithConstant has an integer value
+  }
+  else
+  {
+    if (enumScope.lastValue != null)
+    {
+      TypeSpec spec = Types.usualArithmeticConversions( enumScope.lastValue.spec, m_one.spec );
+      Constant.IntC newValue = Constant.newIntConstant( spec );
+      newValue.add( Constant.convert(spec, enumScope.lastValue), Constant.convert(spec, m_one) );
+      enumScope.lastValue = newValue;
+    }
+    else
+      enumScope.lastValue = m_zero;
+  }
+
+  enumScope.baseSpec = Types.usualArithmeticConversions( enumScope.baseSpec, enumScope.lastValue.spec );
+
+  boolean haveError = false;
+
+  if (ident.topDecl != null)
+  {
+    if (ident.topDecl.scope == enumScope)
+    {
+      error( identLoc, "enumerator '%s' already defined here %s", ident.name, SourceRange.formatRange(ident.topDecl) );
+      enumScope.orError( true );
+      return;
+    }
+    else if (ident.topDecl.scope == topNonStructScope())
+    {
+      error( identLoc, "redefinition of '%s' previously defined here %s", ident.name, SourceRange.formatRange(ident.topDecl) );
+      enumScope.orError( true );
+      haveError = true;
+    }
+  }
+
+  // Now we have decision to make. What type to use for the "temporary" in-scope constant?
+  // GCC and CLANG use the type of init expression, so that is what we are going to do too
+  Qual type = stdQual( enumScope.lastValue.spec );
+  Decl decl = BisonLexer.setLocation(
+    new Decl( null, Decl.Kind.ENUM_CONST, enumScope, SClass.NONE, Linkage.NONE, ident, type, true, haveError ),
+    identLoc
+  );
+  decl.enumValue = enumScope.lastValue;
+  enumScope.pushDecl( decl );
 }
 
 private static final class OverflowException extends Exception {
@@ -258,8 +415,6 @@ private final long sizeAdd ( long size, long inc ) throws OverflowException
     throw new OverflowException( "size exceeds size_t range" );
   return nsize;
 }
-
-private static final boolean DEBUG_CALC_AGG_SIZE = false;
 
 /**
  * Calculathe struct/union size and alignment and assign field offsets
@@ -429,14 +584,11 @@ private final class TypeHelper
     {
     case TYPENAME:
       return ((TSpecDeclNode)spec).decl.symbol.name;
-    case STRUCT: case UNION:
+    case STRUCT: case UNION: case ENUM:
       {
-        TSpecAggNode n = (TSpecAggNode)spec;
+        TSpecTagNode n = (TSpecTagNode)spec;
         return n.spec.name != null ? spec.code.str + " " + n.spec.name.name : spec.code.str;
       }
-    case ENUM:
-      assert false; // FIXME
-      return spec.code.str + " " + ((TSpecDeclNode)spec).decl.symbol.name;
     default: return spec.code.str;
     }
   }
@@ -621,14 +773,8 @@ private final class TypeHelper
       spec = ((TSpecDeclNode)base).decl.type.spec;
       break;
 
-    case STRUCT: case UNION:
-      spec = ((TSpecAggNode)base).spec;
-      break;
-
-    case ENUM:
-      assert( false );
-      spec = null;
-      FIXME("implement enum");
+    case STRUCT: case UNION: case ENUM:
+      spec = ((TSpecTagNode)base).spec;
       break;
 
     default: spec = null; break;
@@ -736,7 +882,7 @@ public final TIdentList identListAdd (
   return list;
 }
 
-public final TDeclarator.Elem funcDecl ( CParser.Location loc, Scope paramScope )
+public final TDeclarator.Elem funcDecl ( CParser.Location loc, ParamScope paramScope )
 {
   return new TDeclarator.FuncElem( loc, paramScope, null );
 }
@@ -1080,6 +1226,7 @@ private final void validateAndSetLinkage ( final TDeclaration di, final boolean 
     di.defined = true;
     break;
 
+  case ENUM:
   case AGGREGATE:
     assert !hasInit;
     if (isFunc(di.type))

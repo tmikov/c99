@@ -122,10 +122,10 @@ public static final class ArrayElem extends Elem
 
 public static final class FuncElem extends Elem
 {
-  public final Scope paramScope;
+  public final ParamScope paramScope;
   public final TIdentList identList;
 
-  public FuncElem ( CParser.Location loc, Scope paramScope, TIdentList identList )
+  public FuncElem ( CParser.Location loc, ParamScope paramScope, TIdentList identList )
   {
     super( loc, Code.L_PAREN );
     this.paramScope = paramScope;
