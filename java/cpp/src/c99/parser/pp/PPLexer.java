@@ -5,7 +5,7 @@ import java.io.InputStream;
 
 import c99.*;
 import c99.parser.Code;
-import c99.parser.SymTable;
+import c99.parser.IdentTable;
 
 /**
  * Preprocessor lexer.
@@ -20,7 +20,7 @@ import c99.parser.SymTable;
 public class PPLexer implements PPDefs
 {
 
-protected final SymTable m_symTable;
+protected final IdentTable<? extends PPSymbol> m_symTable;
 protected final IErrorReporter m_reporter;
 /** Set to false in discarded conditionals */
 private boolean m_reportErrors = true;
@@ -42,7 +42,7 @@ private final SourceRange m_tmpRange = new SourceRange();
 private boolean m_parseInclude;
 
 public PPLexer ( final IErrorReporter reporter, String fileName, InputStream input,
-                 final SymTable symTable, int bufSize )
+                 final IdentTable<? extends PPSymbol> symTable, int bufSize )
 {
   m_reporter = reporter;
   m_symTable = symTable;
@@ -63,7 +63,7 @@ public PPLexer ( final IErrorReporter reporter, String fileName, InputStream inp
 }
 
 public PPLexer ( final IErrorReporter reporter, String fileName, InputStream input,
-                 final SymTable symTable )
+                 final IdentTable<? extends PPSymbol> symTable )
 {
   this( reporter, fileName, input, symTable, 16384 );
 }

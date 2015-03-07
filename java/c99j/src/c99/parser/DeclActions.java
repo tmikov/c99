@@ -361,7 +361,7 @@ public final void declareEnumConstant (
   {
     if (enumScope.lastValue != null)
     {
-      TypeSpec spec = Types.usualArithmeticConversions( enumScope.lastValue.spec, m_one.spec );
+      TypeSpec spec = TypeRules.usualArithmeticConversions( enumScope.lastValue.spec, m_one.spec );
       Constant.IntC newValue = Constant.newIntConstant( spec );
       newValue.add( Constant.convert(spec, enumScope.lastValue), Constant.convert(spec, m_one) );
       enumScope.lastValue = newValue;
@@ -370,7 +370,7 @@ public final void declareEnumConstant (
       enumScope.lastValue = m_zero;
   }
 
-  enumScope.baseSpec = Types.usualArithmeticConversions( enumScope.baseSpec, enumScope.lastValue.spec );
+  enumScope.baseSpec = TypeRules.usualArithmeticConversions( enumScope.baseSpec, enumScope.lastValue.spec );
 
   boolean haveError = false;
 

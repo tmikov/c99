@@ -1,7 +1,5 @@
 package c99.parser.pp;
 
-import c99.CompilerOptions;
-
 import java.io.File;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -38,9 +36,9 @@ public void addQuotedInclude ( String path )
 }
 
 /** Must be invoked after all options have been parsed, to prepare the internal structures */
-public ISearchPath finish ( CompilerOptions opts )
+public ISearchPath finish ( IPreprOptions opts )
 {
-  if (opts.noStdInc)
+  if (opts.getNoStdInc())
     m_defSet.clear();
   else
     m_angledSet.removeAll( m_defSet );

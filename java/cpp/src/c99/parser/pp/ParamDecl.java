@@ -1,15 +1,13 @@
 package c99.parser.pp;
 
-import c99.parser.Symbol;
-
 final class ParamDecl
 {
 private final Object prevPPDecl;
-public final Symbol symbol;
+public final PPSymbol symbol;
 public final int index;
 public boolean variadic;
 
-ParamDecl ( final Symbol symbol, int index, boolean variadic )
+ParamDecl ( final PPSymbol symbol, int index, boolean variadic )
 {
   this.prevPPDecl = symbol.ppDecl;
   this.symbol = symbol;

@@ -2,14 +2,9 @@ package c99.driver;
 
 import java.io.FileInputStream;
 
-import c99.CompilerOptions;
 import c99.DummyErrorReporter;
 import c99.parser.Code;
-import c99.parser.SymTable;
-import c99.parser.pp.Misc;
-import c99.parser.pp.PPLexer;
-import c99.parser.pp.Prepr;
-import c99.parser.pp.SearchPathFactory;
+import c99.parser.pp.*;
 
 public class Preprocessor
 {
@@ -67,7 +62,7 @@ public static void main ( String[] args )
     boolean toks = false;
     String fileName = null;
 
-    CompilerOptions opts = new CompilerOptions();
+    PreprOptions opts = new PreprOptions();
     SearchPathFactory incSearch = new SearchPathFactory();
 
     for ( int i = 0; i < args.length; ++i )
@@ -86,7 +81,7 @@ public static void main ( String[] args )
       else if ("--no-cpp".equals( arg ))
         cpp = false;
       else if ("--nostdinc".equals( arg ))
-        opts.noStdInc = true;
+        opts.setNoStdInc( true );
       else if (arg.startsWith("-I") || arg.startsWith("-i"))
       {
         String tmp = arg.substring( 2 );
@@ -123,8 +118,8 @@ public static void main ( String[] args )
     }
 
     DummyErrorReporter reporter = new DummyErrorReporter();
-    SymTable symTable = new SymTable();
-    Prepr pp = new Prepr( opts, reporter, incSearch.finish( opts ),
+    PPSymTable symTable = new PPSymTable();
+    Prepr<PPSymbol> pp = new Prepr<PPSymbol>( opts, reporter, incSearch.finish( opts ),
                           fileName, new FileInputStream( fileName ), symTable );
 
     String lastFile = "";

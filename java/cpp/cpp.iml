@@ -8,6 +8,6 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="cpp" />
+    <orderEntry type="library" scope="TEST" name="junit-4" level="project" />
   </component>
 </module>

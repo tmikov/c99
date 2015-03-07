@@ -136,7 +136,7 @@ private TExpr.Expr integerPromotion ( TExpr.Expr op )
 {
   if (op.getQual().spec.isInteger())
   {
-    Qual promoted = stdQual( Types.integerPromotion( op.getQual().spec.effectiveKind() ) );
+    Qual promoted = stdQual( TypeRules.integerPromotion( op.getQual().spec.effectiveKind() ) );
     if (promoted.spec.type != op.getQual().spec.type)
       return new TExpr.Unary( op, TreeCode.IMPLICIT_CAST, promoted, op );
   }
@@ -479,7 +479,7 @@ public abstract class BinaryExpr
 
   protected final TExpr.Binary usualArithmeticConversions ( TExpr.Expr left, TExpr.Expr right )
   {
-    Qual commonType = stdQual( Types.usualArithmeticConversions(
+    Qual commonType = stdQual( TypeRules.usualArithmeticConversions(
             left.getQual().spec.effectiveKind(), right.getQual().spec.effectiveKind()
     ));
     if (commonType.spec.type != left.getQual().spec.type)
@@ -582,7 +582,7 @@ public class RelationalExpression extends BinaryExpr
   {
     if (left.getQual().spec.isArithmetic() && right.getQual().spec.isArithmetic())
     {
-      Qual commonType = stdQual( Types.usualArithmeticConversions( left.getQual().spec.type, right.getQual().spec.type ) );
+      Qual commonType = stdQual( TypeRules.usualArithmeticConversions( left.getQual().spec.type, right.getQual().spec.type ) );
       if (commonType.spec.type != left.getQual().spec.type)
         left = new TExpr.Unary( left, TreeCode.IMPLICIT_CAST, commonType, left );
       if (commonType.spec.type != right.getQual().spec.type)

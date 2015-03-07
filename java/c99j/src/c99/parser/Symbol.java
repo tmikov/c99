@@ -1,12 +1,9 @@
 package c99.parser;
 
-import c99.Ident;
-import c99.parser.pp.PPSymCode;
+import c99.parser.pp.PPSymbol;
 
-public class Symbol extends Ident
+public class Symbol extends PPSymbol
 {
-public PPSymCode ppCode;
-public Object ppDecl;
 public Code   keyword;
 
 public Decl topDecl;

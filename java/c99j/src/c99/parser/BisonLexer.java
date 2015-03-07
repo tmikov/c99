@@ -13,13 +13,13 @@ public final class BisonLexer implements CParser.Lexer
 {
 private final IErrorReporter m_reporter;
 private final SymTable m_symTab;
-private final Prepr m_prepr;
+private final Prepr<Symbol> m_prepr;
 
 private Object m_yylval;
 private Position m_startPos = new Position();
 private Position m_endPos = new Position();
 
-public BisonLexer ( final IErrorReporter reporter, final SymTable symTab, final Prepr prepr )
+public BisonLexer ( final IErrorReporter reporter, final SymTable symTab, final Prepr<Symbol> prepr )
 {
   m_reporter = reporter;
   m_symTab = symTab;
@@ -65,7 +65,7 @@ public int yylex () throws IOException
 {
   for(;;)
   {
-    PPDefs.Token ppt;
+    PPDefs.Token<Symbol> ppt;
     do
       ppt = m_prepr.nextToken();
     while (ppt.code() == Code.NEWLINE || ppt.code() == Code.WHITESPACE);

@@ -2,7 +2,6 @@ package c99.parser.pp;
 
 import c99.*;
 import c99.parser.Code;
-import c99.parser.Symbol;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -50,7 +49,7 @@ public abstract static class AbstractToken extends SourceRange implements Clonea
   }
 }
 
-public static class Token extends AbstractToken
+public static class Token<SYM extends PPSymbol> extends AbstractToken
 {
   private static final int DEFAULT_LEN = 32;
 
@@ -113,12 +112,12 @@ public static class Token extends AbstractToken
       m_flags &= ~1;
   }
 
-  public final Symbol symbol ()
+  public final SYM symbol ()
   {
-    return (Symbol)m_object;
+    return (SYM)m_object;
   }
 
-  public final void setIdent ( Symbol symbol )
+  public final void setIdent ( SYM symbol )
   {
     this.m_code = Code.IDENT;
     m_object = symbol;
@@ -244,7 +243,7 @@ public static class Token extends AbstractToken
       switch(m_code)
       {
       case IDENT:
-        assert m_object instanceof Symbol;
+        assert m_object instanceof PPSymbol;
         return m_object == tok.m_object;
       case STRING_CONST:
         return Arrays.equals( (byte[])m_object, (byte[])tok.m_object );
@@ -272,8 +271,8 @@ public static class Token extends AbstractToken
 
   public void output ( OutputStream out ) throws IOException
   {
-    if (m_object instanceof Symbol)
-      out.write( ((Symbol)m_object).bytes );
+    if (m_object instanceof PPSymbol)
+      out.write( ((PPSymbol)m_object).bytes );
     else if (m_text != null)
       out.write( m_text, 0, m_length );
     else
@@ -287,8 +286,8 @@ public static class Token extends AbstractToken
     sb.append( m_code );
     if (isNoExpand())
       sb.append( ", NO_EXPAND" );
-    if (m_object instanceof Symbol)
-      sb.append( ", " ).append( (Symbol)m_object );
+    if (m_object instanceof PPSymbol)
+      sb.append( ", " ).append( (PPSymbol)m_object );
     else if (m_text != null)
       sb.append( ", '" ).append( Utils.asciiString( m_text, 0, Math.min( m_length, DEFAULT_LEN ) ) )
         .append( '\'' );

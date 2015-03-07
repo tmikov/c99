@@ -1,10 +1,7 @@
 package c99.driver;
 
 import c99.*;
-import c99.parser.BisonLexer;
-import c99.parser.CParser;
-import c99.parser.Decl;
-import c99.parser.SymTable;
+import c99.parser.*;
 import c99.parser.pp.Prepr;
 import c99.parser.pp.SearchPathFactory;
 import c99.parser.tree.*;
@@ -36,7 +33,7 @@ public static void main ( String[] args )
       final String arg = args[i];
 
       if ("--nostdinc".equals( arg ))
-        opts.noStdInc = true;
+        opts.getPreprOptions().setNoStdInc( true );
       if ("--debug".equals( arg ))
         debugLevel = 1;
       else if (arg.startsWith("-I") || arg.startsWith("-i"))
@@ -76,7 +73,7 @@ public static void main ( String[] args )
 
     DummyErrorReporter reporter = new DummyErrorReporter();
     SymTable symTable = new SymTable();
-    Prepr pp = new Prepr( opts, reporter, incSearch.finish( opts ),
+    Prepr<Symbol> pp = new Prepr<Symbol>( opts, reporter, incSearch.finish( opts ),
                           fileName, new FileInputStream( fileName ), symTable );
     BisonLexer lex = new BisonLexer(reporter, symTable, pp);
     CParser parser = new CParser(

@@ -2,7 +2,6 @@ package c99.parser.pp;
 
 import c99.ISourceRange;
 import c99.SourceRange;
-import c99.parser.Symbol;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -11,7 +10,7 @@ final class Macro
 {
 public final SourceRange nameLoc = new SourceRange();
 public final SourceRange bodyLoc = new SourceRange();
-public final Symbol symbol;
+public final PPSymbol symbol;
 public final Builtin builtin;
 public boolean funcLike;
 public boolean variadic;
@@ -20,7 +19,7 @@ public boolean expanding;
 public final ArrayList<ParamDecl> params = new ArrayList<ParamDecl>();
 public final TokenList<PPDefs.AbstractToken> body = new TokenList<PPDefs.AbstractToken>();
 
-Macro ( final Symbol symbol, ISourceRange nameLoc, Builtin builtin )
+Macro ( final PPSymbol symbol, ISourceRange nameLoc, Builtin builtin )
 {
   this.symbol = symbol;
   this.nameLoc.setRange( nameLoc );

@@ -13,16 +13,15 @@ import java.util.Date;
 
 import c99.*;
 import c99.parser.Code;
-import c99.parser.SymTable;
-import c99.parser.Symbol;
+import c99.parser.IdentTable;
 
-public class Prepr implements PPDefs
+public class Prepr<SYM extends PPSymbol> implements PPDefs
 {
-private final CompilerOptions m_opts;
+private final IPreprOptions m_opts;
 private final IErrorReporter m_reporter;
 private final ISearchPath m_searchPath;
-private final SymTable m_symTable;
-private final Symbol m_sym_VA_ARGS;
+private final IdentTable<SYM> m_symTable;
+private final PPSymbol m_sym_VA_ARGS;
 
 private static final class Source
 {
@@ -57,10 +56,10 @@ private final SourceRange m_tmpRange = new SourceRange();
 private Token m_tok;
 
 
-public Prepr ( final CompilerOptions opts, final IErrorReporter reporter,
+public Prepr ( final IPreprOptions opts, final IErrorReporter reporter,
                final ISearchPath searchPath,
                final String fileName, final InputStream input,
-               final SymTable symTable )
+               final IdentTable<SYM> symTable )
 {
   m_opts = opts;
   m_reporter = reporter;
@@ -71,7 +70,7 @@ public Prepr ( final CompilerOptions opts, final IErrorReporter reporter,
 
   for ( PPSymCode ppCode : PPSymCode.values() )
   {
-    Symbol sym = m_symTable.symbol( ppCode.name );
+    PPSymbol sym = m_symTable.symbol( ppCode.name );
     assert sym.ppCode == null;
     sym.ppCode = ppCode;
   }
@@ -82,7 +81,7 @@ public Prepr ( final CompilerOptions opts, final IErrorReporter reporter,
   // Define built-in macros
   for ( Builtin builtin : Builtin.values() )
   {
-    Symbol sym = m_symTable.symbol( builtin.name() );
+    PPSymbol sym = m_symTable.symbol( builtin.name() );
     sym.ppDecl = new Macro( sym, new SourceRange(), builtin );
   }
 
@@ -340,7 +339,7 @@ private final boolean parseMacroParamList ( Macro macro )
     {
       if (m_tok.code() == Code.IDENT)
       {
-        Symbol sym = m_tok.symbol();
+        PPSymbol sym = m_tok.symbol();
         if (sym.ppDecl instanceof ParamDecl)
         {
           m_reporter.error( m_tok, "Duplicated macro parameter '%s'", sym.name );
@@ -356,7 +355,7 @@ private final boolean parseMacroParamList ( Macro macro )
         else if (m_tok.code() == Code.COMMA)
           nextNoBlanks();
 /* GCC extension for variadic macros "macro(args...)" */
-        else if (m_opts.gccExtensions && m_tok.code() == Code.ELLIPSIS)
+        else if (m_opts.getGccExtensions() && m_tok.code() == Code.ELLIPSIS)
         {
           macro.variadic = true;
           macro.params.get( macro.params.size()-1 ).variadic = true;
@@ -414,7 +413,7 @@ private static ParamDecl isParam ( Token tok )
 {
   if (tok.code() == Code.IDENT)
   {
-    Symbol sym = tok.symbol();
+    PPSymbol sym = tok.symbol();
     if (sym.ppDecl instanceof ParamDecl)
       return (ParamDecl)sym.ppDecl;
   }
@@ -534,7 +533,7 @@ private final void parseDefine ()
     return;
   }
 
-  final Symbol macroSym = m_tok.symbol();
+  final PPSymbol macroSym = m_tok.symbol();
   final Macro macro = new Macro( macroSym, m_tok, null );
   try
   {
@@ -589,7 +588,7 @@ private final void parseUndef ()
     return;
   }
 
-  final Symbol macroSym = m_tok.symbol();
+  final PPSymbol macroSym = m_tok.symbol();
   if (macroSym.ppDecl instanceof Macro)
   {
     if (((Macro)macroSym.ppDecl).builtin != null)
@@ -598,7 +597,7 @@ private final void parseUndef ()
     macroSym.ppDecl = null;
   }
   else
-    if (m_opts.warnUndef)
+    if (m_opts.getWarnUndef())
       m_reporter.warning( m_tok, "Macro '%s' not defined in #undef", macroSym.name );
 
   nextNoBlanks();
@@ -855,9 +854,9 @@ loop:
     return;
   }
 
-  if (m_sourceStack.size() == CompilerLimits.MAX_INCLUDE_DEPTH)
+  if (m_sourceStack.size() == m_opts.getMaxIncludeDepth())
   {
-    m_reporter.error( pos, "More than %d nested includes", CompilerLimits.MAX_INCLUDE_DEPTH );
+    m_reporter.error( pos, "More than %d nested includes", m_opts.getMaxIncludeDepth() );
     return;
   }
 
@@ -1035,20 +1034,32 @@ private static final Constant.IntC s_one = Constant.makeLong( TypeSpec.INTMAX_T,
 private static Constant.IntC expandToMax ( Constant.IntC v )
 {
   return (Constant.IntC)Constant.convert(
-    Types.usualArithmeticConversions( v.spec, TypeSpec.INTMAX_T ), v
+    TypeRules.usualArithmeticConversions( v.spec, TypeSpec.INTMAX_T ), v
   );
 }
 
 private static void performUsualArithmeticConversions ( Constant.ArithC e[] )
 {
-  TypeSpec spec = Types.usualArithmeticConversions( e[0].spec, e[1].spec );
+  // Normally we should do this.
+  //   TypeSpec spec = TypeRules.usualArithmeticConversions( e[0].spec, e[1].spec );
+  // However we don't have to because we know that the operands can be only one of two
+  // types. If any is unsigned, convert the other to unsigned too
+  assert e[0].spec == TypeSpec.INTMAX_T || e[0].spec == TypeSpec.UINTMAX_T;
+  assert e[1].spec == TypeSpec.INTMAX_T || e[1].spec == TypeSpec.UINTMAX_T;
+
+  TypeSpec spec = e[0].spec.signed ? e[1].spec : e[0].spec;
   e[0] = Constant.convert( spec, e[0] );
   e[1] = Constant.convert( spec, e[1] );
 }
 
 private static Constant.IntC performIntegerPromotion ( Constant.IntC e )
 {
-  return (Constant.IntC)Constant.convert( Types.integerPromotion( e.spec ), e );
+  // Normally we should do this.
+  //   return (Constant.IntC)Constant.convert( TypeRules.integerPromotion( e.spec ), e );
+  // However we don't have to because we know that the operand can be only one of two
+  // types, which don't need integer promotion at all
+  assert e.spec == TypeSpec.INTMAX_T || e.spec == TypeSpec.UINTMAX_T;
+  return e;
 }
 
 private abstract class Expression
@@ -1290,7 +1301,7 @@ private final Constant.IntC conditional_expression ()
   Constant.IntC cond = m_logicalOR.parse();
   if (m_tok.code() == Code.QUESTION)
   {
-    cond = (Constant.IntC)Constant.convert( Types.integerPromotion( cond.spec ), cond );
+    cond = performIntegerPromotion( cond );
 
     nextExpandNoBlanks();
 
@@ -1417,7 +1428,7 @@ private final void parseDirective ()
 
   case IDENT:
     {
-      Symbol sym = m_tok.symbol();
+      PPSymbol sym = m_tok.symbol();
       if (sym.ppCode != null)
       {
         switch (sym.ppCode)
@@ -1766,7 +1777,7 @@ private final TokenList<Token> expandTokens ( TokenList<Token> tokens )
 
 private boolean m_lineBeg = true;
 
-public final Token nextToken ()
+public final Token<SYM> nextToken ()
 {
   for(;;)
   {
@@ -1934,7 +1945,7 @@ private final class Context
 
               // GCC extension. ', ## __VA_ARGS__' eliminates the comma if __VA_ARGS__ is null
               //
-              if (m_opts.gccExtensions &&
+              if (m_opts.getGccExtensions() &&
                   m_concatChildren.length == 2 &&
                   m_concatChildren[0].code() == Code.COMMA &&
                   m_concatChildren[1].code() == Code.MACRO_PARAM &&

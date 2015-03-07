@@ -6,16 +6,16 @@ VOID("void"),
 
 BOOL("bool",false,1),
 // Note: the ordering matters. First <signed>, then <unsigned>, from smaller to larger
-SCHAR("signed char",true, Platform.CHAR_BITS),
-UCHAR("unsigned char",false, Platform.CHAR_BITS),
-SSHORT("short",true, Platform.SHORT_BITS),
-USHORT("unsigned short",false, Platform.SHORT_BITS),
-SINT("int",true, Platform.INT_BITS),
-UINT("unsigned",false, Platform.INT_BITS),
-SLONG("long",true, Platform.LONG_BITS),
-ULONG("unsigned long",false, Platform.LONG_BITS),
-SLLONG("long long",true, Platform.LONGLONG_BITS),
-ULLONG("unsigned long long",false, Platform.LONGLONG_BITS),
+SCHAR("signed char",true, PlatformBits.CHAR_BITS),
+UCHAR("unsigned char",false, PlatformBits.CHAR_BITS),
+SSHORT("short",true, PlatformBits.SHORT_BITS),
+USHORT("unsigned short",false, PlatformBits.SHORT_BITS),
+SINT("int",true, PlatformBits.INT_BITS),
+UINT("unsigned",false, PlatformBits.INT_BITS),
+SLONG("long",true, PlatformBits.LONG_BITS),
+ULONG("unsigned long",false, PlatformBits.LONG_BITS),
+SLLONG("long long",true, PlatformBits.LONGLONG_BITS),
+ULLONG("unsigned long long",false, PlatformBits.LONGLONG_BITS),
 FLOAT("float",32, Float.MIN_VALUE, Float.MAX_VALUE),
 DOUBLE("double",64, Double.MIN_VALUE, Double.MAX_VALUE),
 LDOUBLE("long double",64, Double.MIN_VALUE, Double.MAX_VALUE),
@@ -81,7 +81,7 @@ TypeSpec ( String str, int width, double minReal, double maxReal )
   this.integer = false;
   this.signed = true;
   this.width = width;
-  this.sizeOf = width / Platform.CHAR_BITS; assert width % Platform.CHAR_BITS == 0;
+  this.sizeOf = width / PlatformBits.CHAR_BITS; assert width % PlatformBits.CHAR_BITS == 0;
   this.longMask = this.width < 64 ? (1L << this.width) - 1 : ~0L;
   this.minValue = 0;
   this.maxValue = 0;
@@ -98,7 +98,7 @@ TypeSpec ( String str, boolean signed, int width )
   this.integer = true;
   this.signed = signed;
   this.width = width;
-  this.sizeOf = (width==1?8:width) / Platform.CHAR_BITS; assert (width==1?8:width) % Platform.CHAR_BITS == 0;
+  this.sizeOf = (width==1?8:width) / PlatformBits.CHAR_BITS; assert (width==1?8:width) % PlatformBits.CHAR_BITS == 0;
   this.longMask = this.width < 64 ? (1L << this.width) - 1 : ~0L;
 
   if (signed)
