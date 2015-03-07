@@ -134,9 +134,9 @@ private TExpr.Expr implicitCast ( TExpr.Expr op, Qual type )
 
 private TExpr.Expr integerPromotion ( TExpr.Expr op )
 {
-  if (op.getQual().spec.type.integer)
+  if (op.getQual().spec.isInteger())
   {
-    Qual promoted = stdQual( Types.integerPromotion( op.getQual().spec.type ) );
+    Qual promoted = stdQual( Types.integerPromotion( op.getQual().spec.effectiveKind() ) );
     if (promoted.spec.type != op.getQual().spec.type)
       return new TExpr.Unary( op, TreeCode.IMPLICIT_CAST, promoted, op );
   }
@@ -150,7 +150,7 @@ private final boolean isVoidPtr ( Qual qual )
 
 private final boolean isNullPointerConst ( TExpr.Expr expr )
 {
-  if (expr.getCode() == TreeCode.CONSTANT && expr.getQual().spec.type.integer &&
+  if (expr.getCode() == TreeCode.CONSTANT && expr.getQual().spec.isInteger() &&
           ((TExpr.Constant)expr).getValue().isZero())
   {
     return true;
@@ -199,7 +199,7 @@ public final class IncExpr extends UnaryExpr
   @Override
   protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr operand )
   {
-    if (!(operand.getQual().spec.type.arithmetic || operand.getQual().spec.type == TypeSpec.POINTER))
+    if (!operand.getQual().spec.isScalar())
       return super.make( loc, operand );
 
     if (!needModifiableLValue( loc, operand, code ))
@@ -278,7 +278,7 @@ public class AdditiveUnaryExpr extends LoadingUnaryExpr
   @Override
   protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr operand )
   {
-    if (operand.getQual().spec.type.arithmetic)
+    if (operand.getQual().spec.isArithmetic())
     {
       operand = integerPromotion( operand );
       return new TExpr.Unary( null, code, operand.getQual(), operand );
@@ -311,15 +311,15 @@ public final class TypecastExpr
     assert typeName.type != null;
     Qual type = typeName.type;
 
-    if (type.spec.type.isScalar())
+    if (type.spec.isScalar())
     {
-      if (!operand.getQual().spec.type.isScalar())
+      if (!operand.getQual().spec.isScalar())
       {
         error( operand, "invalid typecast operand ('%s'). Must be arithmetic or pointer", operand.getQual().readableType() );
         return null;
       }
-      if (type.spec.type == TypeSpec.POINTER && operand.getQual().spec.type.floating ||
-          type.spec.type.floating && operand.getQual().spec.type == TypeSpec.POINTER)
+      if (type.spec.isPointer() && operand.getQual().spec.isFloating() ||
+          type.spec.isFloating() && operand.getQual().spec.isPointer())
       {
         error( loc, "'%s' cannot be cast to '%s'", operand.getQual().readableType(), type.readableType() );
         return null;
@@ -347,7 +347,7 @@ public class BitwiseNotExpr extends LoadingUnaryExpr
   @Override
   protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr operand )
   {
-    if (operand.getQual().spec.type.integer)
+    if (operand.getQual().spec.isInteger())
     {
       operand = integerPromotion( operand );
       return new TExpr.Unary( null, code, operand.getQual(), operand );
@@ -367,7 +367,7 @@ public class LogNegExpr extends LoadingUnaryExpr
   @Override
   protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr operand )
   {
-    if (operand.getQual().spec.type.isScalar())
+    if (operand.getQual().spec.isScalar())
       return new TExpr.Unary( null, code, stdQual(TypeSpec.SINT), integerPromotion(operand) );
     else
       return super.make( loc, operand );
@@ -479,7 +479,9 @@ public abstract class BinaryExpr
 
   protected final TExpr.Binary usualArithmeticConversions ( TExpr.Expr left, TExpr.Expr right )
   {
-    Qual commonType = stdQual( Types.usualArithmeticConversions( left.getQual().spec.type, right.getQual().spec.type ) );
+    Qual commonType = stdQual( Types.usualArithmeticConversions(
+            left.getQual().spec.effectiveKind(), right.getQual().spec.effectiveKind()
+    ));
     if (commonType.spec.type != left.getQual().spec.type)
       left = new TExpr.Unary( left, TreeCode.IMPLICIT_CAST, commonType, left );
     if (commonType.spec.type != right.getQual().spec.type)
@@ -498,7 +500,7 @@ public class IntegerBinaryExpr extends BinaryExpr
   @Override
   protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
   {
-    if (left.getQual().spec.type.integer && right.getQual().spec.type.integer)
+    if (left.getQual().spec.isInteger() && right.getQual().spec.isInteger())
       return usualArithmeticConversions( left, right );
     else
       return super.make( loc, left, right );
@@ -514,7 +516,7 @@ public class MultiplicativeExpr extends BinaryExpr
 
   protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
   {
-    if (left.getQual().spec.type.arithmetic && right.getQual().spec.type.arithmetic)
+    if (left.getQual().spec.isArithmetic() && right.getQual().spec.isArithmetic())
       return usualArithmeticConversions( left, right );
     else
       return super.make( loc, left, right );
@@ -531,7 +533,7 @@ public class AdditiveExpr extends MultiplicativeExpr
   @Override
   protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
   {
-    if (left.getQual().spec.type == TypeSpec.POINTER && right.getQual().spec.type.integer)
+    if (left.getQual().spec.isPointer() && right.getQual().spec.isInteger())
     {
       PointerSpec ptr = (PointerSpec) left.getQual().spec;
       if (!ptr.of.spec.isComplete())
@@ -557,7 +559,7 @@ public class ShiftExpression extends BinaryExpr
   @Override
   protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
   {
-    if (left.getQual().spec.type.integer && right.getQual().spec.type.integer)
+    if (left.getQual().spec.isInteger() && right.getQual().spec.isInteger())
     {
       left = integerPromotion(left);
       right = integerPromotion(right);
@@ -578,7 +580,7 @@ public class RelationalExpression extends BinaryExpr
   @Override
   protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
   {
-    if (left.getQual().spec.type.arithmetic && right.getQual().spec.type.arithmetic)
+    if (left.getQual().spec.isArithmetic() && right.getQual().spec.isArithmetic())
     {
       Qual commonType = stdQual( Types.usualArithmeticConversions( left.getQual().spec.type, right.getQual().spec.type ) );
       if (commonType.spec.type != left.getQual().spec.type)
@@ -647,7 +649,7 @@ public final class LogicalExpression extends BinaryExpr
   @Override
   protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
   {
-    if (left.getQual().spec.type.isScalar() && right.getQual().spec.type.isScalar())
+    if (left.getQual().spec.isScalar() && right.getQual().spec.isScalar())
       return new TExpr.Binary( null, code, stdQual(TypeSpec.SINT), integerPromotion(left), integerPromotion(right) );
     else
       return super.make( loc, left, right );
@@ -699,13 +701,13 @@ public final BinaryExpr m_subscript = new BinaryExpr( TreeCode.SUBSCRIPT, "Must 
     TExpr.Expr ptre, inte;
     boolean leftPtr;
 
-    if (left.getQual().spec.type == TypeSpec.POINTER && right.getQual().spec.type.integer)
+    if (left.getQual().spec.isPointer() && right.getQual().spec.isInteger())
     {
       ptre = left;
       inte = right;
       leftPtr = true;
     }
-    else if (left.getQual().spec.type.integer && right.getQual().spec.type == TypeSpec.POINTER)
+    else if (left.getQual().spec.isInteger() && right.getQual().spec.isPointer())
     {
       ptre = right;
       inte = left;
@@ -893,7 +895,7 @@ public final BinaryExpr m_add = new AdditiveExpr( TreeCode.ADD, null ) {
   @Override
   public TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
   {
-    if (left.getQual().spec.type.integer && right.getQual().spec.type == TypeSpec.POINTER)
+    if (left.getQual().spec.isInteger() && right.getQual().spec.isPointer())
     {
       PointerSpec ptr = (PointerSpec) right.getQual().spec;
       if (!ptr.of.spec.isComplete())
@@ -1096,8 +1098,8 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
     Qual type = e.getQual();
     TypeSpec ts;
 
-    if (type.spec.type.arithmetic)
-      ts = type.spec.type;
+    if (type.spec.isArithmetic())
+      ts = type.spec.effectiveKind();
     else if (type.spec.type == TypeSpec.POINTER)
       ts = TypeSpec.UINTPTR_T; // FIXME: different pointer sizes
     else
@@ -1311,7 +1313,7 @@ public final TExpr.ArithConstant constantExpression ( ISourceRange loc, TExpr.Ex
     error( ev.getErrorNode(), "not a constant expression" );
     return errorVal( loc );
   }
-  if (!ev.getResType().spec.type.integer)
+  if (!ev.getResType().spec.isInteger())
   {
     error( loc, "not an integer constant expression" );
     return errorVal( loc );

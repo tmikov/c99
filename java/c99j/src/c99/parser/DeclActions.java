@@ -1404,7 +1404,7 @@ public final void finishBitfield (
   if (decl.error)
     return;
 
-  if (!decl.type.spec.type.integer)
+  if (!decl.type.spec.isInteger())
   {
     error( decl, "'%s': invalid type of bit-field '%s'. Must be integer", decl.type.readableType(), fieldName );
     decl.error = true;

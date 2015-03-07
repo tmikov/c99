@@ -150,6 +150,32 @@ public static abstract class Spec
     m_size = -1;
   }
 
+  public final boolean isInteger ()
+  {
+    return this.type.integer || this.type == TypeSpec.ENUM;
+  }
+  public final boolean isFloating ()
+  {
+    return this.type.floating;
+  }
+  public final boolean isScalar ()
+  {
+    return this.type.arithmetic || this.type == TypeSpec.ENUM || this.type == TypeSpec.POINTER;
+  }
+  public final boolean isArithmetic ()
+  {
+    return this.type.arithmetic || this.type == TypeSpec.ENUM;
+  }
+  public final boolean isPointer ()
+  {
+    return this.type == TypeSpec.POINTER;
+  }
+
+  public final TypeSpec effectiveKind ()
+  {
+    return this.type == TypeSpec.ENUM ? ((EnumSpec)this).getBaseSpec().effectiveKind() : this.type;
+  }
+
   public abstract boolean visit ( Qual q, TypeVisitor v );
 
   public abstract boolean isError ();
