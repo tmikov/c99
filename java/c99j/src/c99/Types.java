@@ -130,50 +130,50 @@ public static final class Qual
 
   public final boolean isConstMember ()
   {
-    return (spec.type == TypeSpec.STRUCT || spec.type == TypeSpec.UNION) &&
+    return (spec.kind == TypeSpec.STRUCT || spec.kind == TypeSpec.UNION) &&
             ((StructUnionSpec)spec).isConstMember();
   }
 }
 
 public static abstract class Spec
 {
-  public final TypeSpec type;
+  public final TypeSpec kind;
   public final ExtAttributes extAttrs = new ExtAttributes();
   protected boolean m_complete;
   private long m_size;
   private int m_align;
 
-  public Spec ( final TypeSpec type, boolean complete )
+  public Spec ( final TypeSpec kind, boolean complete )
   {
-    this.type = type;
+    this.kind = kind;
     m_complete = complete;
     m_size = -1;
   }
 
   public final boolean isInteger ()
   {
-    return this.type.integer || this.type == TypeSpec.ENUM;
+    return this.kind.integer || this.kind == TypeSpec.ENUM;
   }
   public final boolean isFloating ()
   {
-    return this.type.floating;
+    return this.kind.floating;
   }
   public final boolean isScalar ()
   {
-    return this.type.arithmetic || this.type == TypeSpec.ENUM || this.type == TypeSpec.POINTER;
+    return this.kind.arithmetic || this.kind == TypeSpec.ENUM || this.kind == TypeSpec.POINTER;
   }
   public final boolean isArithmetic ()
   {
-    return this.type.arithmetic || this.type == TypeSpec.ENUM;
+    return this.kind.arithmetic || this.kind == TypeSpec.ENUM;
   }
   public final boolean isPointer ()
   {
-    return this.type == TypeSpec.POINTER;
+    return this.kind == TypeSpec.POINTER;
   }
 
   public final TypeSpec effectiveKind ()
   {
-    return this.type == TypeSpec.ENUM ? ((EnumSpec)this).getBaseSpec().effectiveKind() : this.type;
+    return this.kind == TypeSpec.ENUM ? ((EnumSpec)this).getBaseSpec().effectiveKind() : this.kind;
   }
 
   public abstract boolean visit ( Qual q, TypeVisitor v );
@@ -210,12 +210,12 @@ public static abstract class Spec
 
   public boolean compatible ( Spec o )
   {
-    return o == this || this.type == o.type && extAttrs.same( o.extAttrs );
+    return o == this || this.kind == o.kind && extAttrs.same( o.extAttrs );
   }
 
   @Override public String toString ()
   {
-    return type.str;
+    return kind.str;
   }
 
   public final String readableType ()
@@ -249,7 +249,7 @@ public static final class SimpleSpec extends Spec
   @Override
   public boolean isError ()
   {
-    return this.type == TypeSpec.ERROR;
+    return this.kind == TypeSpec.ERROR;
   }
 }
 
@@ -268,7 +268,7 @@ public static final class BasedSpec extends Spec
   @Override
   public boolean visit ( Qual q, TypeVisitor v )
   {
-    return this.type == TypeSpec.ATOMIC ? v.visitAtomic( q, this ) : v.visitBased( q, this );
+    return this.kind == TypeSpec.ATOMIC ? v.visitAtomic( q, this ) : v.visitBased( q, this );
   }
 
   @Override
@@ -284,7 +284,7 @@ public static final class BasedSpec extends Spec
 
   @Override public final String toString ()
   {
-    return type + " of " + on;
+    return kind + " of " + on;
   }
 }
 
@@ -306,7 +306,7 @@ public static abstract class DerivedSpec extends Spec
 
   @Override public String toString ()
   {
-    return type + " of " + of;
+    return kind + " of " + of;
   }
 }
 
@@ -445,7 +445,7 @@ public static abstract class TagSpec extends Spec
 
   public String toString ()
   {
-    return this.name != null ? this.type.str + " " + this.name.name : this.type.str;
+    return this.name != null ? this.kind.str + " " + this.name.name : this.kind.str;
   }
 }
 
@@ -670,7 +670,7 @@ public static class Member extends Param
   public final void setBitOffset ( int bitOffset )
   {
     assert isBitField();
-    assert bitOffset >= 0 && bitOffset+m_bitFieldWidth <= type.spec.type.width;
+    assert bitOffset >= 0 && bitOffset+m_bitFieldWidth <= type.spec.kind.width;
     m_bitOffset = bitOffset;
   }
 }

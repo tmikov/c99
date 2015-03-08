@@ -54,7 +54,7 @@ private final boolean needModifiableLValue ( CParser.Location loc, TExpr.Expr op
   if (!needLValue( loc, op, code ))
     return false;
 
-  switch (op.getQual().spec.type)
+  switch (op.getQual().spec.kind)
   {
   case ARRAY:
   case FUNCTION:
@@ -90,7 +90,7 @@ public final TExpr.Expr implicitLoad ( TExpr.Expr op )
   {
     Qual qual = ((TExpr.VarRef)op).getDecl().type;
     Spec spec = qual.spec;
-    switch (spec.type)
+    switch (spec.kind)
     {
     case ARRAY:
       return new TExpr.Unary( op, TreeCode.IMPLICIT_CAST, new Qual(newPointerSpec( ((ArraySpec)spec).of )), op );
@@ -137,7 +137,7 @@ private TExpr.Expr integerPromotion ( TExpr.Expr op )
   if (op.getQual().spec.isInteger())
   {
     Qual promoted = stdQual( TypeRules.integerPromotion( op.getQual().spec.effectiveKind() ) );
-    if (promoted.spec.type != op.getQual().spec.type)
+    if (promoted.spec.kind != op.getQual().spec.kind)
       return new TExpr.Unary( op, TreeCode.IMPLICIT_CAST, promoted, op );
   }
   return op;
@@ -145,7 +145,7 @@ private TExpr.Expr integerPromotion ( TExpr.Expr op )
 
 private final boolean isVoidPtr ( Qual qual )
 {
-  return qual.spec.type == TypeSpec.POINTER && ((PointerSpec)qual.spec).of.spec.type == TypeSpec.VOID;
+  return qual.spec.kind == TypeSpec.POINTER && ((PointerSpec)qual.spec).of.spec.kind == TypeSpec.VOID;
 }
 
 private final boolean isNullPointerConst ( TExpr.Expr expr )
@@ -246,7 +246,7 @@ public class IndirectExpr extends UnaryExpr
   protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr operand )
   {
     operand = implicitLoad( operand );
-    if (operand.getQual().spec.type == TypeSpec.POINTER)
+    if (operand.getQual().spec.kind == TypeSpec.POINTER)
       return new TExpr.Unary( null, code, ((PointerSpec)operand.getQual().spec).of, operand );
     else
       return super.make( loc, operand );
@@ -325,7 +325,7 @@ public final class TypecastExpr
         return null;
       }
     }
-    else if (type.spec.type == TypeSpec.VOID)
+    else if (type.spec.kind == TypeSpec.VOID)
     {}
     else
     {
@@ -424,7 +424,7 @@ public abstract class AttrOfType
   public final TExpr.Expr expr ( CParser.Location loc, TDeclaration typeName )
   {
     TExpr.Expr res = null;
-    if (!typeName.error && typeName.type.spec.type != TypeSpec.ERROR)
+    if (!typeName.error && typeName.type.spec.kind != TypeSpec.ERROR)
       if (!typeName.type.spec.isComplete())
         error( loc, "'%s' of incomplete type '%s'", code.str, typeName.type.readableType() );
       else
@@ -482,9 +482,9 @@ public abstract class BinaryExpr
     Qual commonType = stdQual( TypeRules.usualArithmeticConversions(
             left.getQual().spec.effectiveKind(), right.getQual().spec.effectiveKind()
     ));
-    if (commonType.spec.type != left.getQual().spec.type)
+    if (commonType.spec.kind != left.getQual().spec.kind)
       left = new TExpr.Unary( left, TreeCode.IMPLICIT_CAST, commonType, left );
-    if (commonType.spec.type != right.getQual().spec.type)
+    if (commonType.spec.kind != right.getQual().spec.kind)
       right = new TExpr.Unary( right, TreeCode.IMPLICIT_CAST, commonType, right );
     return new TExpr.Binary( null, code, commonType, left, right );
   }
@@ -582,14 +582,14 @@ public class RelationalExpression extends BinaryExpr
   {
     if (left.getQual().spec.isArithmetic() && right.getQual().spec.isArithmetic())
     {
-      Qual commonType = stdQual( TypeRules.usualArithmeticConversions( left.getQual().spec.type, right.getQual().spec.type ) );
-      if (commonType.spec.type != left.getQual().spec.type)
+      Qual commonType = stdQual( TypeRules.usualArithmeticConversions( left.getQual().spec.kind, right.getQual().spec.kind ) );
+      if (commonType.spec.kind != left.getQual().spec.kind)
         left = new TExpr.Unary( left, TreeCode.IMPLICIT_CAST, commonType, left );
-      if (commonType.spec.type != right.getQual().spec.type)
+      if (commonType.spec.kind != right.getQual().spec.kind)
         right = new TExpr.Unary( right, TreeCode.IMPLICIT_CAST, commonType, right );
       return new TExpr.Binary( null, code, stdQual( TypeSpec.SINT ), left, right );
     }
-    else if (left.getQual().spec.type == TypeSpec.POINTER && right.getQual().spec.type == TypeSpec.POINTER)
+    else if (left.getQual().spec.kind == TypeSpec.POINTER && right.getQual().spec.kind == TypeSpec.POINTER)
     {
       PointerSpec lptr = (PointerSpec)left.getQual().spec;
       PointerSpec rptr = (PointerSpec)right.getQual().spec;
@@ -618,19 +618,19 @@ public final class EqualityExpression extends RelationalExpression
   protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
   {
     // FIXME: far/near pointers
-    if (left.getQual().spec.type == TypeSpec.POINTER && isNullPointerConst( right ))
+    if (left.getQual().spec.kind == TypeSpec.POINTER && isNullPointerConst( right ))
     {
       return new TExpr.Binary( null, code, stdQual(TypeSpec.SINT), left, implicitCast( right, left.getQual() ) );
     }
-    else if (isNullPointerConst( left ) && right.getQual().spec.type == TypeSpec.POINTER)
+    else if (isNullPointerConst( left ) && right.getQual().spec.kind == TypeSpec.POINTER)
     {
       return new TExpr.Binary( null, code, stdQual(TypeSpec.SINT), implicitCast( left, right.getQual() ), right );
     }
-    else if (isVoidPtr(left.getQual()) && right.getQual().spec.type == TypeSpec.POINTER)
+    else if (isVoidPtr(left.getQual()) && right.getQual().spec.kind == TypeSpec.POINTER)
     {
       return new TExpr.Binary( null, code, stdQual(TypeSpec.SINT), left, implicitCast( right, left.getQual() ) );
     }
-    else if (left.getQual().spec.type == TypeSpec.POINTER && isVoidPtr(right.getQual()))
+    else if (left.getQual().spec.kind == TypeSpec.POINTER && isVoidPtr(right.getQual()))
     {
       return new TExpr.Binary( null, code, stdQual(TypeSpec.SINT), implicitCast( left, right.getQual() ), right );
     }
@@ -757,7 +757,7 @@ public final SelectMemberExpr m_dotMember = new SelectMemberExpr(TreeCode.DOT_ME
   protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr agg, Symbol memberName )
   {
     Spec spec = agg.getQual().spec;
-    if (spec.type != TypeSpec.STRUCT && spec.type != TypeSpec.UNION)
+    if (spec.kind != TypeSpec.STRUCT && spec.kind != TypeSpec.UNION)
     {
       error( loc, "%s%s of type '%s' which is not struct/union", code.str, memberName.name, spec.readableType() );
       return null;
@@ -793,7 +793,7 @@ public final SelectMemberExpr m_ptrMember = new SelectMemberExpr(TreeCode.PTR_ME
     agg = implicitLoad( agg );
 
     Spec bspec = agg.getQual().spec;
-    if (bspec.type != TypeSpec.POINTER)
+    if (bspec.kind != TypeSpec.POINTER)
     {
       error( loc, "invalid operand to '%s%s' (%s). Must be a pointer", code.str, memberName.name, bspec.readableType() );
       return null;
@@ -802,7 +802,7 @@ public final SelectMemberExpr m_ptrMember = new SelectMemberExpr(TreeCode.PTR_ME
     PointerSpec ptrSpec = (PointerSpec)bspec;
     Spec toSpec = ptrSpec.of.spec;
 
-    if (toSpec.type != TypeSpec.STRUCT && toSpec.type != TypeSpec.UNION)
+    if (toSpec.kind != TypeSpec.STRUCT && toSpec.kind != TypeSpec.UNION)
     {
       error( loc, "%s%s of type '%s' which is not a struct/union",
               code.str, memberName.name, toSpec.readableType() );
@@ -915,7 +915,7 @@ public final BinaryExpr m_sub = new BinaryExpr( TreeCode.SUB, null ) {
   @Override
   public TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
   {
-    if (left.getQual().spec.type == TypeSpec.POINTER && right.getQual().spec.type == TypeSpec.POINTER)
+    if (left.getQual().spec.kind == TypeSpec.POINTER && right.getQual().spec.kind == TypeSpec.POINTER)
     {
       PointerSpec lptr = (PointerSpec)left.getQual().spec;
       PointerSpec rptr = (PointerSpec)right.getQual().spec;
@@ -1043,7 +1043,7 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
       return false;
 
     Constant.ArithC c;
-    final TypeSpec ts = e.getQual().spec.type;
+    final TypeSpec ts = e.getQual().spec.kind;
     switch (e.getCode())
     {
     case POST_INC:
@@ -1100,7 +1100,7 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
 
     if (type.spec.isArithmetic())
       ts = type.spec.effectiveKind();
-    else if (type.spec.type == TypeSpec.POINTER)
+    else if (type.spec.kind == TypeSpec.POINTER)
       ts = TypeSpec.UINTPTR_T; // FIXME: different pointer sizes
     else
       return retError( e );
@@ -1170,7 +1170,7 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
 
   @Override public boolean visitBinary ( TExpr.Binary e )
   {
-    final TypeSpec ts = e.getQual().spec.type != TypeSpec.POINTER ? e.getQual().spec.type : TypeSpec.UINTPTR_T;
+    final TypeSpec ts = e.getQual().spec.kind != TypeSpec.POINTER ? e.getQual().spec.kind : TypeSpec.UINTPTR_T;
 
     if (!e.getLeft().visit( this ))
       return false;
@@ -1194,9 +1194,9 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
       // We must calculate the address of the element. The actual loading, if requested, would be done by
       // IMPLICIT_LOAD (and would mean we are not a const expression)
       c = Constant.newConstant( TypeSpec.UINTPTR_T );
-      if (e.getLeft().getQual().spec.type == TypeSpec.POINTER)
+      if (e.getLeft().getQual().spec.kind == TypeSpec.POINTER)
         performPointerAdd( c, e.getLeft(), lc, e.getRight(), rc, true );
-      else if (e.getRight().getQual().spec.type == TypeSpec.POINTER)
+      else if (e.getRight().getQual().spec.kind == TypeSpec.POINTER)
         performPointerAdd( c, e.getRight(), rc, e.getLeft(), lc, true );
       else
       {
@@ -1225,24 +1225,24 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
       ((Constant.IntC)c).rem( (Constant.IntC)lc, (Constant.IntC)rc );
       break;
     case ADD:
-      if (e.getLeft().getQual().spec.type == TypeSpec.POINTER)
+      if (e.getLeft().getQual().spec.kind == TypeSpec.POINTER)
         performPointerAdd( c, e.getLeft(), lc, e.getRight(), rc, true );
-      else if (e.getRight().getQual().spec.type == TypeSpec.POINTER)
+      else if (e.getRight().getQual().spec.kind == TypeSpec.POINTER)
         performPointerAdd( c, e.getRight(), rc, e.getLeft(), lc, true );
       else
         c.add( Constant.convert(ts, lc), Constant.convert(ts, rc) );
       break;
     case SUB:
-      if (e.getRight().getQual().spec.type == TypeSpec.POINTER) // pointer - pointer?
+      if (e.getRight().getQual().spec.kind == TypeSpec.POINTER) // pointer - pointer?
       {
-        assert e.getLeft().getQual().spec.type == TypeSpec.POINTER;
+        assert e.getLeft().getQual().spec.kind == TypeSpec.POINTER;
         if (!performPointerSub( c, e.getLeft(), lc, e.getRight(), rc ))
         {
           warning( e, "division by zero in pointer subtraction" );
           return retError( e );
         }
       }
-      else if (e.getLeft().getQual().spec.type == TypeSpec.POINTER) // pointer - int?
+      else if (e.getLeft().getQual().spec.kind == TypeSpec.POINTER) // pointer - int?
         performPointerAdd( c, e.getLeft(), lc, e.getRight(), rc, false );
       else
         c.sub( Constant.convert( ts, lc ), Constant.convert( ts, rc ) );

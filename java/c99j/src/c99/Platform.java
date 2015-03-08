@@ -117,7 +117,7 @@ public void setDefaultAttrs ( Types.Qual qual )
   assert (attrs.flags() & QUAL_X86SEGS) == 0;
   assert (attrs.flags() & (QUAL_X86NEAR | QUAL_X86FAR | QUAL_X86HUGE)) == 0;
 
-  if (qual.spec.type == TypeSpec.FUNCTION) // Code
+  if (qual.spec.kind == TypeSpec.FUNCTION) // Code
   {
     if (m_env.opts.defCodePointers == 0)
     {
@@ -158,7 +158,7 @@ public boolean checkAndCompleteAttrs ( ISourceRange loc, Types.Qual qual )
       attrError( attrs, loc, "more than one 8086 pointer size (near/far/huge) specified" );
   }
 
-  if (qual.spec.type == TypeSpec.FUNCTION) // Code
+  if (qual.spec.kind == TypeSpec.FUNCTION) // Code
   {
     // For functions we always set the necessary attributes
     if (psize == 0)
@@ -195,7 +195,7 @@ public int pointerSize ( Types.Qual to )
     return 4;
   else if ((flags & QUAL_X86NEAR) != 0)
     return 2;
-  else if (to.spec.type == TypeSpec.FUNCTION)
+  else if (to.spec.kind == TypeSpec.FUNCTION)
     return m_env.opts.defCodePointers == 0 ? 2 : 4;
   else
     return m_env.opts.defDataPointers == 0 ? 2 : 4;

@@ -146,7 +146,7 @@ public final TSpecNode referenceAgg (
   assert ident != null;
   if (ident.topTag != null)
   {
-    if (ident.topTag.type.spec.type == tagSpec)
+    if (ident.topTag.type.spec.kind == tagSpec)
     {
       tagDecl = ident.topTag; // Return the existing tag
     }
@@ -194,7 +194,7 @@ public final Decl beginDeclareAgg (
   // Check for redefinition: it must have been defined in the current scope
   if (ident != null && ident.topTag != null && ident.topTag.scope == declScope)
   {
-    if (ident.topTag.type.spec.type == tagSpec)
+    if (ident.topTag.type.spec.kind == tagSpec)
     {
       final TagSpec prevSpec = (TagSpec)ident.topTag.type.spec;
 
@@ -250,7 +250,7 @@ public final TSpecNode declareAgg ( Code tagCode, Decl tagDecl, Scope memberScop
 
   assert !tagSpec.isComplete();
 
-  if (tagSpec.type == TypeSpec.ENUM)
+  if (tagSpec.kind == TypeSpec.ENUM)
   {
     EnumScope enumScope = (EnumScope)memberScope;
     Scope targetScope = topNonStructScope();
@@ -293,7 +293,7 @@ public final TSpecNode declareAgg ( Code tagCode, Decl tagDecl, Scope memberScop
       Decl decl = new Decl(
         d, Decl.Kind.ENUM_CONST, targetScope, SClass.NONE, Linkage.NONE, d.symbol, type, true, d.error
       );
-      decl.enumValue = (Constant.IntC) Constant.convert( baseSpec.type, d.enumValue );
+      decl.enumValue = (Constant.IntC) Constant.convert( baseSpec.kind, d.enumValue );
 
       targetScope.pushDecl( decl );
       if (DEBUG_ENUM)
@@ -435,7 +435,7 @@ private final void calcAggSize ( ISourceRange loc, StructUnionSpec spec )
 
   try
   {
-    if (spec.type == TypeSpec.STRUCT)
+    if (spec.kind == TypeSpec.STRUCT)
     {
       for ( Member field : spec.getFields() )
       {
@@ -473,7 +473,7 @@ private final void calcAggSize ( ISourceRange loc, StructUnionSpec spec )
             consumedBits = 0;
 
           field.setOffset( noffset );
-          field.setBitOffset( m_plat.memoryBitOffset( field.type.spec.type, consumedBits, field.getBitFieldWidth() ) );
+          field.setBitOffset( m_plat.memoryBitOffset( field.type.spec.kind, consumedBits, field.getBitFieldWidth() ) );
           // Note that we handle the special case of "type :0;" here
           consumedBits += field.getBitFieldWidth() != 0 ? field.getBitFieldWidth() : bits;
           size = sizeAdd( noffset, (consumedBits + TypeSpec.UCHAR.width - 1)/TypeSpec.UCHAR.width );
@@ -495,7 +495,7 @@ private final void calcAggSize ( ISourceRange loc, StructUnionSpec spec )
     }
     else
     {
-      assert spec.type == TypeSpec.UNION;
+      assert spec.kind == TypeSpec.UNION;
       for ( Member field : spec.getFields() )
       {
         field.setOffset( 0 );
@@ -967,7 +967,7 @@ private final class TypeChecker implements TDeclarator.Visitor
       elem.asterisk = null;
     }
 
-    if (this.qual.spec.type == TypeSpec.FUNCTION)
+    if (this.qual.spec.kind == TypeSpec.FUNCTION)
     {
       error( elem, "array of functions" );
       haveError = true;
@@ -1037,13 +1037,13 @@ private final class TypeChecker implements TDeclarator.Visitor
     if (!checkDepth( depth, elem ))
       return false;
 
-    if (this.qual.spec.type == TypeSpec.ARRAY)
+    if (this.qual.spec.kind == TypeSpec.ARRAY)
     {
       error( elem, "function returning an array" );
       this.qual = s_errorQual;
       this.haveError = true;
     }
-    else if (this.qual.spec.type == TypeSpec.FUNCTION)
+    else if (this.qual.spec.kind == TypeSpec.FUNCTION)
     {
       error( elem, "function returning a function" );
       this.qual = s_errorQual;
@@ -1117,12 +1117,12 @@ private final void validateAndBuildType ( TDeclaration decl )
 
 private Qual adjustParamType ( Qual qual )
 {
-  if (qual.spec.type == TypeSpec.FUNCTION)
+  if (qual.spec.kind == TypeSpec.FUNCTION)
   {
     // function => pointer to function
     return new Qual(newPointerSpec(qual) );
   }
-  else if (qual.spec.type == TypeSpec.ARRAY)
+  else if (qual.spec.kind == TypeSpec.ARRAY)
   {
     // array => pointer to element
 
@@ -1141,7 +1141,7 @@ private Qual adjustParamType ( Qual qual )
 
 private static boolean isFunc ( Qual q )
 {
-  return q.spec.type == TypeSpec.FUNCTION;
+  return q.spec.kind == TypeSpec.FUNCTION;
 }
 
 /**
@@ -1429,10 +1429,10 @@ public final void finishBitfield (
       ic = m_errBitFieldWidth;
     }
     else
-    if (ic.asLong() > decl.type.spec.type.width)
+    if (ic.asLong() > decl.type.spec.kind.width)
     {
       error( widthLoc, "width of bit-field '%s' (%d bits) exceeds width of its type (%d bits)",
-              fieldName, ic.asLong(), decl.type.spec.type.width );
+              fieldName, ic.asLong(), decl.type.spec.kind.width );
       decl.error = true;
       ic = m_errBitFieldWidth;
     }
