@@ -7,6 +7,11 @@ public final class ExtAttributes implements Iterable<ExtAttr>
 private ExtAttr m_head; // Sorted
 private int     m_flags;
 
+public final boolean isEmpty ()
+{
+  return m_flags == 0 && m_head == null;
+}
+
 /**
  * @return true if the collection changed as a result of this
  */

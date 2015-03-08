@@ -2,6 +2,7 @@ package c99.parser;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 
 import c99.*;
 import c99.Types.*;
@@ -1049,31 +1050,68 @@ private final class TypeChecker implements TDeclarator.Visitor
       this.qual = s_errorQual;
       this.haveError = true;
     }
+    else if (this.qual.isVoid())
+    {
+      if (!this.qual.isUnqualified())
+      {
+        error( elem, "'void' function result must not have qualifiers" );
+        this.qual = new Qual(this.qual.spec);
+      }
+    }
 
-    final FunctionSpec spec = new FunctionSpec( elem.paramScope == null, qual );
+    final FunctionSpec spec;
+
     if (elem.paramScope != null) // new-style function?
     {
-      // FIXME: support "func (void)"
-      // FIXME: implement ellipsis
-      if (elem.paramScope.getEllipsis())
-        FIXME( "implement ellipsis" );
-      Collection<Decl> decls = elem.paramScope.decls();
-      spec.params = new Param[decls.size()];
-      int i = 0;
-      for ( Decl d : decls )
-        spec.params[i++] = new Param( d, d.symbol, d.type ); // FIXME: coordinates
+      Param[] params = null;
+
+      final List<Decl> decls = elem.paramScope.decls();
+
+      // check for func (void)
+      if (decls.size() == 1)
+      {
+        Decl d = decls.get(0);
+        if (d.symbol == null && d.type.isVoid())
+        {
+          params = FunctionSpec.NO_PARAMS;
+          if (!d.type.isUnqualified())
+            error( d, "'void' as parameter must not have qualifiers" );
+        }
+      }
+
+      if (params == null) // If we didn't determine it is a '(void)'
+      {
+        params = new Param[decls.size()];
+        int i = 0;
+        for ( Decl d : decls )
+        {
+          if (d.type.isVoid())
+          {
+            error( d, "parameter %d ('%s') has type 'void'", i+1, d.symbol != null ? d.symbol.name : "<anonymous>" );
+            params[i] = new Param( d, d.symbol, s_errorQual );
+          }
+          else
+            params[i] = new Param( d, d.symbol, d.type );
+          ++i;
+        }
+      }
+
+      spec = new FunctionSpec( false, params, elem.paramScope.getEllipsis(), qual );
     }
     else // old-style function
     {
+      Param[] params;
+
       if (elem.identList == null)
-        spec.params = new Member[0];
+        params = null;
       else
       {
-        spec.params = new Param[elem.identList.size()];
+        params = new Param[elem.identList.size()];
         int i = 0;
         for ( Param m : elem.identList.values() )
-          spec.params[i++] = m; // FIXME: coordinates
+          params[i++] = m; // FIXME: coordinates
       }
+      spec = new FunctionSpec( true, params, false, qual );
     }
     this.qual = new Qual( spec );
     return true;

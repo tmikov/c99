@@ -79,6 +79,21 @@ public static final class Qual
     this.spec = spec;
   }
 
+  public final boolean isVoid ()
+  {
+    return this.spec.kind == TypeSpec.VOID;
+  }
+
+  public final boolean isUnqualified ()
+  {
+    return
+      !isConst &&
+      !isVolatile &&
+      !isRestrict &&
+      !isAtomic &&
+      extAttrs.isEmpty();
+  }
+
   public final Qual copy ()
   {
     Qual q = new Qual(spec);
@@ -170,9 +185,14 @@ public static abstract class Spec
   {
     return this.kind == TypeSpec.POINTER;
   }
+  public final boolean isEnum ()
+  {
+    return this.kind == TypeSpec.ENUM;
+  }
 
   public final TypeSpec effectiveKind ()
   {
+    assert this.kind != TypeSpec.ENUM || this.isComplete();
     return this.kind == TypeSpec.ENUM ? ((EnumSpec)this).getBaseSpec().effectiveKind() : this.kind;
   }
 
@@ -540,19 +560,32 @@ public static final class EnumSpec extends TagSpec
 
 public static final class FunctionSpec extends DerivedSpec
 {
-  public boolean oldStyle;
-  public Param[] params;
+  private final boolean m_oldStyle;
+  private final boolean m_ellipsis;
+  private final Param[] m_params;
+  private boolean m_error;
 
-  public FunctionSpec ( boolean oldStyle, Qual returning )
+  public static final Param[] NO_PARAMS = new Param[0];
+
+  public FunctionSpec ( boolean oldStyle, Param[] params, boolean ellipsis, Qual returning )
   {
     super( TypeSpec.FUNCTION, false, returning );
-    this.oldStyle = oldStyle;
+    m_oldStyle = oldStyle;
+    m_ellipsis = ellipsis;
+    m_params = params != null ? params : NO_PARAMS;
+
+    for ( Param p : m_params )
+      if (p.isError())
+      {
+        m_error = true;
+        break;
+      }
   }
 
   @Override
   public boolean isError ()
   {
-    return false;
+    return m_error;
   }
 
   @Override
@@ -561,24 +594,74 @@ public static final class FunctionSpec extends DerivedSpec
     return v.visitFunction( q, this );
   }
 
+  public final boolean isOldStyle () { return m_oldStyle; }
+  public final boolean isNewStyle () { return !m_oldStyle; };
+  public final boolean getEllipsis () { return m_ellipsis; };
+
+  public final boolean isVoidParams ()
+  {
+    return !m_oldStyle && !m_ellipsis && m_params.length == 0;
+  }
+
+  public final Param[] getParams ()
+  {
+    assert !m_oldStyle;
+    assert m_params != null;
+    return m_params;
+  }
+
   @Override public boolean compatible ( Spec o )
   {
     if (o == this)
       return true;
+
+    // Check for if 'o' is a function and has a compatible return type
     if (!super.compatible( o ))
       return false;
-    // FIXME: 6.7.6.3[15]
-    FunctionSpec x = (FunctionSpec)o;
-    if (this.oldStyle != x.oldStyle) return false;
-    if (this.params == null) return x.params == null;
-    if (this.params.length != x.params.length) return false;
 
-    for ( int e = this.params.length, i = 0; i < e; ++i )
+    // 6.7.6.3[15]
+
+    final FunctionSpec x = (FunctionSpec)o;
+
+    if (this.isNewStyle() && x.isNewStyle()) // both new-style specifiers
     {
-      final Param pa = this.params[i];
-      final Param pb = x.params[i];
-      if (!pa.type.compatible( pb.type ) || !pa.extAttrs.same(pb.extAttrs))
+      if (this.getEllipsis() != x.getEllipsis())
         return false;
+      if (this.m_params.length != x.m_params.length)
+        return false;
+      for ( int i = 0; i < this.m_params.length; ++i )
+      {
+        final Param pa = this.m_params[i];
+        final Param pb = x.m_params[i];
+        if (!pa.type.compatible( pb.type ) || !pa.extAttrs.same(pb.extAttrs))
+          return false;
+      }
+    }
+    else if (this.isOldStyle() && x.isOldStyle())
+    {
+      // Nothing to do here. Both functions are old-style, so they are compatible
+    }
+    else
+    {
+      // One new style and one old-style
+      final FunctionSpec newS = this.isNewStyle() ? this : x;
+
+      if (newS.getEllipsis()) // "..." can never be compatible with an old-style function
+        return false;
+
+      for ( Param p : newS.m_params)
+      {
+        final Spec spec = p.type.spec;
+
+        // An incomplete enum is not compatible because we don't know its size
+        if (spec.isEnum() && !spec.isComplete())
+          return false;
+
+        // The parameter type must be compatible with the promoted type
+        TypeSpec ts = spec.effectiveKind();
+        if (ts != TypeRules.defaultArgumentPromotion(ts))
+          return false;
+      }
     }
 
     return true;
@@ -587,19 +670,31 @@ public static final class FunctionSpec extends DerivedSpec
   @Override public String toString ()
   {
     StringBuilder buf = new StringBuilder();
-    buf.append( oldStyle ? "oldfunc(" : "func(" );
-    if (params != null)
-      for ( int i = 0; i < params.length; ++i )
+    buf.append( "function(" );
+    if (isNewStyle())
+    {
+      if (isVoidParams())
+        buf.append( "void" );
+      else
       {
-        final Param param = params[i];
-        if (i > 0)
-          buf.append( ", " );
-        if (param.name != null)
-          buf.append( param.name.name );
-        buf.append( ':' );
-        if (param.type != null)
-          buf.append( param.type.toString() );
+        for ( int i = 0; i < m_params.length; ++i )
+        {
+          final Param param = m_params[i];
+          if (i > 0)
+            buf.append( ", " );
+          if (param.name != null)
+            buf.append("/*").append( param.name.name ).append("*/ ");
+          if (param.type != null)
+            buf.append( param.type.toString() );
+        }
+        if (getEllipsis())
+        {
+          if (m_params.length > 0)
+            buf.append( ", " );
+          buf.append( "..." );
+        }
       }
+    }
     buf.append( ") returning " );
     buf.append( of.toString() );
     return buf.toString();
@@ -617,6 +712,11 @@ public static class Param extends SourceRange
     super( rng );
     this.name = name;
     this.type = type;
+  }
+
+  public final boolean isError ()
+  {
+    return type != null && type.spec.isError();
   }
 }
 

@@ -7,9 +7,21 @@ private TypeRules () {};
 public static TypeSpec integerPromotion ( TypeSpec spec )
 {
   // 6.3.1.1 [2]
-  assert spec.integer;
+  // assert spec.integer;
   if (spec.ordinal() > TypeSpec.VOID.ordinal() && spec.ordinal() < TypeSpec.SINT.ordinal())
     return (spec.width - (spec.signed?1:0) <= TypeSpec.SINT.width) ? TypeSpec.SINT : TypeSpec.UINT;
+  else
+    return spec;
+}
+
+public static TypeSpec defaultArgumentPromotion ( TypeSpec spec )
+{
+  // 6.5.2.2 [6]
+  // assert spec.arithmetic;
+  if (spec == TypeSpec.FLOAT)
+    return TypeSpec.DOUBLE;
+  else if (spec.integer)
+    return integerPromotion( spec );
   else
     return spec;
 }

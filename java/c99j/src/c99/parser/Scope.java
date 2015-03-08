@@ -1,7 +1,7 @@
 package c99.parser;
 
-import java.util.Collection;
 import java.util.LinkedList;
+import java.util.List;
 
 public class Scope
 {
@@ -83,7 +83,7 @@ public final void pop ()
     }
 }
 
-public final Collection<Decl> decls ()
+public final List<Decl> decls ()
 {
   return m_decls;
 }
