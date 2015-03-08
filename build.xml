@@ -274,7 +274,7 @@
   <target name="artifact.c99j:jar" depends="init.artifacts, compile.module.c99j, compile.module.cpp" description="Build &#39;c99j:jar&#39; artifact">
     <property name="artifact.temp.output.c99j:jar" value="${artifacts.temp.dir}/c99j_jar"/>
     <mkdir dir="${artifact.temp.output.c99j:jar}"/>
-    <jar destfile="${temp.jar.path.c99j.jar}" duplicate="preserve" filesetmanifest="mergewithoutmain">
+    <jar destfile="${temp.jar.path.c99j.jar}" duplicate="preserve" manifest="${basedir}/java/c99j/src/META-INF/MANIFEST.MF">
       <zipfileset dir="${c99j.output.dir}"/>
       <zipfileset dir="${cpp.output.dir}"/>
     </jar>
@@ -284,7 +284,7 @@
   <target name="artifact.cpp:jar" depends="init.artifacts, compile.module.cpp" description="Build &#39;cpp:jar&#39; artifact">
     <property name="artifact.temp.output.cpp:jar" value="${artifacts.temp.dir}/cpp_jar"/>
     <mkdir dir="${artifact.temp.output.cpp:jar}"/>
-    <jar destfile="${temp.jar.path.cpp.jar}" duplicate="preserve" filesetmanifest="mergewithoutmain">
+    <jar destfile="${temp.jar.path.cpp.jar}" duplicate="preserve" manifest="${basedir}/java/cpp/src/META-INF/MANIFEST.MF">
       <zipfileset dir="${cpp.output.dir}"/>
     </jar>
     <copy file="${temp.jar.path.cpp.jar}" tofile="${artifact.temp.output.cpp:jar}/cpp.jar"/>
