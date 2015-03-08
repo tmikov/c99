@@ -293,7 +293,7 @@ public TypeSpec determineEnumBaseSpec ( TypeSpec baseSpec, Constant.IntC minValu
       {
         final TypeSpec ts = TypeSpec.values()[i];
         if (mi >= ts.minValue && ma <= ts.maxValue)
-          return ts;
+          return ts.width == TypeSpec.SINT.width ? TypeSpec.SINT : ts;
       }
     }
     else
@@ -306,7 +306,7 @@ public TypeSpec determineEnumBaseSpec ( TypeSpec baseSpec, Constant.IntC minValu
       {
         final TypeSpec ts = TypeSpec.values()[i];
         if (!Constant.unsignedLessThan( ts.maxValue, ma ))
-          return ts;
+          return ts.width == TypeSpec.UINT.width ? TypeSpec.UINT : ts;
       }
     }
 
