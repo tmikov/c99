@@ -71,7 +71,7 @@ public static final class Qual
   public boolean isAtomic;
   public final ExtAttributes extAttrs = new ExtAttributes();
 
-  public Spec spec;
+  public final Spec spec;
 
   public Qual ( final Spec spec )
   {
@@ -137,7 +137,7 @@ public static final class Qual
 
 public static abstract class Spec
 {
-  public TypeSpec type;
+  public final TypeSpec type;
   public final ExtAttributes extAttrs = new ExtAttributes();
   protected boolean m_complete;
   private long m_size;
