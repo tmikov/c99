@@ -135,7 +135,7 @@
   
   <target name="compile.module.cpp.production" description="Compile module cpp; production classes">
     <mkdir dir="${cpp.output.dir}"/>
-    <javac destdir="${cpp.output.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true">
+    <javac destdir="${cpp.output.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true" includeantruntime="false">
       <compilerarg line="${compiler.args.cpp}"/>
       <bootclasspath refid="cpp.module.bootclasspath"/>
       <classpath refid="cpp.module.production.classpath"/>
@@ -153,7 +153,7 @@
   
   <target name="compile.module.cpp.tests" depends="compile.module.cpp.production" description="compile module cpp; test classes" unless="skip.tests">
     <mkdir dir="${cpp.testoutput.dir}"/>
-    <javac destdir="${cpp.testoutput.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true">
+    <javac destdir="${cpp.testoutput.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true" includeantruntime="false">
       <compilerarg line="${compiler.args.cpp}"/>
       <bootclasspath refid="cpp.module.bootclasspath"/>
       <classpath refid="cpp.module.classpath"/>
@@ -231,7 +231,7 @@
   
   <target name="compile.module.c99j.production" depends="compile.module.cpp" description="Compile module c99j; production classes">
     <mkdir dir="${c99j.output.dir}"/>
-    <javac destdir="${c99j.output.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true">
+    <javac destdir="${c99j.output.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true" includeantruntime="false">
       <compilerarg line="${compiler.args.c99j}"/>
       <bootclasspath refid="c99j.module.bootclasspath"/>
       <classpath refid="c99j.module.production.classpath"/>
