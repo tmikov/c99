@@ -225,9 +225,9 @@ function-definition:
 
 specified-declarator-func:
     declaration-specifiers-nots[ds] declarator-func-notyp[decl]
-        { finishDeclarator($ds,$decl,true); }
+        { funcDefDeclarator($ds,$decl); }
   | declaration-specifiers-ts[ds]   declarator-func[decl]
-        { finishDeclarator($ds,$decl,true); }
+        { funcDefDeclarator($ds,$decl); }
   ;
 
 // (6.9.1)
@@ -318,19 +318,21 @@ init-declarator-list-notyp:
 
 // (6.7)
 init-declarator:
-    declarator[decl] asm-label_opt
-        { finishDeclarator( $<TSpecNode>0, $decl, false ); }
-  | declarator[decl] asm-label_opt "="
-        { finishDeclarator( $<TSpecNode>0, $decl, true ); }
+    declarator asm-label_opt
+            { finishDeclarator( $<TSpecNode>0, $declarator ); }
+  | declarator asm-label_opt "="
+            { $<Decl>$ = finishDeclarator( $<TSpecNode>0, $declarator ); }[decl]
         initializer
+            { initDeclaration( $<Decl>decl ); }
   ;
 
 init-declarator-notyp:
-    declarator-notyp[decl] asm-label_opt
-        { finishDeclarator( $<TSpecNode>0, $decl, false ); }
-  | declarator-notyp[decl] asm-label_opt "="
-        { finishDeclarator( $<TSpecNode>0, $decl, true ); }
+    declarator-notyp[declarator] asm-label_opt
+            { finishDeclarator( $<TSpecNode>0, $declarator ); }
+  | declarator-notyp[declarator] asm-label_opt "="
+            { $<Decl>$ = finishDeclarator( $<TSpecNode>0, $declarator ); }[decl]
         initializer
+            { initDeclaration( $<Decl>decl ); }
   ;
 
 rule(,asm-label,optn):
@@ -465,12 +467,12 @@ struct-declarator-list-notyp:
 
 // (6.7.2.1)
 struct-declarator:
-    declarator[decl]                        { finishDeclarator($<TSpecNode>0,$decl,false); }
+    declarator[decl]                        { finishDeclarator($<TSpecNode>0,$decl); }
   | declarator_opt[decl] ":" constant-expression[w]  { finishBitfield($<TSpecNode>0,$decl,@w,$w); }
   ;
 
 struct-declarator-notyp:
-    declarator-notyp[decl]                  { finishDeclarator($<TSpecNode>0,$decl,false); }
+    declarator-notyp[decl]                  { finishDeclarator($<TSpecNode>0,$decl); }
   | declarator-notyp_opt[decl] ":" constant-expression[w]  { finishBitfield($<TSpecNode>0,$decl,@w,$w); }
   ;
 

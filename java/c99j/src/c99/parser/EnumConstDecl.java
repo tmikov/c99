@@ -6,14 +6,22 @@ import c99.Types;
 
 public class EnumConstDecl extends Decl
 {
-public final Constant.IntC value;
+public final Constant.IntC enumValue;
 
 public EnumConstDecl (
-  ISourceRange rng, Scope scope, Symbol symbol, Types.Qual type, Constant.IntC value, boolean error
+  ISourceRange rng, Scope visibilityScope, Symbol symbol, Types.Qual type, boolean error, Constant.IntC enumValue
 )
 {
-  super( rng, Kind.ENUM_CONST, scope, Types.SClass.NONE, Linkage.NONE, symbol, type, true, error );
-  this.value = value;
+  super( rng, Kind.ENUM_CONST, visibilityScope, visibilityScope, Types.SClass.NONE, Linkage.NONE, symbol, type, true, error );
+  this.enumValue = enumValue;
 }
-} // class
 
+@Override
+public String toString ()
+{
+  return "EnumConstDecl{" +
+          "enumValue=" + enumValue + " " +
+          super.toString() +
+          '}';
+}
+}

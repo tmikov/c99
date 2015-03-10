@@ -94,11 +94,16 @@ public static final class Qual
       extAttrs.isEmpty();
   }
 
-  public final Qual copy ()
+  public final Qual copy ( Spec newSpec )
   {
-    Qual q = new Qual(spec);
+    Qual q = new Qual(newSpec);
     q.combine( this ); // save us some typing
     return q;
+  }
+
+  public final Qual copy ()
+  {
+    return copy( this.spec );
   }
 
   public final void combine ( Qual q )
@@ -205,12 +210,7 @@ public static abstract class Spec
     return m_complete;
   }
 
-  public final void setAlign ( int align )
-  {
-    m_align = align;
-  }
-
-  public final void setSizeAlign ( long size, int align )
+  protected final void setSizeAlign ( long size, int align )
   {
     m_size = size;
     m_align = align;
@@ -218,13 +218,11 @@ public static abstract class Spec
 
   public final long sizeOf ()
   {
-    assert isComplete();
     return m_size;
   }
 
   public final int alignOf ()
   {
-    assert m_align > 0;
     return m_align;
   }
 
@@ -370,19 +368,16 @@ public static final class ArraySpec extends DerivedSpec
   public boolean _static;
   public boolean asterisk;
 
-  public ArraySpec ( Qual of )
-  {
-    super( TypeSpec.ARRAY, false, of );
-    m_nelem = -1;
-    setAlign( of.spec.alignOf() );
-  }
-
   public ArraySpec ( Qual of, long nelem, long size )
   {
-    super( TypeSpec.ARRAY, true, of );
-    assert of.spec.isComplete();
+    super( TypeSpec.ARRAY, of.spec.isComplete() && nelem >= 0, of );
     m_nelem = nelem;
     setSizeAlign( size, of.spec.alignOf() );
+  }
+
+  public ArraySpec ( Qual of )
+  {
+    this( of, -1, -1 );
   }
 
   @Override
@@ -394,7 +389,7 @@ public static final class ArraySpec extends DerivedSpec
   @Override
   public boolean isError ()
   {
-    return false;
+    return this.of.spec.isError();
   }
 
   public final boolean hasNelem ()
@@ -404,7 +399,6 @@ public static final class ArraySpec extends DerivedSpec
 
   public final long getNelem ()
   {
-    assert m_nelem >= 0;
     return m_nelem;
   }
 
@@ -487,7 +481,7 @@ public static final class StructUnionSpec extends TagSpec
     return v.visitStructUnion( q, this );
   }
 
-  public void setFields ( Member[] fields )
+  public void setFields ( Member[] fields, long size, int align )
   {
     assert m_fields == null;
     m_complete = fields != null;
@@ -504,6 +498,8 @@ public static final class StructUnionSpec extends TagSpec
           m_constMember = true;
       }
     }
+
+    setSizeAlign( size, align );
   }
 
   public Member[] getFields ()
@@ -605,8 +601,6 @@ public static final class FunctionSpec extends DerivedSpec
 
   public final Param[] getParams ()
   {
-    assert !m_oldStyle;
-    assert m_params != null;
     return m_params;
   }
 
@@ -633,7 +627,7 @@ public static final class FunctionSpec extends DerivedSpec
       {
         final Param pa = this.m_params[i];
         final Param pb = x.m_params[i];
-        if (!pa.type.compatible( pb.type ) || !pa.extAttrs.same(pb.extAttrs))
+        if (!pa.type.compatible( pb.type ) || !ExtAttributes.same(pa.extAttrs, pb.extAttrs))
           return false;
       }
     }
@@ -705,13 +699,14 @@ public static class Param extends SourceRange
 {
   public final Ident name;
   public final Qual type;
-  public final ExtAttributes extAttrs = new ExtAttributes();
+  public final ExtAttributes extAttrs;
 
-  public Param ( ISourceRange rng, final Ident name, final Qual type  )
+  public Param ( ISourceRange rng, final Ident name, final Qual type, ExtAttributes extAttrs  )
   {
     super( rng );
     this.name = name;
     this.type = type;
+    this.extAttrs = extAttrs;
   }
 
   public final boolean isError ()
@@ -737,7 +732,7 @@ public static class Member extends Param
    */
   public Member ( final ISourceRange rng, final Ident name, final Qual type, final int bitFieldWidth )
   {
-    super(rng, name, type);
+    super(rng, name, type, null);
     m_bitFieldWidth = bitFieldWidth;
   }
 

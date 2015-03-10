@@ -677,7 +677,7 @@ public TExpr.Expr exprIdent ( CParser.Location loc, Symbol sym )
   if (decl.kind == Decl.Kind.VAR)
     return BisonLexer.setLocation( new TExpr.VarRef( null, decl.type, decl  ), loc );
   else
-    return BisonLexer.setLocation( new TExpr.EnumConst( null, decl.type, decl.enumValue, decl ), loc );
+    return BisonLexer.setLocation( new TExpr.EnumConst( null, decl.type, ((EnumConstDecl)decl).enumValue, decl ), loc );
 }
 
 public TExpr.Expr exprConstant ( CParser.Location loc, Constant.ArithC value )

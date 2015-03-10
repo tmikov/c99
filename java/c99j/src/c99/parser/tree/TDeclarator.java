@@ -32,6 +32,11 @@ public TDeclarator append ( Elem next )
   return this;
 }
 
+public final boolean isStartElem ( Elem elem )
+{
+  return this.top == elem;
+}
+
 public static interface Visitor
 {
   public boolean pointer ( int depth, PointerElem elem );

@@ -117,7 +117,7 @@ private static final class OurVisitor implements Visitor.TranslationUnit
 
   private void visitField ( Types.StructUnionSpec agg, Types.Member m )
   {
-    ExprFormatter.printIndent( m_indent, m_out );
+    MiscUtils.printIndent( m_indent, m_out );
     m_out.format( "FieldDecl <%s> %s: %s\n", SourceRange.formatRange(m), m.name.name, m.type.readableType() );
   }
 

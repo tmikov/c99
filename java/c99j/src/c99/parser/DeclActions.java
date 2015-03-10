@@ -14,8 +14,10 @@ public class DeclActions extends ExprActions
 {
 private static final boolean DEBUG_CALC_AGG_SIZE = false;
 private static final boolean DEBUG_ENUM = false;
+public static final boolean DEBUG_DECL = false;
 
 private Scope m_topScope;
+private Scope m_translationUnitScope;
 
 protected void init ( CompEnv compEnv, SymTable symTab )
 {
@@ -55,7 +57,8 @@ private final <T extends Scope> T pushScope ( T scope )
 
 public final Scope pushFileScope ()
 {
-  return m_topScope = new Scope( Scope.Kind.FILE, m_topScope );
+  assert m_topScope == null && m_translationUnitScope == null;
+  return m_translationUnitScope = m_topScope = new Scope( Scope.Kind.FILE, m_topScope );
 }
 public final Scope pushBlockScope ()
 {
@@ -159,7 +162,8 @@ public final TSpecNode referenceAgg (
       // Error recovery: return an anonymous tag
       Spec spec = tagSpec == TypeSpec.ENUM ? new EnumSpec( null ) : new StructUnionSpec( tagSpec, null );
       tagDecl = BisonLexer.setLocation(
-        new Decl( null, Decl.Kind.TAG, declScope, SClass.NONE, Linkage.NONE, null, new Qual( spec ), false, true ),
+        new Decl( null, Decl.Kind.TAG, declScope, declScope, SClass.NONE, Linkage.NONE, null, new Qual( spec ),
+                  false, true ),
         loc
       );
       fwdDecl = true;
@@ -171,7 +175,8 @@ public final TSpecNode referenceAgg (
     fwdDecl = true;
     Spec spec = tagSpec == TypeSpec.ENUM ? new EnumSpec( ident ) : new StructUnionSpec( tagSpec, ident );
     tagDecl = BisonLexer.setLocation(
-      new Decl( null, Decl.Kind.TAG, declScope, SClass.NONE, Linkage.NONE, ident, new Qual( spec ), false, false ),
+      new Decl( null, Decl.Kind.TAG, declScope, declScope, SClass.NONE, Linkage.NONE, ident, new Qual( spec ),
+                false, false ),
       identLoc
     );
     declScope.pushTag( tagDecl );
@@ -193,7 +198,7 @@ public final Decl beginDeclareAgg (
   boolean haveErr = false;
 
   // Check for redefinition: it must have been defined in the current scope
-  if (ident != null && ident.topTag != null && ident.topTag.scope == declScope)
+  if (ident != null && ident.topTag != null && ident.topTag.visibilityScope == declScope)
   {
     if (ident.topTag.type.spec.kind == tagSpec)
     {
@@ -227,7 +232,7 @@ public final Decl beginDeclareAgg (
   if (tagDecl == null) // If not completing a previous forward declaration
   {
     Spec spec = tagSpec == TypeSpec.ENUM ? new EnumSpec( ident ) : new StructUnionSpec( tagSpec, ident );
-    tagDecl = new Decl( null, Decl.Kind.TAG, declScope, SClass.NONE, Linkage.NONE, ident,
+    tagDecl = new Decl( null, Decl.Kind.TAG, declScope, declScope, SClass.NONE, Linkage.NONE, ident,
                         new Qual( spec ), true, haveErr );
     declScope.pushTag( tagDecl );
     if (declScope.kind == Scope.Kind.PARAM)
@@ -258,10 +263,11 @@ public final TSpecNode declareAgg ( Code tagCode, Decl tagDecl, Scope memberScop
 
     // Find the min and max values so that platform code can optionally select a narrower type for the enum
     Constant.IntC minValue = null, maxValue = null;
-    for ( Decl d : decls )
+    for ( Decl _d : decls )
     {
-      if (d.kind != Decl.Kind.ENUM_CONST)
+      if (_d.kind != Decl.Kind.ENUM_CONST)
         continue;
+      final EnumConstDecl d = (EnumConstDecl)_d;
 
       Constant.IntC tmp = (Constant.IntC)Constant.convert( enumScope.baseSpec, d.enumValue );
       if (minValue == null)
@@ -284,17 +290,18 @@ public final TSpecNode declareAgg ( Code tagCode, Decl tagDecl, Scope memberScop
       System.out.format( "defined '%s' based on '%s'\n", type.readableType(), enumSpec.getBaseSpec().readableType() );
 
     // Declare all enum constants in the parent scope
-    for ( Decl d : decls )
+    for ( Decl _d : decls )
     {
-      if (d.kind != Decl.Kind.ENUM_CONST)
+      if (_d.kind != Decl.Kind.ENUM_CONST)
         continue;
-      if (d.symbol.topDecl != null && d.symbol.topDecl.scope == targetScope)
+      // Not already defined
+      if (_d.symbol.topDecl != null && _d.symbol.topDecl.visibilityScope == targetScope)
         continue; // Could happen when doing error recovery
+      final EnumConstDecl d = (EnumConstDecl)_d;
 
-      Decl decl = new Decl(
-        d, Decl.Kind.ENUM_CONST, targetScope, SClass.NONE, Linkage.NONE, d.symbol, type, true, d.error
+      EnumConstDecl decl = new EnumConstDecl(
+        d, targetScope,  d.symbol, type, d.isError(), (Constant.IntC) Constant.convert( baseSpec.kind, d.enumValue )
       );
-      decl.enumValue = (Constant.IntC) Constant.convert( baseSpec.kind, d.enumValue );
 
       targetScope.pushDecl( decl );
       if (DEBUG_ENUM)
@@ -321,11 +328,10 @@ public final TSpecNode declareAgg ( Code tagCode, Decl tagDecl, Scope memberScop
       fields = Arrays.copyOf( fields, i );
 
     StructUnionSpec aggSpec = (StructUnionSpec)tagSpec;
-    aggSpec.setFields( fields );
-    calcAggSize( tagDecl, aggSpec );
+    calcAggSize( tagDecl, aggSpec, fields );
   }
 
-  tagSpec.orError( tagDecl.error );
+  tagSpec.orError( tagDecl.isError() );
   tagDecl.orError( tagSpec.isError() );
   tagDecl.defined = true;
 
@@ -377,13 +383,13 @@ public final void declareEnumConstant (
 
   if (ident.topDecl != null)
   {
-    if (ident.topDecl.scope == enumScope)
+    if (ident.topDecl.visibilityScope == enumScope)
     {
       error( identLoc, "enumerator '%s' already defined here %s", ident.name, SourceRange.formatRange(ident.topDecl) );
       enumScope.orError( true );
       return;
     }
-    else if (ident.topDecl.scope == topNonStructScope())
+    else if (ident.topDecl.visibilityScope == topNonStructScope())
     {
       error( identLoc, "redefinition of '%s' previously defined here %s", ident.name, SourceRange.formatRange(ident.topDecl) );
       enumScope.orError( true );
@@ -394,11 +400,10 @@ public final void declareEnumConstant (
   // Now we have decision to make. What type to use for the "temporary" in-scope constant?
   // GCC and CLANG use the type of init expression, so that is what we are going to do too
   Qual type = stdQual( enumScope.lastValue.spec );
-  Decl decl = BisonLexer.setLocation(
-    new Decl( null, Decl.Kind.ENUM_CONST, enumScope, SClass.NONE, Linkage.NONE, ident, type, true, haveError ),
+  EnumConstDecl decl = BisonLexer.setLocation(
+    new EnumConstDecl( null, enumScope, ident, type, haveError, enumScope.lastValue ),
     identLoc
   );
-  decl.enumValue = enumScope.lastValue;
   enumScope.pushDecl( decl );
 }
 
@@ -421,7 +426,7 @@ private final long sizeAdd ( long size, long inc ) throws OverflowException
  * Calculathe struct/union size and alignment and assign field offsets
  * @param spec
  */
-private final void calcAggSize ( ISourceRange loc, StructUnionSpec spec )
+private final void calcAggSize ( ISourceRange loc, StructUnionSpec spec, final Member[] fields )
 {
   if (spec.isError())
     return;
@@ -438,7 +443,7 @@ private final void calcAggSize ( ISourceRange loc, StructUnionSpec spec )
   {
     if (spec.kind == TypeSpec.STRUCT)
     {
-      for ( Member field : spec.getFields() )
+      for ( Member field : fields )
       {
         curField = field; // record the current field in case we throw an exception
 
@@ -497,7 +502,7 @@ private final void calcAggSize ( ISourceRange loc, StructUnionSpec spec )
     else
     {
       assert spec.kind == TypeSpec.UNION;
-      for ( Member field : spec.getFields() )
+      for ( Member field : fields )
       {
         field.setOffset( 0 );
         align = Math.max( field.type.spec.alignOf(), align );
@@ -519,7 +524,7 @@ private final void calcAggSize ( ISourceRange loc, StructUnionSpec spec )
     else
       error( loc, "'%s' %s", spec.readableType(), e.getMessage() );
   }
-  spec.setSizeAlign( size, align );
+  spec.setFields( fields, size, align );
   if (DEBUG_CALC_AGG_SIZE)
   {
     System.out.format( "'%s' size %d align %d", spec.readableType(), spec.sizeOf(), spec.alignOf() );
@@ -874,7 +879,7 @@ public final TIdentList identListAdd (
   Types.Param m;
   if ( (m = list.get( sym )) == null)
   {
-    m = new Types.Param( null, sym, null );
+    m = new Types.Param( null, sym, null, null );
     BisonLexer.setLocation( m, loc );
     list.put( sym, m );
   }
@@ -901,17 +906,21 @@ private final TDeclaration mkDeclaration ( TDeclarator dr, TSpecNode dsNode )
 public final TDeclaration mkTypeName ( TDeclarator dr, TSpecNode dsNode )
 {
   TDeclaration decl = mkDeclaration( dr, dsNode );
-  validateAndBuildType( decl );
+  validateAndBuildType( decl, false );
   return decl;
 }
 
 private final class TypeChecker implements TDeclarator.Visitor
 {
-  boolean haveError;
+  private final TDeclarator declarator;
+  private final boolean functionDefinition;
   Qual qual;
+  boolean haveError;
 
-  TypeChecker ( Qual qual )
+  TypeChecker ( TDeclarator declarator, boolean functionDefinition, Qual qual )
   {
+    this.declarator = declarator;
+    this.functionDefinition = functionDefinition;
     this.qual = qual;
   }
 
@@ -1088,11 +1097,24 @@ private final class TypeChecker implements TDeclarator.Visitor
           if (d.type.isVoid())
           {
             error( d, "parameter %d ('%s') has type 'void'", i+1, d.symbol != null ? d.symbol.name : "<anonymous>" );
-            params[i] = new Param( d, d.symbol, s_errorQual );
+            params[i++] = new Param( d, d.symbol, s_errorQual, null );
+            continue;
           }
-          else
-            params[i] = new Param( d, d.symbol, d.type );
-          ++i;
+
+          if (functionDefinition && declarator.isStartElem( elem ))
+          {
+            if (d.symbol == null)
+              error( d, "parameter %d: anonymous parameters are not allowed in function definition", i+1 );
+            if (!d.type.spec.isComplete())
+            {
+              error( d, "parameter %d ('%s') has incomplete type '%s'", i+1,
+                      d.symbol != null ? d.symbol.name : "<anonymous>", d.type.readableType() );
+              params[i++] = new Param( d, d.symbol, s_errorQual, null );
+              continue;
+            }
+          }
+
+          params[i++] = new Param( d, d.symbol, d.type, null );
         }
       }
 
@@ -1100,17 +1122,23 @@ private final class TypeChecker implements TDeclarator.Visitor
     }
     else // old-style function
     {
-      Param[] params;
+      final Param[] params;
 
       if (elem.identList == null)
         params = null;
-      else
+      else if (functionDefinition && declarator.isStartElem( elem ))
       {
         params = new Param[elem.identList.size()];
         int i = 0;
         for ( Param m : elem.identList.values() )
           params[i++] = m; // FIXME: coordinates
       }
+      else
+      {
+        warning( elem, "old-style parameter names only allowed in function definition" );
+        params = null;
+      }
+
       spec = new FunctionSpec( true, params, false, qual );
     }
     this.qual = new Qual( spec );
@@ -1123,7 +1151,7 @@ private final class TypeChecker implements TDeclarator.Visitor
  * Store the result in {@code decl.type}
  * @param decl
  */
-private final void validateAndBuildType ( TDeclaration decl )
+private final void validateAndBuildType ( TDeclaration decl, boolean functionDefinition )
 {
   final TDeclSpec ds;
   {
@@ -1136,9 +1164,10 @@ private final void validateAndBuildType ( TDeclaration decl )
 
   decl.ds = ds;
 
-  TypeChecker checker = new TypeChecker( ds.qual );
   if (decl.declarator != null)
   {
+    TypeChecker checker = new TypeChecker( decl.declarator, functionDefinition, ds.qual );
+
     if (decl.declarator.visitPost( checker ) && !checker.haveError)
       decl.type = checker.qual;
     else
@@ -1182,12 +1211,94 @@ private static boolean isFunc ( Qual q )
   return q.spec.kind == TypeSpec.FUNCTION;
 }
 
+private ArraySpec compositeArray ( ArraySpec a, ArraySpec b )
+{
+  Qual compOf = compositeType( a.of, b.of );
+  if (a.hasNelem() == b.hasNelem())
+    return a.of == compOf ? a : (b.of == compOf ? b : new ArraySpec( compOf, a.getNelem(), a.sizeOf() ) );
+  else if (a.hasNelem())
+    return a.of == compOf ? a : new ArraySpec( compOf, a.getNelem(), a.sizeOf() );
+  else // b.hasNelem()
+    return b.of == compOf ? b : new ArraySpec( compOf, b.getNelem(), b.sizeOf() );
+}
+
+private FunctionSpec compositeFunction ( FunctionSpec a, FunctionSpec b )
+{
+  Qual compOf = compositeType( a.of, b.of );
+  if (a.isNewStyle() && b.isNewStyle())
+  {
+    // When combining two new-style functions, we give priority to the second one
+    final int count = a.getParams().length;
+    Param[] params = null;
+
+    for ( int i = 0; i < count; ++i )
+    {
+      Param pa = a.getParams()[i];
+      Param pb = b.getParams()[i];
+      Qual compType = compositeType( pa.type, pb.type );
+
+      // If we were good so far, and the new type is good, continue to be good
+      if (params == null && compType == pb.type)
+        continue;
+
+      // If we were good up to here, we must re-create all the previous params
+      if (params == null)
+      {
+        params = new Param[count];
+        for ( int o = 0; o < i; ++o )
+          params[o] = b.getParams()[o];
+      }
+
+      params[i] = compType == pb.type ? pb : new Param( pb, pb.name, compType, pb.extAttrs );
+    }
+
+    if (b.of == compOf && params == null)
+      return b;
+
+    if (params == null)
+      params = b.getParams();
+
+    return new FunctionSpec( b.isOldStyle(), params, b.getEllipsis(), compOf );
+  }
+  else if (!a.isNewStyle() && !b.isNewStyle())
+  {
+    return a.of == compOf ? a :
+            (b.of == compOf ? b : new FunctionSpec( a.isOldStyle(), a.getParams(), a.getEllipsis(), compOf ));
+  }
+  else if (a.isNewStyle())
+    return a.of == compOf ? a : new FunctionSpec( a.isOldStyle(), a.getParams(), a.getEllipsis(), compOf );
+  else // b.isNewStyle()
+    return b.of == compOf ? b : new FunctionSpec( b.isOldStyle(), b.getParams(), b.getEllipsis(), compOf );
+}
+
+private Qual compositeType ( Qual qa, Qual qb )
+{
+  assert qa.compatible( qb );
+
+  if (qa == qb || qa.spec == qb.spec)
+    return qa;
+
+  if (qa.spec.isError())
+    return qa;
+  else if (qb.spec.isError())
+    return qb;
+
+  Spec compositeSpec;
+  if (qa.spec.kind == TypeSpec.ARRAY)
+    compositeSpec = compositeArray( (ArraySpec)qa.spec, (ArraySpec)qb.spec );
+  else if (qa.spec.kind == TypeSpec.FUNCTION)
+    compositeSpec = compositeFunction( (FunctionSpec)qa.spec, (FunctionSpec)qb.spec );
+  else
+    return qa;
+
+  return qa.spec == compositeSpec ? qa : (qb.spec == compositeSpec ? qb : qa.copy( compositeSpec ));
+}
+
 /**
  * Sets {@link TDeclaration#sclass}, {@link TDeclaration#linkage}, {@link TDeclaration#defined}
  * @param di
- * @param hasInit
  */
-private final void validateAndSetLinkage ( final TDeclaration di, final boolean hasInit )
+private final void validateAndSetLinkage ( final TDeclaration di )
 {
   final TDeclSpec ds = di.ds;
   di.sclass = ds.sc;
@@ -1205,22 +1316,14 @@ private final void validateAndSetLinkage ( final TDeclaration di, final boolean 
       di.sclass = ds.sc = SClass.NONE;
     }
 
-    if (hasInit && di.sclass == SClass.EXTERN && !isFunc(di.type))
-    {
-      warning( di, "'%s': ignoring 'extern' in initialization", di.getIdent() );
-      di.sclass = SClass.NONE;
-    }
-
     switch (di.sclass)
     {
     case EXTERN: // only in case of isFunc()
     case NONE:
       di.linkage = Linkage.EXTERNAL;
-      di.defined = hasInit;
       break;
     case STATIC:
       di.linkage = Linkage.INTERNAL;
-      di.defined = hasInit;
       break;
     case TYPEDEF:
       di.linkage = Linkage.NONE;
@@ -1234,19 +1337,11 @@ private final void validateAndSetLinkage ( final TDeclaration di, final boolean 
     if (di.sclass == SClass.NONE && isFunc(di.type))
       di.sclass = SClass.EXTERN;
 
-    if (hasInit && di.sclass == SClass.EXTERN && !isFunc(di.type))
-    {
-      error( di, "'%s': 'extern' and initialization", di.getIdent() );
-      di.sclass = SClass.NONE; // Just pretend it is a new declaration for error recovery
-      di.error = true;
-    }
-
     di.linkage = di.sclass == SClass.EXTERN ? Linkage.EXTERNAL : Linkage.NONE;
     di.defined = di.sclass != SClass.EXTERN;
     break;
 
   case PARAM:
-    assert !hasInit;
     di.type = adjustParamType( di.type );
     if (di.sclass == SClass.REGISTER)
     {
@@ -1266,7 +1361,6 @@ private final void validateAndSetLinkage ( final TDeclaration di, final boolean 
 
   case ENUM:
   case AGGREGATE:
-    assert !hasInit;
     if (isFunc(di.type))
     {
       error( di, "field declared as a function in struct/union" );
@@ -1297,10 +1391,48 @@ private final void validateAndSetLinkage ( final TDeclaration di, final boolean 
   }
 }
 
-public final Decl declare ( TDeclaration di, boolean hasInit )
+private final Decl declare ( TDeclaration di, boolean functionDefinition )
 {
-  validateAndBuildType( di );
-  validateAndSetLinkage( di, hasInit );
+  validateAndBuildType( di, functionDefinition );
+  validateAndSetLinkage( di );
+
+  Decl prevDecl = null;
+  if (!di.error)
+  {
+    // Check for a previous declaration in this scope
+    if (di.hasIdent() && di.getIdent().topDecl != null && di.getIdent().topDecl.visibilityScope == m_topScope)
+      prevDecl = di.getIdent().topDecl;
+
+    // Locate a previous declaration with linkage in any parent scope, skipping declarations without linkage
+    // For cases like this:
+    //
+    // int a; //@1 EXTERNAL
+    // void func () {
+    //   int a; //@2 NONE
+    //   {
+    //     extern int a; //@3 EXTERNAL
+    //   }
+    // }
+    //
+    // @3 refers to @1, even though it is shadowed by @2
+    if (prevDecl == null && di.linkage != Linkage.NONE && di.hasIdent() /*always true or linkage would be NONE*/)
+    {
+      prevDecl = di.getIdent().topDecl;
+      while (prevDecl != null && prevDecl.linkage == Linkage.NONE)
+        prevDecl = prevDecl.listPrev;
+    }
+  }
+
+redeclaration:
+  if (prevDecl != null)
+  {
+    if (!prevDecl.type.compatible( di.type ))
+    {
+      error( di, "'%s' redeclared differently; previous declaration here: %s",
+             di.getIdent().name, SourceRange.formatRange(prevDecl) );
+      di.error = true;
+      break redeclaration;
+    }
 
   /*
     Check for re-declaration.
@@ -1309,45 +1441,6 @@ public final Decl declare ( TDeclaration di, boolean hasInit )
       - [INTERNAL] ... extern [EXTERNAL]
       - [INTERNAL] ... [INTERNAL]
    */
-  Decl prevDecl = null;
-
-  // Check for a previous declaration in this scope
-  if (di.hasIdent() && di.getIdent().topDecl != null && di.getIdent().topDecl.scope == m_topScope)
-    prevDecl = di.getIdent().topDecl;
-
-  // Locate a previous declaration with linkage in any parent scope
-  if (prevDecl == null && di.linkage != Linkage.NONE)
-  {
-    assert di.hasIdent();
-    prevDecl = di.hasIdent() ? di.getIdent().topDecl : null;
-    while (prevDecl != null && prevDecl.linkage == Linkage.NONE)
-      prevDecl = prevDecl.prev;
-  }
-
-redeclaration:
-  if (prevDecl != null)
-  {
-    // Get to the top declaration
-    Decl impDecl = prevDecl;
-    while (impDecl.importedDecl != null)
-      impDecl = impDecl.importedDecl;
-
-    if (!impDecl.type.compatible( di.type ))
-    {
-      error( di, "'%s' redeclared differently; previous declaration here: %s",
-             di.getIdent().name, SourceRange.formatRange(impDecl) );
-      di.error = true;
-      break redeclaration;
-    }
-
-    if (di.defined && impDecl.defined)
-    {
-      error( di, "'%s': invalid redefinition; already defined here: %s",
-             di.getIdent().name, SourceRange.formatRange(impDecl) );
-      di.error = true;
-      break redeclaration;
-    }
-
     if (prevDecl.linkage == Linkage.EXTERNAL && di.linkage == Linkage.EXTERNAL)
       {}
     else if (prevDecl.linkage == Linkage.INTERNAL && di.linkage == Linkage.EXTERNAL && di.sclass == SClass.EXTERN)
@@ -1362,53 +1455,36 @@ redeclaration:
       break redeclaration;
     }
 
-    if (di.defined)
-    {
-      if (impDecl.sclass == SClass.EXTERN)
-        impDecl.sclass = SClass.NONE;
-      if (!impDecl.defined)
-        impDecl.setRange( di );
-      impDecl.defined = true;
-    }
-    // FIXME: WTF?
-    // Complete the declaration, if it wasn't before
-    if (!impDecl.type.spec.isComplete() && di.type.spec.isComplete())
-    {
-      Qual completed = di.type.copy();
-      completed.combine( impDecl.type );
-      impDecl.type = completed;
-    }
+    di.type = compositeType( prevDecl.type, di.type );
 
-    if (prevDecl.scope != m_topScope)
-    {
-      Decl decl = new Decl( di, m_topScope, impDecl, di.error );
-      m_topScope.pushDecl( decl );
-      return decl;
-    }
+    Decl decl = new Decl( di, prevDecl, m_topScope, di.sclass, di.linkage, di.type, di.defined, di.error );
+    m_topScope.pushDecl( decl );
 
-    return prevDecl;
+    return decl;
   }
 
   if (di.defined && di.sclass == SClass.EXTERN)
     di.sclass = SClass.NONE;
 
   Decl decl = new Decl(
-    di, di.sclass != SClass.TYPEDEF ? Decl.Kind.VAR : Decl.Kind.TYPE, m_topScope,
+    di, di.sclass != SClass.TYPEDEF ? Decl.Kind.VAR : Decl.Kind.TYPE,
+    di.linkage == Linkage.NONE ? m_topScope : m_translationUnitScope, // storage scope
+    m_topScope, // visibility scope
     di.sclass, di.linkage, di.getIdent(), di.type, di.defined, di.error
   );
-  if (prevDecl == null) // We could arrive here in case of an incorrect redeclaration
-    m_topScope.pushDecl( decl );
+  m_topScope.pushDecl( decl );
   return decl;
 }
 
-public final void finishDeclarator ( TSpecNode specNode, TDeclarator declarator, boolean init )
+public final Decl finishDeclarator ( TSpecNode specNode, TDeclarator declarator )
 {
   TDeclaration tDecl = mkDeclaration( declarator, specNode );
-  declare( tDecl, init );
+  return declare( tDecl, false );
 }
-public final void finishDeclarator ( TSpecNode specNode, TDeclarator declarator )
+public final Decl funcDefDeclarator ( TSpecNode specNode, TDeclarator declarator )
 {
-  finishDeclarator( specNode, declarator, false );
+  TDeclaration tDecl = mkDeclaration( declarator, specNode );
+  return declare( tDecl, true );
 }
 
 /** A width to use for bit-fields in case of error */
@@ -1424,7 +1500,7 @@ public final void finishBitfield (
   Constant.IntC ic;
   if (width.isError())
   {
-    decl.error = true;
+    decl.orError( true );
     ic = m_errBitFieldWidth;
   }
   else
@@ -1435,17 +1511,17 @@ public final void finishBitfield (
   if (ic.sign() < 0)
   {
     error( widthLoc, "negative bit-field width for field '%s'", fieldName );
-    decl.error = true;
+    decl.orError( true );
     ic = m_errBitFieldWidth;
   }
 
-  if (decl.error)
+  if (decl.isError())
     return;
 
   if (!decl.type.spec.isInteger())
   {
     error( decl, "'%s': invalid type of bit-field '%s'. Must be integer", decl.type.readableType(), fieldName );
-    decl.error = true;
+    decl.orError( true );
     return;
   }
 
@@ -1454,7 +1530,7 @@ public final void finishBitfield (
     if (decl.symbol != null)
     {
       error( decl, "zero-width bit-field '%s' must be anonymous", fieldName );
-      decl.error = true;
+      decl.orError( true );
       ic = m_errBitFieldWidth;
     }
   }
@@ -1463,7 +1539,7 @@ public final void finishBitfield (
     if (!ic.fitsInLong())
     {
       error( widthLoc, "bit-field '%s' width integer overflow", fieldName );
-      decl.error = true;
+      decl.orError( true );
       ic = m_errBitFieldWidth;
     }
     else
@@ -1471,7 +1547,7 @@ public final void finishBitfield (
     {
       error( widthLoc, "width of bit-field '%s' (%d bits) exceeds width of its type (%d bits)",
               fieldName, ic.asLong(), decl.type.spec.kind.width );
-      decl.error = true;
+      decl.orError( true );
       ic = m_errBitFieldWidth;
     }
   }
@@ -1483,8 +1559,55 @@ public final void finishBitfield (
 public final void emptyDeclaration ( TSpecNode specNode )
 {
   TDeclaration tDecl = mkDeclaration( new TDeclarator( specNode, null ), specNode );
-  validateAndBuildType( tDecl );
-  validateAndSetLinkage( tDecl, false );
+  validateAndBuildType( tDecl, false );
+  validateAndSetLinkage( tDecl );
+}
+
+public final void initDeclaration ( Decl decl )
+{
+  if (decl.isError())
+    return;
+
+  if (decl.sclass == SClass.EXTERN && !isFunc(decl.type) /*always true*/)
+  {
+    error( decl, "'%s': 'extern' in initialization", decl.symbol );
+    decl.orError();
+    return;
+  }
+
+  Decl prevDecl = decl.prevDecl;
+redeclaration:
+  if (prevDecl != null)
+  {
+    if (!prevDecl.type.compatible( decl.type ))
+    {
+      error( decl, "'%s' redeclared differently; previous declaration here: %s",
+              decl.symbol.name, SourceRange.formatRange(prevDecl) );
+      decl.orError();
+      break redeclaration;
+    }
+
+    if (prevDecl.defined)
+    {
+      error( decl, "'%s': invalid redefinition; already defined here: %s",
+              decl.symbol.name, SourceRange.formatRange(prevDecl) );
+      decl.orError();
+      break redeclaration;
+    }
+  }
+
+  if (m_topScope.kind == Scope.Kind.FILE)
+  {
+    switch (decl.sclass)
+    {
+    case EXTERN: // only in case of isFunc()
+    case NONE:
+    case STATIC:
+      decl.defined = true;
+      break;
+    default: assert false; break;
+    }
+  }
 }
 
 } // class

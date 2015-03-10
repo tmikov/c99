@@ -119,6 +119,11 @@ public final boolean same ( ExtAttributes eas )
   }
 }
 
+public static boolean same ( ExtAttributes a, ExtAttributes b )
+{
+  return a != null ? b != null && a.same( b ) : b == null;
+}
+
 private static final class _Iterator implements Iterator<ExtAttr>
 {
   ExtAttr m_next;
