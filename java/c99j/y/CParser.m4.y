@@ -159,6 +159,12 @@ import c99.parser.tree.*;
 %type<Ast> iteration-statement
 %type<Ast> jump-statement
 
+/*
+ Shift-reduce conflicts, resolved by default as a shift:
+   state 27:
+        atomic-type-specifier -> "_Atomic" . "("
+        type-qualifier ->  '_Atomic' .
+ */
 %expect 1
 %start translation-unit
 
