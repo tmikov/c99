@@ -164,8 +164,14 @@ import c99.parser.tree.*;
    state 27:
         atomic-type-specifier -> "_Atomic" . "("
         type-qualifier ->  '_Atomic' .
+
+   state 122:
+        postfix-expression -> identifier . "("
+        primary-expression -> identifier .
+   This is needed for C-style implicit function declarations. All alternatives to implementing
+   it without the shift/reduce conflict are considerably more complex.
  */
-%expect 1
+%expect 2
 %start translation-unit
 
 start_grammar
@@ -1011,6 +1017,7 @@ rule(<TExpr.Expr>,postfix-expression):
   | postfix-expression "[" expression "]"
         { @2.end = @4.end; $$ = m_subscript.expr(@2,$1,$3); }
   | postfix-expression "(" argument-expression-list_opt ")"  { $$ = FIXME(); }
+  | identifier "(" argument-expression-list_opt ")"          { $$ = FIXME(); }
   | postfix-expression "." any-identifier                    { $$ = m_dotMember.expr(@2,$1,$3); }
   | postfix-expression "->" any-identifier                   { $$ = m_ptrMember.expr(@2,$1,$3); }
   | postfix-expression "++"                                  { $$ = m_postInc.expr(@2,$1); }
