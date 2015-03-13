@@ -518,8 +518,7 @@ private final void calcAggSize ( ISourceRange loc, StructUnionSpec spec, final M
     spec.orError( true );
     if (curField != null)
     {
-      error( curField, "'%s' field '%s': %s",
-              spec.readableType(), curField.name != null ? curField.name.name : "<anonymous>", e.getMessage() );
+      error( curField, "'%s' field '%s': %s", spec.readableType(), optName(curField.name), e.getMessage() );
     }
     else
       error( loc, "'%s' %s", spec.readableType(), e.getMessage() );
@@ -1096,7 +1095,7 @@ private final class TypeChecker implements TDeclarator.Visitor
         {
           if (d.type.isVoid())
           {
-            error( d, "parameter %d ('%s') has type 'void'", i+1, d.symbol != null ? d.symbol.name : "<anonymous>" );
+            error( d, "parameter %d ('%s') has type 'void'", i+1, optName(d.symbol) );
             params[i++] = new Param( d, d.symbol, s_errorQual, null );
             continue;
           }
@@ -1107,8 +1106,7 @@ private final class TypeChecker implements TDeclarator.Visitor
               error( d, "parameter %d: anonymous parameters are not allowed in function definition", i+1 );
             if (!d.type.spec.isComplete())
             {
-              error( d, "parameter %d ('%s') has incomplete type '%s'", i+1,
-                      d.symbol != null ? d.symbol.name : "<anonymous>", d.type.readableType() );
+              error( d, "parameter %d ('%s') has incomplete type '%s'", i+1, optName(d.symbol), d.type.readableType() );
               params[i++] = new Param( d, d.symbol, s_errorQual, null );
               continue;
             }
@@ -1495,7 +1493,7 @@ public final void finishBitfield (
 )
 {
   TDeclaration tDecl = mkDeclaration( declarator, specNode );
-  Decl decl = declare( tDecl, false );
+  final Decl decl = declare( tDecl, false );
 
   Constant.IntC ic;
   if (width.isError())
@@ -1506,11 +1504,9 @@ public final void finishBitfield (
   else
     ic = (Constant.IntC)width.getValue();
 
-  final String fieldName = decl.symbol != null ? decl.symbol.name : "<anonymous>";
-
   if (ic.sign() < 0)
   {
-    error( widthLoc, "negative bit-field width for field '%s'", fieldName );
+    error( widthLoc, "negative bit-field width for field '%s'", optName(decl.symbol) );
     decl.orError( true );
     ic = m_errBitFieldWidth;
   }
@@ -1520,7 +1516,7 @@ public final void finishBitfield (
 
   if (!decl.type.spec.isInteger())
   {
-    error( decl, "'%s': invalid type of bit-field '%s'. Must be integer", decl.type.readableType(), fieldName );
+    error( decl, "'%s': invalid type of bit-field '%s'. Must be integer", decl.type.readableType(), optName(decl.symbol) );
     decl.orError( true );
     return;
   }
@@ -1529,7 +1525,7 @@ public final void finishBitfield (
   {
     if (decl.symbol != null)
     {
-      error( decl, "zero-width bit-field '%s' must be anonymous", fieldName );
+      error( decl, "zero-width bit-field '%s' must be anonymous", optName(decl.symbol) );
       decl.orError( true );
       ic = m_errBitFieldWidth;
     }
@@ -1538,7 +1534,7 @@ public final void finishBitfield (
   {
     if (!ic.fitsInLong())
     {
-      error( widthLoc, "bit-field '%s' width integer overflow", fieldName );
+      error( widthLoc, "bit-field '%s' width integer overflow", optName(decl.symbol) );
       decl.orError( true );
       ic = m_errBitFieldWidth;
     }
@@ -1546,7 +1542,7 @@ public final void finishBitfield (
     if (ic.asLong() > decl.type.spec.kind.width)
     {
       error( widthLoc, "width of bit-field '%s' (%d bits) exceeds width of its type (%d bits)",
-              fieldName, ic.asLong(), decl.type.spec.kind.width );
+              optName(decl.symbol), ic.asLong(), decl.type.spec.kind.width );
       decl.orError( true );
       ic = m_errBitFieldWidth;
     }

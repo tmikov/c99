@@ -123,5 +123,10 @@ protected final ArraySpec newArraySpec ( ISourceRange loc, Qual to, long nelem )
   else
     return new ArraySpec( to );
 }
+
+public static String optName ( Ident ident )
+{
+  return ident != null ? ident.name : "<anonymous>";
+}
 } // class
 
