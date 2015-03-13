@@ -190,9 +190,17 @@ public static abstract class Spec
   {
     return this.kind == TypeSpec.POINTER;
   }
+  public final boolean isArray ()
+  {
+    return this.kind == TypeSpec.ARRAY;
+  }
   public final boolean isEnum ()
   {
     return this.kind == TypeSpec.ENUM;
+  }
+  public final boolean isStructUnion ()
+  {
+    return this.kind == TypeSpec.STRUCT || this.kind == TypeSpec.UNION;
   }
 
   public final TypeSpec effectiveKind ()
