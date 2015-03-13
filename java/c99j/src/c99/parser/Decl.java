@@ -76,7 +76,7 @@ public final void orError ()
 
 public final boolean isError ()
 {
-  return this.m_error;
+  return this.m_error || (this.type != null && this.type.spec.isError());
 }
 
 @Override
