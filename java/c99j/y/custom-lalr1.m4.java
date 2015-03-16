@@ -133,24 +133,14 @@ b4_locations_if([[
    * Locations represent a part of the input through the beginning
    * and ending positions.
    */
-  public static final class ]b4_location_type[ {
-    /**
-     * The first, inclusive, position in the range.
-     */
-    public ]b4_position_type[ begin;
-
-    /**
-     * The first position beyond the range.
-     */
-    public ]b4_position_type[ end;
-
+  public static final class ]b4_location_type[ extends BisonLocation {
     /**
      * Create a <code>]b4_location_type[</code> denoting an empty range located at
      * a given point.
      * @@param loc The position at which the range is anchored.
      */
     public ]b4_location_type[ (]b4_position_type[ loc) {
-      this.begin = this.end = loc;
+      super( loc );
     }
 
     /**
@@ -159,22 +149,7 @@ b4_locations_if([[
      * @@param end   The first position beyond the range.
      */
     public ]b4_location_type[ (]b4_position_type[ begin, ]b4_position_type[ end) {
-      this.begin = begin;
-      this.end = end;
-    }
-
-    /**
-     * Print a representation of the location.  For this to be correct,
-     * <code>]b4_position_type[</code> should override the <code>equals</code>
-     * method.
-     */
-    public String toString () {
-      if (begin == null)
-        return "";
-      if (begin.equals (end))
-        return begin.toString ();
-      else
-        return begin.toString () + "-" + end.toString ();
+      super( begin, end );
     }
   }
 
