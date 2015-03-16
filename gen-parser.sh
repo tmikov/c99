@@ -11,7 +11,7 @@ javadir="java/c99j/src/c99/parser"
 skeldir="bison"
 
 m4 --prefix-builtins $ydir/defs.m4 $ydir/CParser.m4.y > $ydir/CParser.y
-bison $vis -Wall -S $skeldir/lalr1.java $ydir/CParser.y -o $javadir/CParser.java
+bison $vis -Wall -S $ydir/custom-lalr1.m4.java $ydir/CParser.y -o $javadir/CParser.java
 
 if [ -n "$vis" ]; then
   mv $javadir/CParser.xml $ydir/
