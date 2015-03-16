@@ -54,19 +54,9 @@ protected void init ( CompEnv compEnv, SymTable symTab )
   }
 }
 
-public final void error ( CParser.Location loc, String msg, Object... args )
-{
-  m_reporter.error( BisonLexer.fromLocation( loc ), msg, args );
-}
-
 public final void error ( ISourceRange rng, String msg, Object... args )
 {
   m_reporter.error( rng, msg, args );
-}
-
-public final void warning ( CParser.Location loc, String msg, Object... args )
-{
-  m_reporter.warning( BisonLexer.fromLocation( loc ), msg, args );
 }
 
 public final void warning ( ISourceRange rng, String msg, Object... args )
@@ -74,12 +64,12 @@ public final void warning ( ISourceRange rng, String msg, Object... args )
   m_reporter.warning( rng, msg, args );
 }
 
-public final void pedWarning ( CParser.Location loc, String msg, Object... args )
+public final void pedWarning ( ISourceRange loc, String msg, Object... args )
 {
   warning( loc, msg, args );
 }
 
-public final void extWarning ( CParser.Location loc, String msg, Object... args )
+public final void extWarning ( ISourceRange loc, String msg, Object... args )
 {
   warning( loc, msg, args );
 }

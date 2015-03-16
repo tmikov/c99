@@ -1,6 +1,7 @@
 package c99.parser;
 
 import c99.Constant;
+import c99.ISourceRange;
 import c99.Utils;
 import c99.parser.ast.*;
 
@@ -12,7 +13,7 @@ public final Ast ast ( Code code )
   return new Ast0( code.name() ).value(code);
 }
 
-public final Ast ast ( Code code, CParser.Location loc )
+public final Ast ast ( Code code, ISourceRange loc )
 {
   return new Ast0( code.name() ).value(code).location(loc);
 }
@@ -88,7 +89,7 @@ public final Ast leftAppend ( Ast newChild, Ast t )
   }
 }
 
-public final Ast constant ( Constant.ArithC v, CParser.Location loc )
+public final Ast constant ( Constant.ArithC v, ISourceRange loc )
 {
   return new Ast0( "const:"+ v.toString() ).value(v).location( loc );
 }

@@ -75,10 +75,10 @@ public static abstract class Elem extends SourceRange
   public final Code code;
   public Elem to;
 
-  public Elem ( CParser.Location loc, Code code )
+  public Elem ( ISourceRange loc, Code code )
   {
+    super( loc );
     this.code = code;
-    BisonLexer.setLocation( this, loc );
   }
 
   public Elem append ( Elem next )
@@ -96,7 +96,7 @@ public static final class PointerElem extends Elem
 {
   public final TSpecNode qualList;
 
-  public PointerElem ( CParser.Location loc, TSpecNode qualList )
+  public PointerElem ( ISourceRange loc, TSpecNode qualList )
   {
     super( loc, Code.ASTERISK );
     this.qualList = qualList;
@@ -106,21 +106,21 @@ public static final class PointerElem extends Elem
 public static final class ArrayElem extends Elem
 {
   public TSpecNode qualList;
-  public SourceRange _static;
-  public SourceRange asterisk;
-  public SourceRange nelemLoc;
+  public ISourceRange _static;
+  public ISourceRange asterisk;
+  public ISourceRange nelemLoc;
   public final TExpr.Expr nelem;
 
   public ArrayElem (
-    CParser.Location loc, TSpecNode qualList, CParser.Location _static, CParser.Location asterisk,
-    CParser.Location nelemLoc, TExpr.Expr nelem
+    ISourceRange loc, TSpecNode qualList, ISourceRange _static, ISourceRange asterisk,
+    ISourceRange nelemLoc, TExpr.Expr nelem
   )
   {
     super( loc, Code.L_BRACKET );
     this.qualList = qualList;
-    this._static = _static == null ? null : BisonLexer.fromLocation( _static );
-    this.asterisk = asterisk == null ? null : BisonLexer.fromLocation( asterisk );
-    this.nelemLoc = nelemLoc == null ? null : BisonLexer.fromLocation( nelemLoc );
+    this._static = _static == null ? null : _static;
+    this.asterisk = asterisk == null ? null : asterisk;
+    this.nelemLoc = nelemLoc == null ? null : nelemLoc;
     this.nelem = nelem;
   }
 }
@@ -130,7 +130,7 @@ public static final class FuncElem extends Elem
   public final ParamScope paramScope;
   public final TIdentList identList;
 
-  public FuncElem ( CParser.Location loc, ParamScope paramScope, TIdentList identList )
+  public FuncElem ( ISourceRange loc, ParamScope paramScope, TIdentList identList )
   {
     super( loc, Code.L_PAREN );
     this.paramScope = paramScope;

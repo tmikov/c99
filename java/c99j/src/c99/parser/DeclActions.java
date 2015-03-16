@@ -8,6 +8,7 @@ import c99.*;
 import c99.Types.*;
 import c99.parser.tree.*;
 
+import static c99.parser.Code.TYPENAME;
 import static c99.parser.Trees.*;
 
 public class DeclActions extends ExprActions
@@ -85,13 +86,13 @@ private final Scope topNonStructScope ()
   return res;
 }
 
-public final String stringLiteralString ( CParser.Location loc, TStringLiteral lit )
+public final String stringLiteralString ( ISourceRange loc, TStringLiteral lit )
 {
   return Utils.asciiString(lit.value);
 }
 
 public final TExtAttr extAttr (
-  CParser.Location locAll, CParser.Location locName, String name, TreeList params
+  ISourceRange locAll, ISourceRange locName, String name, TreeList params
 )
 {
   ExtAttrDef def;
@@ -100,16 +101,16 @@ public final TExtAttr extAttr (
     error( locName, "unknown attribute '%s'", name );
     return null;
   }
-  SourceRange rngAll = BisonLexer.fromLocation(locAll);
+  ISourceRange rngAll = locAll;
   ExtAttr extAttr = m_plat.parseExtAttr(
-    rngAll, BisonLexer.fromLocation(locName), def, params
+    rngAll, locName, def, params
   );
   if (extAttr == null)
     return null;
   return new TExtAttr(rngAll, extAttr);
 }
 
-public final TExtAttrList extAttrList ( CParser.Location loc, TExtAttrList list, TExtAttr attr )
+public final TExtAttrList extAttrList ( ISourceRange loc, TExtAttrList list, TExtAttr attr )
 {
   if (attr != null)
   {
@@ -120,26 +121,26 @@ public final TExtAttrList extAttrList ( CParser.Location loc, TExtAttrList list,
   return list;
 }
 
-public final TSpecNode specExtAttr ( CParser.Location loc, TExtAttrList attrList )
+public final TSpecNode specExtAttr ( ISourceRange loc, TExtAttrList attrList )
 {
   if (attrList != null && attrList.size() > 0)
-    return BisonLexer.setLocation(new TSpecAttrNode(null, attrList), loc);
+    return new TSpecAttrNode( loc, attrList );
   else
     return null;
 }
 
-public final TSpecNode spec ( CParser.Location loc, Code code )
+public final TSpecNode spec ( ISourceRange loc, Code code )
 {
-  return BisonLexer.setLocation(new TSpecNode( null, code ), loc);
+  return new TSpecNode( loc, code );
 }
 
-public final TSpecNode specTypename ( CParser.Location loc, Decl decl )
+public final TSpecNode specTypename ( ISourceRange loc, Decl decl )
 {
-  return BisonLexer.setLocation( new TSpecDeclNode( null, Code.TYPENAME, decl ), loc );
+  return new TSpecDeclNode( loc, TYPENAME, decl );
 }
 
 public final TSpecNode referenceAgg (
-  final CParser.Location loc, final Code code, final CParser.Location identLoc, final Symbol ident
+  final ISourceRange loc, final Code code, final ISourceRange identLoc, final Symbol ident
 )
 {
   final Decl tagDecl;
@@ -161,11 +162,7 @@ public final TSpecNode referenceAgg (
 
       // Error recovery: return an anonymous tag
       Spec spec = tagSpec == TypeSpec.ENUM ? new EnumSpec( null ) : new StructUnionSpec( tagSpec, null );
-      tagDecl = BisonLexer.setLocation(
-        new Decl( null, Decl.Kind.TAG, declScope, declScope, SClass.NONE, Linkage.NONE, null, new Qual( spec ),
-                  false, true ),
-        loc
-      );
+      tagDecl = new Decl(loc,Decl.Kind.TAG,declScope,declScope,SClass.NONE,Linkage.NONE,null,new Qual( spec ),false,true);
       fwdDecl = true;
     }
   }
@@ -174,11 +171,7 @@ public final TSpecNode referenceAgg (
     // Forward declaration of tag
     fwdDecl = true;
     Spec spec = tagSpec == TypeSpec.ENUM ? new EnumSpec( ident ) : new StructUnionSpec( tagSpec, ident );
-    tagDecl = BisonLexer.setLocation(
-      new Decl( null, Decl.Kind.TAG, declScope, declScope, SClass.NONE, Linkage.NONE, ident, new Qual( spec ),
-                false, false ),
-      identLoc
-    );
+    tagDecl = new Decl(identLoc,Decl.Kind.TAG,declScope,declScope,SClass.NONE,Linkage.NONE,ident,new Qual( spec ),false,false);
     declScope.pushTag( tagDecl );
     if (declScope.kind == Scope.Kind.PARAM)
       warning( tagDecl, "declaration of '%s' will not be visible outside of the function", spec.readableType() );
@@ -188,7 +181,7 @@ public final TSpecNode referenceAgg (
 }
 
 public final Decl beginDeclareAgg (
-  final CParser.Location loc, final Code code, final CParser.Location identLoc, Symbol ident
+  final ISourceRange loc, final Code code, final ISourceRange identLoc, Symbol ident
 )
 {
   final TypeSpec tagSpec = code == Code.ENUM ? TypeSpec.ENUM : (code == Code.STRUCT ? TypeSpec.STRUCT : TypeSpec.UNION);
@@ -227,7 +220,7 @@ public final Decl beginDeclareAgg (
     }
   }
 
-  final CParser.Location aggLoc = identLoc != null ? identLoc : loc;
+  final ISourceRange aggLoc = identLoc != null ? identLoc : loc;
 
   if (tagDecl == null) // If not completing a previous forward declaration
   {
@@ -240,7 +233,7 @@ public final Decl beginDeclareAgg (
   }
 
   // Update the location to this one in all cases
-  BisonLexer.setLocation( tagDecl, aggLoc );
+  tagDecl.setRange( aggLoc );
 
   tagDecl.orError( haveErr );
 
@@ -354,7 +347,7 @@ private final Constant.IntC m_one = Constant.makeLong( TypeSpec.SINT, 1 );
  * @param value
  */
 public final void declareEnumConstant (
-  CParser.Location identLoc, Symbol ident, CParser.Location valueLoc, TExpr.ArithConstant value
+  ISourceRange identLoc, Symbol ident, ISourceRange valueLoc, TExpr.ArithConstant value
 )
 {
   EnumScope enumScope = (EnumScope)topScope();
@@ -400,10 +393,7 @@ public final void declareEnumConstant (
   // Now we have decision to make. What type to use for the "temporary" in-scope constant?
   // GCC and CLANG use the type of init expression, so that is what we are going to do too
   Qual type = stdQual( enumScope.lastValue.spec );
-  EnumConstDecl decl = BisonLexer.setLocation(
-    new EnumConstDecl( null, enumScope, ident, type, haveError, enumScope.lastValue ),
-    identLoc
-  );
+  EnumConstDecl decl = new EnumConstDecl( identLoc, enumScope, ident, type, haveError, enumScope.lastValue );
   enumScope.pushDecl( decl );
 }
 
@@ -686,10 +676,10 @@ private final class TypeHelper
     if (base == null)
     {
       if (signed != null || lenSpec != null)
-        base = spec( BisonLexer.toLocation( signed != null ? signed : lenSpec ), Code.INT );
+        base = spec( signed != null ? signed : lenSpec, Code.INT );
       else if (complex != null)
       {
-        base = spec( BisonLexer.toLocation( complex ), Code.DOUBLE );
+        base = spec( complex, Code.DOUBLE );
         warning( complex, "implicit '%s' assumed with '%s'", specStr(base), specStr(complex) );
       }
       else
@@ -716,11 +706,11 @@ private final class TypeHelper
 
     case CHAR:
       if (signed == null)
-        signed = spec( BisonLexer.toLocation( base ), m_opts.signedChar ? Code.SIGNED : Code.UNSIGNED);
+        signed = spec( base, m_opts.signedChar ? Code.SIGNED : Code.UNSIGNED);
       break;
     case INT:
       if (signed == null)
-        signed = spec( BisonLexer.toLocation( base ), Code.SIGNED );
+        signed = spec( base, Code.SIGNED );
       break;
     }
 
@@ -840,9 +830,9 @@ private final class TypeHelper
   }
 }
 
-public final TDeclarator declarator ( CParser.Location loc, Symbol ident )
+public final TDeclarator declarator ( ISourceRange loc, Symbol ident )
 {
-  return BisonLexer.setLocation( new TDeclarator( null, ident ), loc );
+  return new TDeclarator( loc, ident );
 }
 
 public final TDeclarator abstractDeclarator ( CParser.Location loc )
@@ -851,14 +841,14 @@ public final TDeclarator abstractDeclarator ( CParser.Location loc )
   return declarator( new CParser.Location( loc.begin ), null );
 }
 
-public final TDeclarator.Elem pointerDecl ( CParser.Location loc, TSpecNode qualList, TDeclarator.Elem to )
+public final TDeclarator.Elem pointerDecl ( ISourceRange loc, TSpecNode qualList, TDeclarator.Elem to )
 {
   return new TDeclarator.PointerElem( loc, qualList ).append( to );
 }
 
 public final TDeclarator.Elem arrayDecl (
-  CParser.Location loc,
-  TSpecNode qualList, CParser.Location _static, CParser.Location asterisk, CParser.Location nelemLoc, TExpr.Expr nelem
+  ISourceRange loc,
+  TSpecNode qualList, ISourceRange _static, ISourceRange asterisk, ISourceRange nelemLoc, TExpr.Expr nelem
 )
 {
   return new TDeclarator.ArrayElem(
@@ -872,14 +862,13 @@ public final TIdentList identList ()
 }
 
 public final TIdentList identListAdd (
-  CParser.Location loc, TIdentList list, Symbol sym
+  ISourceRange loc, TIdentList list, Symbol sym
 )
 {
   Types.Param m;
   if ( (m = list.get( sym )) == null)
   {
-    m = new Types.Param( null, sym, null, null );
-    BisonLexer.setLocation( m, loc );
+    m = new Types.Param( loc, sym, null, null );
     list.put( sym, m );
   }
   else
@@ -887,12 +876,12 @@ public final TIdentList identListAdd (
   return list;
 }
 
-public final TDeclarator.Elem funcDecl ( CParser.Location loc, ParamScope paramScope )
+public final TDeclarator.Elem funcDecl ( ISourceRange loc, ParamScope paramScope )
 {
   return new TDeclarator.FuncElem( loc, paramScope, null );
 }
 
-public final TDeclarator.Elem oldFuncDecl ( CParser.Location loc, TIdentList identList )
+public final TDeclarator.Elem oldFuncDecl ( ISourceRange loc, TIdentList identList )
 {
   return new TDeclarator.FuncElem( loc, null, identList );
 }
@@ -1489,7 +1478,7 @@ public final Decl funcDefDeclarator ( TSpecNode specNode, TDeclarator declarator
 private final Constant.IntC m_errBitFieldWidth = Constant.makeLong( TypeSpec.SINT, 1 );
 
 public final void finishBitfield (
-  TSpecNode specNode, TDeclarator declarator, CParser.Location widthLoc, TExpr.ArithConstant width
+  TSpecNode specNode, TDeclarator declarator, ISourceRange widthLoc, TExpr.ArithConstant width
 )
 {
   TDeclaration tDecl = mkDeclaration( declarator, specNode );

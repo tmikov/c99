@@ -39,7 +39,7 @@ private final boolean isLValue ( TExpr.Expr op )
   return false;
 }
 
-private final boolean needLValue ( CParser.Location loc, TExpr.Expr op, TreeCode code )
+private final boolean needLValue ( ISourceRange loc, TExpr.Expr op, TreeCode code )
 {
   if (!isLValue( op ))
   {
@@ -49,7 +49,7 @@ private final boolean needLValue ( CParser.Location loc, TExpr.Expr op, TreeCode
   return true;
 }
 
-private final boolean needModifiableLValue ( CParser.Location loc, TExpr.Expr op, TreeCode code )
+private final boolean needModifiableLValue ( ISourceRange loc, TExpr.Expr op, TreeCode code )
 {
   if (!needLValue( loc, op, code ))
     return false;
@@ -172,17 +172,18 @@ public abstract class UnaryExpr
     m_errorSuffix = errorSuffix != null ? ". "+ errorSuffix : "";
   }
 
-  public TExpr.Expr expr ( CParser.Location loc, TExpr.Expr operand )
+  public TExpr.Expr expr ( ISourceRange loc, TExpr.Expr operand )
   {
     TExpr.Expr res = null;
     if (!operand.isError())
       res = make( loc, operand );
     if (res == null) // Error?
       res = new TExpr.Unary( null, code, s_errorQual, operand );
-    return BisonLexer.setLocation( res, loc );
+    res.setRange( loc );
+    return res;
   }
 
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr operand )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr operand )
   {
     error( loc, "operand of '%s' has invalid type ('%s')%s", code.str, operand.getQual().readableType(), m_errorSuffix );
     return null;
@@ -197,7 +198,7 @@ public final class IncExpr extends UnaryExpr
   }
 
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr operand )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr operand )
   {
     if (!operand.getQual().spec.isScalar())
       return super.make( loc, operand );
@@ -217,7 +218,7 @@ public class AddressExpr extends UnaryExpr
   }
 
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr operand )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr operand )
   {
     if (!needLValue( loc, operand, code ))
       return null;
@@ -243,7 +244,7 @@ public class IndirectExpr extends UnaryExpr
   }
 
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr operand )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr operand )
   {
     operand = implicitLoad( operand );
     if (operand.getQual().spec.kind == TypeSpec.POINTER)
@@ -260,7 +261,7 @@ public abstract class LoadingUnaryExpr extends UnaryExpr
     super( code, errorSuffix );
   }
 
-  public final TExpr.Expr expr ( CParser.Location loc, TExpr.Expr operand )
+  public final TExpr.Expr expr ( ISourceRange loc, TExpr.Expr operand )
   {
     if (!operand.isError())
       operand = implicitLoad( operand );
@@ -276,7 +277,7 @@ public class AdditiveUnaryExpr extends LoadingUnaryExpr
   }
 
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr operand )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr operand )
   {
     if (operand.getQual().spec.isArithmetic())
     {
@@ -292,7 +293,7 @@ public final class TypecastExpr
 {
   TypecastExpr () {}
 
-  public final TExpr.Expr expr ( CParser.Location loc, TDeclaration typeName, TExpr.Expr operand )
+  public final TExpr.Expr expr ( ISourceRange loc, TDeclaration typeName, TExpr.Expr operand )
   {
     TExpr.Expr res = null;
 
@@ -303,10 +304,11 @@ public final class TypecastExpr
     if (res == null) // Error?
       res = new TExpr.Typecast( null, s_errorQual, typeName, operand );
 
-    return BisonLexer.setLocation( res, loc );
+    res.setRange( loc );
+    return res;
   }
 
-  protected final TExpr.Expr make ( CParser.Location loc, TDeclaration typeName, TExpr.Expr operand )
+  protected final TExpr.Expr make ( ISourceRange loc, TDeclaration typeName, TExpr.Expr operand )
   {
     assert typeName.type != null;
     Qual type = typeName.type;
@@ -345,7 +347,7 @@ public class BitwiseNotExpr extends LoadingUnaryExpr
   }
 
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr operand )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr operand )
   {
     if (operand.getQual().spec.isInteger())
     {
@@ -365,7 +367,7 @@ public class LogNegExpr extends LoadingUnaryExpr
   }
 
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr operand )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr operand )
   {
     if (operand.getQual().spec.isScalar())
       return new TExpr.Unary( null, code, stdQual(TypeSpec.SINT), integerPromotion(operand) );
@@ -385,7 +387,7 @@ public abstract class AttrOfExpr
     this.code = code;
   }
 
-  public final TExpr.Expr expr ( CParser.Location loc, TExpr.Expr expr )
+  public final TExpr.Expr expr ( ISourceRange loc, TExpr.Expr expr )
   {
     TExpr.Expr res = null;
     if (!expr.isError())
@@ -399,7 +401,8 @@ public abstract class AttrOfExpr
     }
     if (res == null) // Error?
       res = new TExpr.AttrOfExpr( null, code, s_errorQual, s_zero, expr );
-    return BisonLexer.setLocation( res, loc );
+    res.setRange( loc );
+    return res;
   }
 
   protected final TExpr.Expr make ( long value, TExpr.Expr expr )
@@ -409,7 +412,7 @@ public abstract class AttrOfExpr
     );
   }
 
-  protected abstract TExpr.Expr make ( CParser.Location loc, TExpr.Expr expr );
+  protected abstract TExpr.Expr make ( ISourceRange loc, TExpr.Expr expr );
 }
 
 public abstract class AttrOfType
@@ -421,7 +424,7 @@ public abstract class AttrOfType
     this.code = code;
   }
 
-  public final TExpr.Expr expr ( CParser.Location loc, TDeclaration typeName )
+  public final TExpr.Expr expr ( ISourceRange loc, TDeclaration typeName )
   {
     TExpr.Expr res = null;
     if (!typeName.error && typeName.type.spec.kind != TypeSpec.ERROR)
@@ -431,7 +434,8 @@ public abstract class AttrOfType
         res = make( loc, typeName );
     if (res == null) // Error?
       res = new TExpr.AttrOfType( null, code, s_errorQual, s_zero, s_errorQual, typeName );
-    return BisonLexer.setLocation( res, loc );
+    res.setRange( loc );
+    return res;
   }
 
   protected final TExpr.Expr make ( long value, TDeclaration typeName )
@@ -440,7 +444,7 @@ public abstract class AttrOfType
             null, code, stdQual(TypeSpec.SIZE_T), Constant.makeLong(TypeSpec.SIZE_T, value), typeName.type, typeName
     );
   }
-  protected abstract TExpr.Expr make ( CParser.Location loc, TDeclaration typeName );
+  protected abstract TExpr.Expr make ( ISourceRange loc, TDeclaration typeName );
 }
 
 public abstract class BinaryExpr
@@ -454,7 +458,7 @@ public abstract class BinaryExpr
     m_errorSuffix = errorSuffix != null ? ". "+ errorSuffix : "";
   }
 
-  public final TExpr.Expr expr ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
+  public final TExpr.Expr expr ( ISourceRange loc, TExpr.Expr left, TExpr.Expr right )
   {
     TExpr.Expr res = null;
 
@@ -467,10 +471,11 @@ public abstract class BinaryExpr
     if (res == null) // Error?
       res = new TExpr.Binary( null, code, s_errorQual, left, right );
 
-    return BisonLexer.setLocation( res, loc );
+    res.setRange( loc );
+    return res;
   }
 
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr left, TExpr.Expr right )
   {
     error( loc, "invalid operands to '%s' ('%s' and '%s')%s", code.str,
             left.getQual().readableType(), right.getQual().readableType(), m_errorSuffix );
@@ -498,7 +503,7 @@ public class IntegerBinaryExpr extends BinaryExpr
   }
 
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr left, TExpr.Expr right )
   {
     if (left.getQual().spec.isInteger() && right.getQual().spec.isInteger())
       return usualArithmeticConversions( left, right );
@@ -514,7 +519,7 @@ public class MultiplicativeExpr extends BinaryExpr
     super( code, errorSuffix );
   }
 
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr left, TExpr.Expr right )
   {
     if (left.getQual().spec.isArithmetic() && right.getQual().spec.isArithmetic())
       return usualArithmeticConversions( left, right );
@@ -531,7 +536,7 @@ public class AdditiveExpr extends MultiplicativeExpr
   }
 
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr left, TExpr.Expr right )
   {
     if (left.getQual().spec.isPointer() && right.getQual().spec.isInteger())
     {
@@ -557,7 +562,7 @@ public class ShiftExpression extends BinaryExpr
   }
 
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr left, TExpr.Expr right )
   {
     if (left.getQual().spec.isInteger() && right.getQual().spec.isInteger())
     {
@@ -578,7 +583,7 @@ public class RelationalExpression extends BinaryExpr
   }
 
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr left, TExpr.Expr right )
   {
     if (left.getQual().spec.isArithmetic() && right.getQual().spec.isArithmetic())
     {
@@ -615,7 +620,7 @@ public final class EqualityExpression extends RelationalExpression
   }
 
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr left, TExpr.Expr right )
   {
     // FIXME: far/near pointers
     if (left.getQual().spec.kind == TypeSpec.POINTER && isNullPointerConst( right ))
@@ -647,7 +652,7 @@ public final class LogicalExpression extends BinaryExpr
   }
 
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr left, TExpr.Expr right )
   {
     if (left.getQual().spec.isScalar() && right.getQual().spec.isScalar())
       return new TExpr.Binary( null, code, stdQual(TypeSpec.SINT), integerPromotion(left), integerPromotion(right) );
@@ -660,12 +665,8 @@ private final TExpr.Expr exprError ( ISourceRange loc )
 {
   return new TExpr.Error( loc, s_errorQual );
 }
-public final TExpr.Expr exprError ( CParser.Location loc )
-{
-  return BisonLexer.setLocation( exprError( (ISourceRange) null ), loc );
-}
 
-public TExpr.Expr exprIdent ( CParser.Location loc, Symbol sym )
+public TExpr.Expr exprIdent ( ISourceRange loc, Symbol sym )
 {
   final Decl decl = sym.topDecl;
   if (decl  == null || decl.kind != Decl.Kind.VAR && decl.kind != Decl.Kind.ENUM_CONST)
@@ -675,14 +676,14 @@ public TExpr.Expr exprIdent ( CParser.Location loc, Symbol sym )
   }
 
   if (decl.kind == Decl.Kind.VAR)
-    return BisonLexer.setLocation( new TExpr.VarRef( null, decl.type, decl  ), loc );
+    return new TExpr.VarRef( loc, decl.type, decl );
   else
-    return BisonLexer.setLocation( new TExpr.EnumConst( null, decl.type, ((EnumConstDecl)decl).enumValue, decl ), loc );
+    return new TExpr.EnumConst( loc, decl.type, ((EnumConstDecl) decl).enumValue, decl );
 }
 
-public TExpr.Expr exprConstant ( CParser.Location loc, Constant.ArithC value )
+public TExpr.Expr exprConstant ( ISourceRange loc, Constant.ArithC value )
 {
-  return BisonLexer.setLocation( new TExpr.ArithConstant( null, stdQual( value.spec ), value ), loc );
+  return new TExpr.ArithConstant( loc, stdQual( value.spec ), value );
 }
 
 public TExpr.Expr exprStringLiteral ( TStringLiteral lit )
@@ -696,7 +697,7 @@ public TExpr.Expr exprStringLiteral ( TStringLiteral lit )
 public final BinaryExpr m_subscript = new BinaryExpr( TreeCode.SUBSCRIPT, "Must be pointer and integer" )
 {
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr left, TExpr.Expr right )
   {
     TExpr.Expr ptre, inte;
     boolean leftPtr;
@@ -738,23 +739,24 @@ public abstract class SelectMemberExpr
     this.code = code;
   }
 
-  public final TExpr.Expr expr ( CParser.Location loc, TExpr.Expr agg, Symbol memberName )
+  public final TExpr.Expr expr ( ISourceRange loc, TExpr.Expr agg, Symbol memberName )
   {
     TExpr.Expr res = null;
     if (!agg.isError() && memberName != null)
       res = make( loc, agg, memberName );
     if (res == null)
       res = new TExpr.SelectMember( null, code, s_errorQual, agg, null, null );
-    return BisonLexer.setLocation( res, loc );
+    res.setRange( loc );
+    return res;
   }
 
-  protected abstract TExpr.Expr make ( CParser.Location loc, TExpr.Expr agg, Symbol memberName );
+  protected abstract TExpr.Expr make ( ISourceRange loc, TExpr.Expr agg, Symbol memberName );
 }
 
 public final SelectMemberExpr m_dotMember = new SelectMemberExpr(TreeCode.DOT_MEMBER)
 {
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr agg, Symbol memberName )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr agg, Symbol memberName )
   {
     Spec spec = agg.getQual().spec;
     if (spec.kind != TypeSpec.STRUCT && spec.kind != TypeSpec.UNION)
@@ -788,7 +790,7 @@ public final SelectMemberExpr m_dotMember = new SelectMemberExpr(TreeCode.DOT_ME
 public final SelectMemberExpr m_ptrMember = new SelectMemberExpr(TreeCode.PTR_MEMBER)
 {
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr agg, Symbol memberName )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr agg, Symbol memberName )
   {
     agg = implicitLoad( agg );
 
@@ -851,7 +853,7 @@ public final LogNegExpr m_logNeg = new LogNegExpr();
 public final AttrOfExpr m_sizeOfExpr = new AttrOfExpr(TreeCode.SIZEOF_EXPR)
 {
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr expr )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr expr )
   {
     return super.make( expr.getQual().spec.sizeOf(), expr );
   }
@@ -860,7 +862,7 @@ public final AttrOfExpr m_sizeOfExpr = new AttrOfExpr(TreeCode.SIZEOF_EXPR)
 public final AttrOfExpr m_alignOfExpr = new AttrOfExpr(TreeCode.ALIGNOF_EXPR)
 {
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TExpr.Expr expr )
+  protected TExpr.Expr make ( ISourceRange loc, TExpr.Expr expr )
   {
     return super.make( expr.getQual().spec.alignOf(), expr );
   }
@@ -869,7 +871,7 @@ public final AttrOfExpr m_alignOfExpr = new AttrOfExpr(TreeCode.ALIGNOF_EXPR)
 public final AttrOfType m_sizeOfType = new AttrOfType(TreeCode.SIZEOF_TYPE)
 {
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TDeclaration typeName )
+  protected TExpr.Expr make ( ISourceRange loc, TDeclaration typeName )
   {
     return super.make( typeName.type.spec.sizeOf(), typeName );
   }
@@ -878,7 +880,7 @@ public final AttrOfType m_sizeOfType = new AttrOfType(TreeCode.SIZEOF_TYPE)
 public final AttrOfType m_alignOfType = new AttrOfType(TreeCode.ALIGNOF_TYPE)
 {
   @Override
-  protected TExpr.Expr make ( CParser.Location loc, TDeclaration typeName )
+  protected TExpr.Expr make ( ISourceRange loc, TDeclaration typeName )
   {
     return super.make( typeName.type.spec.alignOf(), typeName );
   }
@@ -893,7 +895,7 @@ public final BinaryExpr m_remainder = new IntegerBinaryExpr( TreeCode.REMAINDER 
 
 public final BinaryExpr m_add = new AdditiveExpr( TreeCode.ADD, null ) {
   @Override
-  public TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
+  public TExpr.Expr make ( ISourceRange loc, TExpr.Expr left, TExpr.Expr right )
   {
     if (left.getQual().spec.isInteger() && right.getQual().spec.isPointer())
     {
@@ -913,7 +915,7 @@ public final BinaryExpr m_add = new AdditiveExpr( TreeCode.ADD, null ) {
 
 public final BinaryExpr m_sub = new BinaryExpr( TreeCode.SUB, null ) {
   @Override
-  public TExpr.Expr make ( CParser.Location loc, TExpr.Expr left, TExpr.Expr right )
+  public TExpr.Expr make ( ISourceRange loc, TExpr.Expr left, TExpr.Expr right )
   {
     if (left.getQual().spec.kind == TypeSpec.POINTER && right.getQual().spec.kind == TypeSpec.POINTER)
     {
@@ -1319,11 +1321,6 @@ public final TExpr.ArithConstant constantExpression ( ISourceRange loc, TExpr.Ex
     return errorVal( loc );
   }
   return new TExpr.ArithConstant( loc, ev.getResType(), ev.getRes() );
-}
-
-public final TExpr.ArithConstant constantExpression ( CParser.Location loc, TExpr.Expr e )
-{
-  return constantExpression( BisonLexer.fromLocation(loc), e );
 }
 
 }

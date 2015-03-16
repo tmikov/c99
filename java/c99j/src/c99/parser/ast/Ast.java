@@ -1,8 +1,7 @@
 package c99.parser.ast;
 
+import c99.ISourceRange;
 import c99.SourceRange;
-import c99.parser.BisonLexer;
-import c99.parser.CParser;
 
 import java.io.PrintStream;
 
@@ -22,9 +21,9 @@ protected Ast ( final String name )
   this( name, null );
 }
 
-public Ast location ( CParser.Location loc )
+public Ast location ( ISourceRange loc )
 {
-  BisonLexer.setLocation( this, loc );
+  setRange( loc );
   return this;
 }
 

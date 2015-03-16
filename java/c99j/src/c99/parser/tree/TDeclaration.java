@@ -29,12 +29,6 @@ public final class TDeclaration extends SourceRange
     this.declarator = declarator;
   }
 
-  public TDeclaration ( CParser.Location loc, TSpecNode dsNode, TDeclarator declarator )
-  {
-    this((ISourceRange)null, dsNode, declarator );
-    BisonLexer.setLocation( this, loc );
-  }
-
   public final boolean hasIdent ()
   {
     return this.declarator.ident != null;
