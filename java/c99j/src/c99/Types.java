@@ -94,6 +94,11 @@ public static final class Qual
       extAttrs.isEmpty();
   }
 
+  public final Qual newUnqualified ()
+  {
+    return this.isUnqualified() ? this : new Qual(spec);
+  }
+
   public final Qual copy ( Spec newSpec )
   {
     Qual q = new Qual(newSpec);

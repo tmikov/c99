@@ -102,7 +102,7 @@ public final TExpr.Expr implicitLoad ( TExpr.Expr op )
         error( op, "Incomplete type '%s'", qual.readableType() );
         return new TExpr.Unary( op, TreeCode.IMPLICIT_CAST, s_errorQual, op );
       }
-      return new TExpr.Unary( op, TreeCode.IMPLICIT_LOAD, new Qual(spec), op );
+      return new TExpr.Unary( op, TreeCode.IMPLICIT_LOAD, qual.newUnqualified(), op );
     }
   }
 
@@ -115,7 +115,7 @@ public final TExpr.Expr implicitLoad ( TExpr.Expr op )
       error( op, "Incomplete type '%s'", op.getQual().readableType() );
       return new TExpr.Unary( op, TreeCode.IMPLICIT_CAST, s_errorQual, op );
     }
-    return new TExpr.Unary( op, TreeCode.IMPLICIT_LOAD, new Qual(op.getQual().spec), op );
+    return new TExpr.Unary( op, TreeCode.IMPLICIT_LOAD, op.getQual().newUnqualified(), op );
 
   default:
     if (!op.getQual().spec.isComplete())
@@ -206,7 +206,7 @@ public final class IncExpr extends UnaryExpr
     if (!needModifiableLValue( loc, operand, code ))
       return null;
 
-    return new TExpr.Unary( null, code, new Qual(operand.getQual().spec), operand );
+    return new TExpr.Unary( null, code, operand.getQual().newUnqualified(), operand );
   }
 }
 
@@ -726,7 +726,7 @@ public final BinaryExpr m_subscript = new BinaryExpr( TreeCode.SUBSCRIPT, "Must 
     }
     inte = integerPromotion( inte );
 
-    return new TExpr.Binary( null, code, new Qual(ptrSpec.of.spec), leftPtr?ptre:inte, leftPtr?inte:ptre );
+    return new TExpr.Binary( null, code, ptrSpec.of.newUnqualified(), leftPtr?ptre:inte, leftPtr?inte:ptre );
   }
 };
 
