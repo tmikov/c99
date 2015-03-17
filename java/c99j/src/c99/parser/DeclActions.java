@@ -421,8 +421,6 @@ private final void calcAggSize ( ISourceRange loc, StructUnionSpec spec, final M
   if (spec.isError())
     return;
 
-  assert spec.isComplete();
-
   long size = 0;
   /** bits available in the last consumed byte of 'size' */
   int bitsAvail = 0;
