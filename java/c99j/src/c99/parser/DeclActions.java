@@ -314,7 +314,7 @@ public final TSpecNode declareAgg ( Code tagCode, Decl tagDecl, Scope memberScop
       if (d.kind == Decl.Kind.VAR)
       {
         fields[i++] = new Member( d, d.symbol, d.type, d.bitfieldWidth );
-        tagSpec.orError( true );
+        tagSpec.orError( d.isError() );
       }
     }
     if (i < fields.length) // Could happen if there were type definitions in that scope
