@@ -42,7 +42,7 @@ private final boolean isLValue ( TExpr.Expr op )
 
 private final boolean needLValue ( ISourceRange loc, TExpr.Expr op, TreeCode code )
 {
-  if (!isLValue( op ))
+  if (!op.isError() && !isLValue( op ))
   {
     error( loc, "operand of '%s' must be an l-value", code.str );
     return false;
@@ -52,6 +52,9 @@ private final boolean needLValue ( ISourceRange loc, TExpr.Expr op, TreeCode cod
 
 private final boolean needModifiableLValue ( ISourceRange loc, TExpr.Expr op, TreeCode code )
 {
+  if (op.isError())
+    return true;
+
   if (!needLValue( loc, op, code ))
     return false;
 
@@ -134,7 +137,8 @@ public final TExpr.Expr implicitLoad ( TExpr.Expr op )
 
 private TExpr.Expr implicitCast ( TExpr.Expr op, Qual type )
 {
-  return !op.getQual().compatible( type ) ? new TExpr.Unary( op, TreeCode.IMPLICIT_CAST, type, op ) : op;
+  return !op.isError () && !op.getQual().compatible( type ) ?
+          new TExpr.Unary( op, TreeCode.IMPLICIT_CAST, type, op ) : op;
 }
 
 private TExpr.Expr integerPromotion ( TExpr.Expr op )
@@ -355,17 +359,19 @@ public final TExpr.Expr implicitTypecastExpr ( Qual type, TExpr.Expr operand )
 {
   if (!operand.isError())
     operand = implicitLoad( operand );
-  if (!operand.isError())
-    if (isValidCast( operand, type, operand ))
-    {
-      if (type.spec.isPointer() && !operand.getQual().spec.isPointer() ||
-          !type.spec.isPointer() && operand.getQual().spec.isPointer())
-      {
-        warning( operand, "incompatible conversion from '%s' to '%s'", operand.getQual().readableType(), type.readableType() );
-      }
+  if (operand.isError())
+    return operand;
 
-      return implicitCast( operand, type );
+  if (isValidCast( operand, type, operand ))
+  {
+    if (type.spec.isPointer() && !operand.getQual().spec.isPointer() ||
+        !type.spec.isPointer() && operand.getQual().spec.isPointer())
+    {
+      warning( operand, "incompatible conversion from '%s' to '%s'", operand.getQual().readableType(), type.readableType() );
     }
+
+    return implicitCast( operand, type );
+  }
 
   // Error
   return new TExpr.Unary( operand, TreeCode.IMPLICIT_CAST, s_errorQual, operand );
