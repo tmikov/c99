@@ -357,7 +357,15 @@ public final TExpr.Expr implicitTypecastExpr ( Qual type, TExpr.Expr operand )
     operand = implicitLoad( operand );
   if (!operand.isError())
     if (isValidCast( operand, type, operand ))
+    {
+      if (type.spec.isPointer() && !operand.getQual().spec.isPointer() ||
+          !type.spec.isPointer() && operand.getQual().spec.isPointer())
+      {
+        warning( operand, "incompatible conversion from '%s' to '%s'", operand.getQual().readableType(), type.readableType() );
+      }
+
       return implicitCast( operand, type );
+    }
 
   // Error
   return new TExpr.Unary( operand, TreeCode.IMPLICIT_CAST, s_errorQual, operand );
