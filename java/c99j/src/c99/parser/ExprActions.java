@@ -87,7 +87,6 @@ public final TExpr.Expr implicitLoad ( TExpr.Expr op )
   switch (op.getCode())
   {
   case VARREF:
-  case STRING:
   {
     Qual qual = ((TExpr.VarRef)op).getDecl().type;
     Spec spec = qual.spec;
@@ -106,6 +105,11 @@ public final TExpr.Expr implicitLoad ( TExpr.Expr op )
       return new TExpr.Unary( op, TreeCode.IMPLICIT_LOAD, qual.newUnqualified(), op );
     }
   }
+
+  case STRING:
+    return new TExpr.Unary(
+      op, TreeCode.IMPLICIT_CAST, new Qual(newPointerSpec(((ArraySpec)op.getQual().spec).of)), op
+    );
 
   case INDIRECT:
   case SUBSCRIPT:
