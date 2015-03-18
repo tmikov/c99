@@ -294,6 +294,32 @@ public class AdditiveUnaryExpr extends LoadingUnaryExpr
   }
 }
 
+private final boolean isValidCast ( ISourceRange loc, Qual type, TExpr.Expr operand )
+{
+  if (type.spec.isScalar())
+  {
+    if (!operand.getQual().spec.isScalar())
+    {
+      error( operand, "invalid typecast operand ('%s'). Must be arithmetic or pointer", operand.getQual().readableType() );
+      return false;
+    }
+    if (type.spec.isPointer() && operand.getQual().spec.isFloating() ||
+            type.spec.isFloating() && operand.getQual().spec.isPointer())
+    {
+      error( loc, "'%s' cannot be cast to '%s'", operand.getQual().readableType(), type.readableType() );
+      return false;
+    }
+  }
+  else if (type.spec.kind == TypeSpec.VOID)
+  {}
+  else
+  {
+    error( loc, "casting to invalid type '%s'. Must be void, arithmetic or pointer", type.readableType() );
+    return false;
+  }
+  return true;
+}
+
 public final class TypecastExpr
 {
   TypecastExpr () {}
@@ -318,30 +344,23 @@ public final class TypecastExpr
     assert typeName.type != null;
     Qual type = typeName.type;
 
-    if (type.spec.isScalar())
-    {
-      if (!operand.getQual().spec.isScalar())
-      {
-        error( operand, "invalid typecast operand ('%s'). Must be arithmetic or pointer", operand.getQual().readableType() );
-        return null;
-      }
-      if (type.spec.isPointer() && operand.getQual().spec.isFloating() ||
-          type.spec.isFloating() && operand.getQual().spec.isPointer())
-      {
-        error( loc, "'%s' cannot be cast to '%s'", operand.getQual().readableType(), type.readableType() );
-        return null;
-      }
-    }
-    else if (type.spec.kind == TypeSpec.VOID)
-    {}
-    else
-    {
-      error( loc, "casting to invalid type '%s'. Must be void, arithmetic or pointer", type.readableType() );
+    if (!isValidCast( loc, type, operand ))
       return null;
-    }
 
-    return new TExpr.Typecast( null, new Qual(type.spec), typeName, operand );
+    return new TExpr.Typecast( null, type.newUnqualified(), typeName, operand );
   }
+}
+
+public final TExpr.Expr implicitTypecastExpr ( Qual type, TExpr.Expr operand )
+{
+  if (!operand.isError())
+    operand = implicitLoad( operand );
+  if (!operand.isError())
+    if (isValidCast( operand, type, operand ))
+      return implicitCast( operand, type );
+
+  // Error
+  return new TExpr.Unary( operand, TreeCode.IMPLICIT_CAST, s_errorQual, operand );
 }
 
 public class BitwiseNotExpr extends LoadingUnaryExpr
