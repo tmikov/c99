@@ -14,6 +14,7 @@ protected void init ( CompEnv compEnv, SymTable symTab )
   super.init( compEnv, symTab );
 
   m_constChar = new Qual( stdSpec( m_opts.signedChar ? TypeSpec.SCHAR : TypeSpec.UCHAR ) );
+  m_constChar.isConst = true;
 }
 
 private final boolean isBitField ( TExpr.Expr op )
