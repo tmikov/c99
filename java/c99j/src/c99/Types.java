@@ -710,13 +710,15 @@ public static final class FunctionSpec extends DerivedSpec
 
 public static class Param extends SourceRange
 {
+  public final int index;
   public final Ident name;
   public final Qual type;
   public final ExtAttributes extAttrs;
 
-  public Param ( ISourceRange rng, final Ident name, final Qual type, ExtAttributes extAttrs  )
+  public Param ( ISourceRange rng, int index, final Ident name, final Qual type, ExtAttributes extAttrs  )
   {
     super( rng );
+    this.index = index;
     this.name = name;
     this.type = type;
     this.extAttrs = extAttrs;
@@ -743,9 +745,9 @@ public static class Member extends Param
    * @param type
    * @param bitFieldWidth -1 means not a bit-field
    */
-  public Member ( final ISourceRange rng, final Ident name, final Qual type, final int bitFieldWidth )
+  public Member ( final ISourceRange rng, int index, final Ident name, final Qual type, final int bitFieldWidth )
   {
-    super(rng, name, type, null);
+    super(rng, index, name, type, null);
     m_bitFieldWidth = bitFieldWidth;
   }
 

@@ -313,7 +313,8 @@ public final TSpecNode declareAgg ( Code tagCode, Decl tagDecl, Scope memberScop
     {
       if (d.kind == Decl.Kind.VAR)
       {
-        fields[i++] = new Member( d, d.symbol, d.type, d.bitfieldWidth );
+        fields[i] = new Member( d, i, d.symbol, d.type, d.bitfieldWidth );
+        ++i;
         tagSpec.orError( d.isError() );
       }
     }
@@ -866,7 +867,7 @@ public final TIdentList identListAdd (
   Types.Param m;
   if ( (m = list.get( sym )) == null)
   {
-    m = new Types.Param( loc, sym, null, null );
+    m = new Types.Param( loc, list.size(), sym, null, null );
     list.put( sym, m );
   }
   else
@@ -1083,7 +1084,8 @@ private final class TypeChecker implements TDeclarator.Visitor
           if (d.type.isVoid())
           {
             error( d, "parameter %d ('%s') has type 'void'", i+1, optName(d.symbol) );
-            params[i++] = new Param( d, d.symbol, s_errorQual, null );
+            params[i] = new Param( d, i, d.symbol, s_errorQual, null );
+            ++i;
             continue;
           }
 
@@ -1094,12 +1096,14 @@ private final class TypeChecker implements TDeclarator.Visitor
             if (!d.type.spec.isComplete())
             {
               error( d, "parameter %d ('%s') has incomplete type '%s'", i+1, optName(d.symbol), d.type.readableType() );
-              params[i++] = new Param( d, d.symbol, s_errorQual, null );
+              params[i] = new Param( d, i, d.symbol, s_errorQual, null );
+              ++i;
               continue;
             }
           }
 
-          params[i++] = new Param( d, d.symbol, d.type, null );
+          params[i] = new Param( d, i, d.symbol, d.type, null );
+          ++i;
         }
       }
 
@@ -1234,7 +1238,7 @@ private FunctionSpec compositeFunction ( FunctionSpec a, FunctionSpec b )
           params[o] = b.getParams()[o];
       }
 
-      params[i] = compType == pb.type ? pb : new Param( pb, pb.name, compType, pb.extAttrs );
+      params[i] = compType == pb.type ? pb : new Param( pb, i, pb.name, compType, pb.extAttrs );
     }
 
     if (b.of == compOf && params == null)
