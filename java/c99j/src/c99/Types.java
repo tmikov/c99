@@ -136,6 +136,27 @@ public static final class Qual
            spec.compatible( qual.spec );
   }
 
+  private static boolean ge ( boolean a, boolean b )
+  {
+    return a == b || a;
+  }
+
+  /**
+   * Checks if our qualifiers are more restrictive than the parameter; in other words
+   * the parameter can be assigned to us, but we can't be assigned to it.
+   * @param q
+   * @return true, if this is more restrictive
+   */
+  public final boolean moreRestrictiveOrEqual ( Qual q )
+  {
+    return
+      ge(isConst, q.isConst) &&
+      ge(isVolatile, q.isVolatile) &&
+      ge(isRestrict, q.isRestrict) &&
+      ge(isAtomic, q.isAtomic) &&
+      extAttrs.same( q.extAttrs );
+  }
+
   @Override public final String toString ()
   {
     StringBuilder buf = new StringBuilder();
