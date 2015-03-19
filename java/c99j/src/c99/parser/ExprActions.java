@@ -661,7 +661,7 @@ public class RelationalExpression extends BinaryExpr
       // FIXME: pointer sizes
       if (!lptr.of.spec.compatible( rptr.of.spec ))
       {
-        error( loc, "%s: '%s' and '%s' are not pointers to compatible types", code.str,
+        error( loc, "'%s': '%s' and '%s' are not pointers to compatible types", code.str,
                 lptr.of.spec.readableType(), rptr.of.spec.readableType() );
       }
       return new TExpr.Binary( null, code, stdQual(TypeSpec.SINT), left, right );
@@ -983,7 +983,7 @@ public final BinaryExpr m_sub = new BinaryExpr( TreeCode.SUB, null ) {
 
       if (!lptr.of.spec.compatible( rptr.of.spec ))
       {
-        error( loc, "%s: '%s' and '%s' are not pointers to compatible types", code.str,
+        error( loc, "'%s': '%s' and '%s' are not pointers to compatible types", code.str,
                 lptr.of.spec.readableType(), rptr.of.spec.readableType() );
       }
 
