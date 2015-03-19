@@ -364,10 +364,31 @@ public final TExpr.Expr implicitTypecastExpr ( Qual type, TExpr.Expr operand )
 
   if (isValidCast( operand, type, operand ))
   {
-    if (type.spec.isPointer() && !operand.getQual().spec.isPointer() ||
-        !type.spec.isPointer() && operand.getQual().spec.isPointer())
+    final Spec opSpec = operand.getQual().spec;
+    final Spec spec = type.spec;
+
+    // check for conversion between pointer and non-pointer
+    if (spec.isPointer() && !opSpec.isPointer() || !spec.isPointer() && opSpec.isPointer())
     {
       warning( operand, "incompatible conversion from '%s' to '%s'", operand.getQual().readableType(), type.readableType() );
+    }
+    // check for conversion between different pointers or discarded qualifiers
+    else if (spec.isPointer() && opSpec.isPointer() /*always true*/)
+    {
+      final PointerSpec pSpec = (PointerSpec)spec;
+      final PointerSpec pOpSpec = (PointerSpec)opSpec;
+
+      if (!pSpec.of.spec.compatible( pOpSpec.of.spec ))
+      {
+        warning( operand, "incompatible pointer conversion from '%s' to '%s'",
+                pOpSpec.readableType(), pSpec.readableType() );
+      }
+      // We know the pointer targets are compatible. Check for discarded qualifiers
+      else if (!pSpec.of.moreRestrictiveOrEqual( pOpSpec.of ))
+      {
+        warning( operand, "incompatible qualifiers in pointer conversion from '%s' to '%s'",
+                pOpSpec.readableType(), pSpec.readableType() );
+      }
     }
 
     return implicitCast( operand, type );
