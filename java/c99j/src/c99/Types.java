@@ -164,8 +164,8 @@ public static final class Qual
     if (isVolatile) buf.append( "volatile " );
     if (isRestrict) buf.append( "restrict " );
     if (isAtomic) buf.append(  "atomic " );
-    if (spec != null)
-      buf.append( spec.toString() );
+    // FIXME: append the attributes
+    buf.append( spec.toString() );
     return buf.toString();
   }
 
