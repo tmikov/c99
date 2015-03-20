@@ -66,7 +66,7 @@ public Prepr ( final IPreprOptions opts, final IErrorReporter reporter,
   m_searchPath = searchPath;
   m_symTable = symTable;
 
-  m_lex = new PPLexer(reporter, fileName, input, symTable );
+  m_lex = new PPLexer(opts, reporter, fileName, input, symTable );
 
   for ( PPSymCode ppCode : PPSymCode.values() )
   {
@@ -88,7 +88,7 @@ public Prepr ( final IPreprOptions opts, final IErrorReporter reporter,
   // Generate the date string which doesn't change duing compilation
   Macro dateMacro = (Macro) m_symTable.symbol( Builtin.__DATE__.name() ).ppDecl;
   Token tok = new Token();
-  tok.setStringConst( new SimpleDateFormat( "MMM dd yyyy" ).format( new Date() ) );
+  tok.setStringConst( new SimpleDateFormat( "MMM dd yyyy" ).format( new Date() ), m_lex.getCharSpec() );
   dateMacro.body.addLast( tok );
 }
 
@@ -101,7 +101,7 @@ public final void close ()
 
 private final void pushSource ( String fileName, InputStream input )
 {
-  PPLexer newLexer = new PPLexer(m_reporter, fileName, input, m_symTable);
+  PPLexer newLexer = new PPLexer(m_opts, m_reporter, fileName, input, m_symTable);
   boolean ok = false;
   try
   {
@@ -662,6 +662,11 @@ private final int parseLineNumber ( String afterWhat )
   return line;
 }
 
+private final String stringConstToString ( Token tok )
+{
+  return tok.getStringConstValue().toJavaString();
+}
+
 private final void parseLine ()
 {
   nextExpandNoBlanks(); // consume the 'line'
@@ -681,7 +686,7 @@ private final void parseLine ()
       return;
     }
 
-    fileName = Utils.asciiString( m_tok.getStringConstValue() );
+    fileName = stringConstToString( m_tok );
     if (fileName == null)
     {
       skipUntilEOL();
@@ -717,7 +722,7 @@ private final void parseLineMarker ()
     return;
   }
 
-  String fileName = Utils.asciiString( m_tok.getStringConstValue() );
+  String fileName = stringConstToString( m_tok );
   if (fileName == null)
   {
     skipUntilEOL();
@@ -775,7 +780,7 @@ private final void parseInclude ()
     if (m_tok.code() == Code.STRING_CONST)
     {
       angled = false;
-      name = Utils.asciiString( m_tok.getStringConstValue() );
+      name = stringConstToString( m_tok );
       if (name == null)
       {
         skipUntilEOL();
@@ -1408,7 +1413,7 @@ private final void parseErrorDirective ()
     nextWithBlanks();
   }
 
-  m_reporter.error( m_tok, "#error %s", msg.toString() );
+  m_reporter.error( pos, "#error %s", msg.toString() );
 }
 
 private final void parsePragmaDirective ()
@@ -1515,7 +1520,7 @@ private final Token stringify ( TokenList<Token> toks )
         tok.output( bo );
 
     Token res = new Token();
-    res.setStringConst( Utils.asciiString( bo.toByteArray() ) );
+    res.setStringConst( Utils.asciiString( bo.toByteArray() ), m_lex.getCharSpec() );
     return res;
   }
   catch (IOException e)
@@ -1556,7 +1561,7 @@ private final Token concatTokens ( ISourceRange pos, Token a, Token b )
     public String formatRange ( final ISourceRange rng ) {return "";}
   };
 
-  PPLexer lexer = new PPLexer( reporter, "", is, m_symTable, bytes.length+1 );
+  PPLexer lexer = new PPLexer( m_opts, reporter, "", is, m_symTable, bytes.length+1 );
   Token res = lexer.innerNextToken();
   if (res.code() == Code.EOF || res.code() == Code.WHITESPACE || errorCount[0] != 0 ||
       lexer.lookAhead(1).code() != Code.EOF)
@@ -1706,7 +1711,7 @@ private final boolean expandBuiltin ( ISourceRange pos, Macro macro )
     tok.setIntConst( pos.getLine1() );
     break;
   case __FILE__:
-    tok.setStringConst( pos.getFileName() );
+    tok.setStringConst( pos.getFileName(), m_lex.getCharSpec() );
     break;
   case __DATE__:
     tok.copyFrom( (Token) macro.body.first());

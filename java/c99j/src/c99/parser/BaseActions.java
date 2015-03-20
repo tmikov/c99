@@ -14,6 +14,7 @@ protected IErrorReporter m_reporter;
 
 private Types.SimpleSpec m_specs[];
 private Qual m_stdQuals[];
+private Qual m_stdConstQuals[];
 
 protected Spec stdSpec ( TypeSpec ts )
 {
@@ -22,6 +23,10 @@ protected Spec stdSpec ( TypeSpec ts )
 protected Qual stdQual ( TypeSpec ts )
 {
   return m_stdQuals[ts.ordinal() - TypeSpec.VOID.ordinal()];
+}
+protected Qual stdConstQual ( TypeSpec ts )
+{
+  return m_stdConstQuals[ts.ordinal() - TypeSpec.VOID.ordinal()];
 }
 
 private static final SimpleSpec s_errorSpec = new SimpleSpec( TypeSpec.ERROR, -1, 0 );
@@ -39,6 +44,7 @@ protected void init ( CompEnv compEnv, SymTable symTab )
   // Initialize the basic type specs
   m_specs = new SimpleSpec[TypeSpec.LDOUBLE.ordinal() - TypeSpec.VOID.ordinal() + 1];
   m_stdQuals = new Qual[m_specs.length];
+  m_stdConstQuals = new Qual[m_specs.length];
   for ( int i = TypeSpec.VOID.ordinal(); i <= TypeSpec.LDOUBLE.ordinal(); ++i )
   {
     final TypeSpec type = TypeSpec.values()[i];
@@ -51,6 +57,8 @@ protected void init ( CompEnv compEnv, SymTable symTab )
     int ind = i - TypeSpec.VOID.ordinal();
     m_specs[ind] = new SimpleSpec( type, size, align );
     m_stdQuals[ind] = new Qual( m_specs[ind] );
+    m_stdConstQuals[ind] = new Qual( m_specs[ind] );
+    m_stdConstQuals[ind].isConst = true;
   }
 }
 

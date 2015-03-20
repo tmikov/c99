@@ -121,11 +121,6 @@ public int yylex () throws IOException
         m_yylval = ppt.getStringConstValue();
         break;
 
-      case WIDE_CHAR_CONST:
-      case WIDE_STRING_CONST:
-        m_reporter.error( ppt, "Wide characters not supported" );
-        continue;
-
       default:
         int ord = ppt.code().ordinal();
         if (ord >= Code.HASH.ordinal())

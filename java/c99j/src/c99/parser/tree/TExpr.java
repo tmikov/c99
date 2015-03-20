@@ -1,5 +1,6 @@
 package c99.parser.tree;
 
+import c99.AnyStringConst;
 import c99.ISourceRange;
 import c99.SourceRange;
 import c99.Types.*;
@@ -188,9 +189,9 @@ public static class AttrOfExpr extends Constant
 
 public static final class StringLiteral extends Expr
 {
-  private final byte[] m_value;
+  private final AnyStringConst m_value;
 
-  public StringLiteral ( ISourceRange rng, Qual qual, byte[] value )
+  public StringLiteral ( ISourceRange rng, Qual qual, AnyStringConst value )
   {
     super( rng, TreeCode.STRING, qual );
     m_value = value;
@@ -203,10 +204,10 @@ public static final class StringLiteral extends Expr
   @Override
   public String formatDetails ()
   {
-    return Misc.simpleEscapeString( Utils.asciiString(m_value) );
+    return Misc.simpleEscapeString( m_value.toJavaString() );
   }
 
-  public final byte[] getValue ()
+  public final AnyStringConst getValue ()
   {
     return m_value;
   }

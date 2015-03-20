@@ -21,7 +21,11 @@ public class PPLexer implements PPDefs
 {
 
 protected final IdentTable<? extends PPSymbol> m_symTable;
+protected final IPreprOptions m_opts;
 protected final IErrorReporter m_reporter;
+
+/** set depending on signedChars option */
+protected final TypeSpec m_charSpec;
 /** Set to false in discarded conditionals */
 private boolean m_reportErrors = true;
 private String m_fileName;
@@ -41,15 +45,18 @@ private final SourceRange m_tmpRange = new SourceRange();
 /** Special handling after #include */
 private boolean m_parseInclude;
 
-public PPLexer ( final IErrorReporter reporter, String fileName, InputStream input,
+public PPLexer ( final IPreprOptions opts, final IErrorReporter reporter, String fileName, InputStream input,
                  final IdentTable<? extends PPSymbol> symTable, int bufSize )
 {
+  m_opts = opts;
   m_reporter = reporter;
   m_symTable = symTable;
   m_fileName = fileName;
   m_actualFileName = fileName;
   m_reader = new LineReader( input, bufSize );
   m_end = m_cur = 0;
+
+  m_charSpec = opts.getSignedChar() ? TypeSpec.SCHAR : TypeSpec.UCHAR;
 
   m_fifoHead = m_fifoTail = m_fifoCount = 0;
   m_fifoCapacity = 4;
@@ -62,15 +69,21 @@ public PPLexer ( final IErrorReporter reporter, String fileName, InputStream inp
   nextLine();
 }
 
-public PPLexer ( final IErrorReporter reporter, String fileName, InputStream input,
+public PPLexer ( final IPreprOptions opts, final IErrorReporter reporter, String fileName, InputStream input,
                  final IdentTable<? extends PPSymbol> symTable )
 {
-  this( reporter, fileName, input, symTable, 16384 );
+  this( opts, reporter, fileName, input, symTable, 16384 );
 }
 
 public final void close ()
 {
   m_reader.close();
+}
+
+/** Returns the type specifier of 'char' based on the {@link IPreprOptions#getSignedChar()} option */
+public final TypeSpec getCharSpec ()
+{
+  return m_charSpec;
 }
 
 public final String getActualFileName ()
@@ -376,12 +389,12 @@ loop:
 private static final Constant.IntC s_charShift =
   Constant.makeLong( TypeSpec.UINT, TypeSpec.UCHAR.width );
 
-private void parseCharConst ( int cur )
+private void parseCharConst ( TypeSpec spec, int cur )
 {
   int start = m_cur;
   byte[] decoded = parseCharSequence( cur, '\'', "character constant" );
 
-  Constant.IntC value = Constant.makeLong( TypeSpec.SINT, 0 );
+  Constant.IntC value = Constant.makeLong( spec, 0 );
 
   if (decoded.length == 0)
     reportError( m_workTok, "Empty character constant" );
@@ -389,9 +402,9 @@ private void parseCharConst ( int cur )
     value.setLong( decoded[0] & 255 );
   else
   {
-    Constant.IntC dig = Constant.newIntConstant( TypeSpec.SINT );
+    Constant.IntC dig = Constant.newIntConstant( spec );
 
-    if (decoded.length > (TypeSpec.SINT.width+7)/8)
+    if (decoded.length > (spec.width+7)/8)
       reportError( m_workTok, "Character constant is too long for its type" );
     else
       reportWarning( m_workTok, "Multi-character character constant" );
@@ -404,14 +417,25 @@ private void parseCharConst ( int cur )
     }
   }
 
-  m_workTok.setCharConst( m_reader.getLineBuf(), start, m_cur - start, value );
+  m_workTok.setCharConst( m_reader.getLineBuf(), start, m_cur - start, spec, value );
 }
 
-private void parseStringConst ( int cur )
+private void parseStringConst ( TypeSpec spec, int cur )
 {
   int start = m_cur;
+  // FIXME: support wide characters. For now we simply store the 8-bit characters in a 32-bit array
   byte[] value = parseCharSequence( cur, '"', "string constant" );
-  m_workTok.setStringConst( m_reader.getLineBuf(), start, m_cur - start, value );
+  if (spec.width == TypeSpec.UCHAR.width) // character string literal?
+  {
+    m_workTok.setStringConst( m_reader.getLineBuf(), start, m_cur - start, new CharStringConst(spec,value) );
+  }
+  else // wide string literal
+  {
+    int[] wvalue = new int[value.length];
+    for ( int i = 0, e = value.length; i < e; ++i )
+      wvalue[i] = value[i] & 255;
+    m_workTok.setStringConst( m_reader.getLineBuf(), start, m_cur - start, new WideStringConst(spec,wvalue) );
+  }
 }
 
 private static final Constant.IntC s_int0 = Constant.makeLong( TypeSpec.SINT, 0 );
@@ -983,31 +1007,55 @@ private final void parseNextToken ( Token tok )
   // Character constant
   else if (buf[cur] == '\'')
   {
-    parseCharConst( cur + 1 );
+    parseCharConst( TypeSpec.SINT, cur + 1 );
     return;
   }
-  else if ((buf[cur] == 'L' || buf[cur] == 'u' || buf[cur] == 'U') && buf[cur+1] == '\'')
+  else if (buf[cur] == 'L' && buf[cur+1] == '\'')
   {
-    parseCharConst( cur + 2 );
-    reportError( m_workTok, "prefixed character constants are not supported yet" );
+    parseCharConst( TypeSpec.WCHAR_T, cur + 2 );
+    reportWarning( m_workTok, "prefixed character constants are not fully supported yet" );
+    return;
+  }
+  else if (buf[cur] == 'U' && buf[cur+1] == '\'')
+  {
+    parseCharConst( TypeSpec.CHAR32_T, cur + 2 );
+    reportWarning( m_workTok, "prefixed character constants are not fully supported yet" );
+    return;
+  }
+  else if (buf[cur] == 'u' && buf[cur+1] == '\'')
+  {
+    parseCharConst( TypeSpec.CHAR16_T, cur + 2 );
+    reportWarning( m_workTok, "prefixed character constants are not fully supported yet" );
     return;
   }
   // String constant
   else if (buf[cur] == '"')
   {
-    parseStringConst( cur + 1 );
+    parseStringConst( m_charSpec, cur + 1 );
     return;
   }
-  else if ((buf[cur] == 'L' || buf[cur] == 'u' || buf[cur] == 'U') && buf[cur+1] == '"')
+  else if (buf[cur] == 'L' && buf[cur+1] == '"')
   {
-    parseStringConst( cur + 2 );
-    reportError( m_workTok, "prefixed strings are not supported yet" );
+    parseStringConst( TypeSpec.WCHAR_T, cur + 2 );
+    reportWarning( m_workTok, "prefixed strings are not fully supported yet" );
+    return;
+  }
+  else if (buf[cur] == 'U' && buf[cur+1] == '"')
+  {
+    parseStringConst( TypeSpec.CHAR32_T, cur + 2 );
+    reportWarning( m_workTok, "prefixed strings are not fully supported yet" );
+    return;
+  }
+  else if (buf[cur] == 'u' && buf[cur+1] == '"')
+  {
+    parseStringConst( TypeSpec.CHAR16_T, cur + 2 );
+    reportWarning( m_workTok, "prefixed strings are not fully supported yet" );
     return;
   }
   else if (buf[cur] == 'u' && buf[cur+1] == '8' && buf[cur+2] == '"')
   {
-    parseStringConst( cur + 3 );
-    reportError( m_workTok, "utf-8 strings are not supported yet" );
+    parseStringConst( m_charSpec, cur + 3 );
+    reportWarning( m_workTok, "utf-8 strings are not fully supported yet" );
     return;
   }
   else if (m_parseInclude && buf[cur] == '<' && (tmp = find( buf, cur+1, m_end, '>')) >= 0)

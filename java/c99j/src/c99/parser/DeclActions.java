@@ -88,7 +88,7 @@ private final Scope topNonStructScope ()
 
 public final String stringLiteralString ( ISourceRange loc, TStringLiteral lit )
 {
-  return Utils.asciiString(lit.value);
+  return lit.value.toJavaString();
 }
 
 public final TExtAttr extAttr (
@@ -705,7 +705,7 @@ private final class TypeHelper
 
     case CHAR:
       if (signed == null)
-        signed = spec( base, m_opts.signedChar ? Code.SIGNED : Code.UNSIGNED);
+        signed = spec( base, m_opts.getSignedChar() ? Code.SIGNED : Code.UNSIGNED);
       break;
     case INT:
       if (signed == null)

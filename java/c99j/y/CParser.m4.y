@@ -4,6 +4,9 @@
 %code imports {
 import c99.Constant;
 import c99.CompEnv;
+import c99.AnyStringConst;
+import c99.CharStringConst;
+import c99.WideStringConst;
 import c99.parser.ast.Ast;
 import static c99.Types.*;
 import static c99.parser.Trees.*;
@@ -31,9 +34,7 @@ import c99.parser.tree.*;
 %token<Constant.IntC> INT_NUMBER  "integer number"
 %token<Constant.RealC> REAL_NUMBER "real number"
 %token<Constant.IntC> CHAR_CONST   "character literal"
-%token WIDE_CHAR_CONST "wide character literal"
-%token<byte[]> STRING_CONST    "string literal"
-%token WIDE_STRING_CONST  "wide string literal"
+%token<AnyStringConst> STRING_CONST    "string literal"
 
 %token L_BRACKET   "["
 %token R_BRACKET   "]"
@@ -187,7 +188,7 @@ rule(<Symbol>,any-identifier,opt):
   ;
 
 rule(<TStringLiteral>,string-literal):
-    STRING_CONST[c]                     { $$ = stringLiteral(@$, $c); }
+    STRING_CONST[c]                     { $$ = stringLiteral(@$, null, $c); }
   | string-literal[lit] STRING_CONST[c] { $$ = stringLiteral(@$, $lit, $c); }
   ;
 

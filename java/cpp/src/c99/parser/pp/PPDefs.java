@@ -6,6 +6,7 @@ import c99.parser.Code;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.Type;
 import java.util.Arrays;
 
 public interface PPDefs
@@ -149,29 +150,28 @@ public static class Token<SYM extends PPSymbol> extends AbstractToken
     setText(  buf, from, count );
   }
 
-  public final void setStringConst ( byte[] origText, int from, int count,
-                                     byte[] value )
+  public final void setStringConst ( byte[] origText, int from, int count, AnyStringConst value )
   {
     m_code = Code.STRING_CONST;
     setText( origText, from, count );
     m_object = value;
   }
 
-  public final void setStringConst ( String value )
+  public final void setStringConst ( String value, TypeSpec charSpec )
   {
     m_code = Code.STRING_CONST;
     m_text = Utils.asciiBytes( Misc.simpleEscapeString( value ) );
     m_length = m_text.length;
-    m_object = Utils.asciiBytes( value );
+    m_object = new CharStringConst( charSpec, Utils.asciiBytes( value ) );
   }
 
-  public final byte[] getStringConstValue ()
+  public final AnyStringConst getStringConstValue ()
   {
     assert m_code == Code.STRING_CONST;
-    return (byte[])m_object;
+    return (AnyStringConst) m_object;
   }
 
-  public final void setCharConst ( byte[] origText, int from, int count, Constant.IntC value )
+  public final void setCharConst ( byte[] origText, int from, int count, TypeSpec charSpec, Constant.IntC value )
   {
     m_code = Code.CHAR_CONST;
     setText( origText, from, count );
@@ -180,7 +180,7 @@ public static class Token<SYM extends PPSymbol> extends AbstractToken
 
   public final Constant.IntC getCharConstValue ()
   {
-    assert m_code == Code.CHAR_CONST;
+    assert (m_code == Code.CHAR_CONST);
     return (Constant.IntC)m_object;
   }
 

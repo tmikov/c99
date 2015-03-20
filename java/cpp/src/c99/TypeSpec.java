@@ -41,6 +41,9 @@ public static final TypeSpec UINTMAX_T = ULLONG;
 public static final TypeSpec PTRDIFF_T = SINT;
 public static final TypeSpec SIZE_T = UINT;
 public static final TypeSpec UINTPTR_T = ULONG;
+public static final TypeSpec WCHAR_T = SLONG;
+public static final TypeSpec CHAR16_T = USHORT;
+public static final TypeSpec CHAR32_T = ULONG;
 
 public final String str;
 

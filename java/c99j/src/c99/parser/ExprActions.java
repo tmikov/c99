@@ -6,15 +6,10 @@ import c99.parser.tree.*;
 
 public class ExprActions extends TreeActions
 {
-private Qual m_constChar;
-
 @Override
 protected void init ( CompEnv compEnv, SymTable symTab )
 {
   super.init( compEnv, symTab );
-
-  m_constChar = new Qual( stdSpec( m_opts.signedChar ? TypeSpec.SCHAR : TypeSpec.UCHAR ) );
-  m_constChar.isConst = true;
 }
 
 private final boolean isBitField ( TExpr.Expr op )
@@ -747,7 +742,7 @@ public TExpr.Expr exprConstant ( ISourceRange loc, Constant.ArithC value )
 
 public TExpr.Expr exprStringLiteral ( TStringLiteral lit )
 {
-  ArraySpec s = newArraySpec( lit, m_constChar, lit.value.length+1 );
+  ArraySpec s = newArraySpec( lit, stdConstQual(lit.value.spec), lit.value.length() + 1 );
   if (s == null)
     return exprError( lit );
   return new TExpr.StringLiteral(lit, new Qual(s), lit.value);
