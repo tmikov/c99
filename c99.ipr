@@ -266,6 +266,15 @@
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
   </component>
   <component name="libraryTable">
+    <library name="annotations">
+      <CLASSES>
+        <root url="jar://$PROJECT_DIR$/java/libs/annotations.jar!/" />
+      </CLASSES>
+      <JAVADOC />
+      <SOURCES>
+        <root url="jar://$PROJECT_DIR$/java/libs/src_annotations.zip!/" />
+      </SOURCES>
+    </library>
     <library name="junit-4">
       <CLASSES>
         <root url="jar://$PROJECT_DIR$/java/libs/hamcrest-core-1.3.jar!/" />
