@@ -86,6 +86,24 @@ public final SourceRange setLocation ( ISourceRange rng )
   return setLocation( rng.getFileName(), rng.getLine1(), rng.getCol1() );
 }
 
+public final SourceRange union ( ISourceRange rng )
+{
+  // TODO: better union algorithm
+  if (Utils.equals( this.fileName, rng.getFileName() ) &&
+          (rng.getLine1() < this.line1 || rng.getLine1() == this.line1 && rng.getCol1() < this.col1))
+  {
+    this.line1 = rng.getLine1();
+    this.col1 = rng.getCol1();
+  }
+  if (Utils.equals( this.fileName2, rng.getFileName2() ) &&
+          (rng.getLine2() > this.line2 || rng.getLine2() == this.line2 && rng.getCol2() > this.col2))
+  {
+    this.line2 = rng.getLine2();
+    this.col2 = rng.getCol2();
+  }
+  return this;
+}
+
 public final SourceRange shiftExtend ( int length )
 {
   this.line1 = this.line2;
