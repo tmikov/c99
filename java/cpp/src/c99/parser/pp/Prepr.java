@@ -92,6 +92,11 @@ public Prepr ( final IPreprOptions opts, final IErrorReporter reporter,
   Token dateTok = new Token();
   dateTok.setStringConst( new SimpleDateFormat( "MMM dd yyyy" ).format(curTime), m_lex.getCharSpec() );
   dateMacro.body.addLast( dateTok );
+
+  Macro timeMacro = (Macro) m_symTable.symbol( Builtin.__TIME__.name() ).ppDecl;
+  Token timeTok = new Token();
+  timeTok.setStringConst( new SimpleDateFormat( "HH:mm:ss" ).format(curTime), m_lex.getCharSpec() );
+  timeMacro.body.addLast( timeTok );
 }
 
 public final void close ()
@@ -1716,6 +1721,7 @@ private final boolean expandBuiltin ( ISourceRange pos, Macro macro )
     tok.setStringConst( pos.getFileName(), m_lex.getCharSpec() );
     break;
   case __DATE__:
+  case __TIME__:
     tok.copyFrom( (Token) macro.body.first());
     break;
   }

@@ -7,5 +7,6 @@ enum Builtin
 {
   __LINE__,
   __FILE__,
-  __DATE__
+  __DATE__,
+  __TIME__,
 }
