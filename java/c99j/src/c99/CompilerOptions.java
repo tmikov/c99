@@ -3,6 +3,8 @@ package c99;
 import c99.parser.pp.IPreprOptions;
 import c99.parser.pp.PreprOptions;
 
+import java.util.Date;
+
 public class CompilerOptions implements IPreprOptions
 {
 private final PreprOptions m_preprOptions = new PreprOptions();
@@ -39,6 +41,11 @@ public boolean getWarnUndef ()
 public int getMaxIncludeDepth ()
 {
   return m_preprOptions.getMaxIncludeDepth();
+}
+
+public Date getForcedDate ()
+{
+  return m_preprOptions.getForcedDate();
 }
 } // class
 

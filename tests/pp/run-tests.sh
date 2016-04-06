@@ -4,7 +4,7 @@ app=../../cpp.sh
 
 for tst in *.c; do
    echo "Testing $tst"
-   $app $tst 2>$tst.msg.run >$tst.i.run
+   $app --date="Jul 13 2014 10:00:00" $tst 2>$tst.msg.run >$tst.i.run
    if diff -q -a $tst.i $tst.i.run > /dev/null; then
      rm $tst.i.run
    else

@@ -85,11 +85,13 @@ public Prepr ( final IPreprOptions opts, final IErrorReporter reporter,
     sym.ppDecl = new Macro( sym, new SourceRange(), builtin );
   }
 
-  // Generate the date string which doesn't change duing compilation
+  // Generate the date/time strings which don't change during compilation
+  final Date curTime = m_opts.getForcedDate() != null ? m_opts.getForcedDate() : new Date();
+
   Macro dateMacro = (Macro) m_symTable.symbol( Builtin.__DATE__.name() ).ppDecl;
-  Token tok = new Token();
-  tok.setStringConst( new SimpleDateFormat( "MMM dd yyyy" ).format( new Date() ), m_lex.getCharSpec() );
-  dateMacro.body.addLast( tok );
+  Token dateTok = new Token();
+  dateTok.setStringConst( new SimpleDateFormat( "MMM dd yyyy" ).format(curTime), m_lex.getCharSpec() );
+  dateMacro.body.addLast( dateTok );
 }
 
 public final void close ()

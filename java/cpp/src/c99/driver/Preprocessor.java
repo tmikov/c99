@@ -1,6 +1,8 @@
 package c99.driver;
 
 import java.io.FileInputStream;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 
 import c99.DummyErrorReporter;
 import c99.parser.Code;
@@ -94,6 +96,32 @@ public static void main ( String[] args )
           incSearch.addInclude( tmp );
         else
           incSearch.addQuotedInclude(tmp);
+      }
+      else if (arg.startsWith("--date"))
+      {
+        String datestr = "";
+        if (arg.startsWith("--date="))
+          datestr = arg.substring(7);
+        else if (i + 1 < args.length)
+        {
+          ++i;
+          datestr = args[i];
+        }
+        else
+        {
+          System.err.println( "**fatal: missing argument for " + arg );
+          System.exit(1);
+        }
+
+        try
+        {
+          opts.setForcedDate(new SimpleDateFormat("MMM ddd yyyy HH:mm:ss").parse(datestr));
+        }
+        catch (ParseException e)
+        {
+          System.err.println( "**fatal: invalid date '"+ datestr +"'" );
+          System.exit(1);
+        }
       }
       else if (arg.startsWith( "-"))
       {
