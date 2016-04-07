@@ -228,9 +228,8 @@ private final Token lookAheadForLParen ()
   int size;
   if ( (size = m_laQueue.size()) > 0)
   {
-    assert false : "Unoptimized path!";
-    Token toks[] = m_laQueue.toArray( new Token[size] );
-    for ( Token la : toks )
+    // assert false : "Unoptimized path!";
+    for ( Token la : m_laQueue )
     {
       if (la.code() != Code.WHITESPACE && la.code() != Code.NEWLINE)
         return la;
