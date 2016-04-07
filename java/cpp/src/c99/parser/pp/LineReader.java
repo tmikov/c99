@@ -8,6 +8,10 @@ import c99.FatalException;
 import c99.Location;
 import c99.SourceRange;
 
+/**
+ * Splits the input into byte lines, with the ability to merge multiple lines into a single one (for handling
+ * line continuations) while keeping track of where the original lines were.
+ */
 public final class LineReader
 {
 private final InputStream m_input;
