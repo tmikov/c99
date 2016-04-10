@@ -13,6 +13,9 @@ public final boolean isEmpty ()
 }
 
 /**
+ * Adds an attribute to the collection. If the attribute is 'constant' (has no other data),
+ * it is simply set in the flags field. Otherwise it is chained into the list.
+ *
  * @return true if the collection changed as a result of this
  */
 public final boolean add ( ExtAttr attr )

@@ -94,12 +94,14 @@ public ExtAttr parseExtAttr (
   return new ExtAttr(def);
 }
 
-private static final ExtAttr s_errorAttr = new ExtAttr(s_def_error);
-private static final ExtAttr s_nearAttr = new ExtAttr(s_def_x86near);
-private static final ExtAttr s_dsAttr = new ExtAttr(s_def_x86ds);
-private static final ExtAttr s_csAttr = new ExtAttr(s_def_x86cs);
-private static final ExtAttr s_farAttr = new ExtAttr(s_def_x86far);
-private static final ExtAttr s_hugeAttr = new ExtAttr(s_def_x86huge);
+// NOTE: it is safe to create these attributes only once becauise they are 'constant',
+// they have no associated data, so they are not actually linked into the attribute chain.
+private static final ExtConstAttr s_errorAttr = new ExtConstAttr(s_def_error);
+private static final ExtConstAttr s_nearAttr = new ExtConstAttr(s_def_x86near);
+private static final ExtConstAttr s_dsAttr = new ExtConstAttr(s_def_x86ds);
+private static final ExtConstAttr s_csAttr = new ExtConstAttr(s_def_x86cs);
+private static final ExtConstAttr s_farAttr = new ExtConstAttr(s_def_x86far);
+private static final ExtConstAttr s_hugeAttr = new ExtConstAttr(s_def_x86huge);
 
 private void attrError ( ExtAttributes attrs, ISourceRange loc, String msg, Object... args )
 {
