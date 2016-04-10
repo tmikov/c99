@@ -16,9 +16,20 @@ public static enum Kind
   TAG,
 }
 public final Kind kind;
+/** Back link into the single-linked list starting from {@link Symbol#topDecl} or {@link Symbol#topTag} */
 Decl listPrev;
+/**
+ * Link to a previous declaration of the same symbol. This can happen when symbols with a linkage are
+ * re-declared in nested scopes. Note that in that case {@link #storageScope} will be the value from
+ * the previous declaration and will be different from {@link #visibilityScope}
+ */
 public final Decl prevDecl;
+/**
+ * Scope where the first declaration occurred and the symbol will be stored. If this is a symbol without
+ * linkage, it will be just the local scope, but if it is with a linkage, it will be the translation union scope.
+ */
 public final Scope storageScope;
+/** Scope where this declaration is visible (because it occurred there) */
 public final Scope visibilityScope;
 public final SClass sclass;
 public final Linkage linkage;
