@@ -16,7 +16,7 @@ public static void main ( String[] args )
 {
   if ("--cpp".equals( args[0] ))
   {
-    Preprocessor.main(Arrays.copyOfRange(args, 1, args.length));
+    PreprMain.main(Arrays.copyOfRange(args, 1, args.length));
     return;
   }
 
