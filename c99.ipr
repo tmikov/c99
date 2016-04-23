@@ -253,13 +253,20 @@
     <option name="USE_PER_PROJECT_SETTINGS" value="true" />
     <option name="PREFERRED_PROJECT_CODE_STYLE" value="ceco-old" />
   </component>
+  <component name="ProjectDictionaryState">
+    <dictionary name="tmikov">
+      <words>
+        <w>initializers</w>
+      </words>
+    </dictionary>
+  </component>
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/java/c99j/c99j.iml" filepath="$PROJECT_DIR$/java/c99j/c99j.iml" />
       <module fileurl="file://$PROJECT_DIR$/java/cpp/cpp.iml" filepath="$PROJECT_DIR$/java/cpp/cpp.iml" />
     </modules>
   </component>
-  <component name="ProjectRootManager" version="2" languageLevel="JDK_1_6" assert-keyword="true" jdk-15="true" project-jdk-name="1.8" project-jdk-type="JavaSDK">
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_1_8" default="false" assert-keyword="true" jdk-15="true" project-jdk-name="1.8" project-jdk-type="JavaSDK">
     <output url="file://$PROJECT_DIR$/java/out" />
   </component>
   <component name="VcsDirectoryMappings">

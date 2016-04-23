@@ -76,7 +76,7 @@
   
   
   
-  <property name="compiler.args.cpp" value="-encoding UTF-8 -source 1.6 -target 1.6 ${compiler.args}"/>
+  <property name="compiler.args.cpp" value="-encoding UTF-8 -source 1.8 -target 1.8 ${compiler.args}"/>
   
   <property name="cpp.output.dir" value="${module.cpp.basedir}/java/out/production/cpp"/>
   <property name="cpp.testoutput.dir" value="${module.cpp.basedir}/java/out/test/cpp"/>
@@ -179,7 +179,7 @@
   
   
   
-  <property name="compiler.args.c99j" value="-encoding UTF-8 -source 1.6 -target 1.6 ${compiler.args}"/>
+  <property name="compiler.args.c99j" value="-encoding UTF-8 -source 1.8 -target 1.8 ${compiler.args}"/>
   
   <property name="c99j.output.dir" value="${module.c99j.basedir}/java/out/production/c99j"/>
   <property name="c99j.testoutput.dir" value="${module.c99j.basedir}/java/out/test/c99j"/>
