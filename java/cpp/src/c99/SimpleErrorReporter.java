@@ -1,7 +1,20 @@
 package c99;
 
-public class DummyErrorReporter implements IErrorReporter
+import java.io.PrintWriter;
+
+public class SimpleErrorReporter implements IErrorReporter
 {
+private final PrintWriter m_err;
+
+public SimpleErrorReporter (PrintWriter err)
+{
+  m_err = err;
+}
+
+public SimpleErrorReporter ()
+{
+  this(new PrintWriter(System.err, true));
+}
 
 public String formatRange ( ISourceRange rng )
 {
@@ -11,12 +24,12 @@ public String formatRange ( ISourceRange rng )
 private void print ( String severity, final ISourceRange rng, final String format, final Object... args )
 {
   if (rng != null)
-    System.err.format( "%s: %s: ", formatRange( rng ), severity );
+    m_err.format( "%s: %s: ", formatRange( rng ), severity );
   else
-    System.err.format( "%s: ", severity );
+    m_err.format( "%s: ", severity );
 
-  System.err.format( format, args );
-  System.err.println();
+  m_err.format( format, args );
+  m_err.println();
 }
 
 @Override

@@ -1,10 +1,8 @@
 package c99.driver;
 
-import c99.DummyErrorReporter;
-import c99.parser.Code;
+import c99.SimpleErrorReporter;
 import c99.parser.pp.*;
 
-import java.io.FileInputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
@@ -99,7 +97,7 @@ public static void main ( String[] args )
       System.exit(1);
     }
 
-    DummyErrorReporter reporter = new DummyErrorReporter();
+    SimpleErrorReporter reporter = new SimpleErrorReporter();
 
     new Preprocessor(opts, incSearch, reporter, System.out).run(fileName, cpp, toks);
   }

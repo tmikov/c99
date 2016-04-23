@@ -72,7 +72,7 @@ public static void main ( String[] args )
       System.exit(1);
     }
 
-    DummyErrorReporter reporter = new DummyErrorReporter();
+    SimpleErrorReporter reporter = new SimpleErrorReporter();
     SymTable symTable = new SymTable();
     // NOTE: use File.getAbsoluteFile() to make it possible to change the current directory
     // by setting the system property "user.dir". File.getAbsoluteFile() obeys that property.

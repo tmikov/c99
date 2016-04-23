@@ -2,7 +2,7 @@ package c99.driver;
 
 import java.io.*;
 
-import c99.DummyErrorReporter;
+import c99.SimpleErrorReporter;
 import c99.parser.Code;
 import c99.parser.pp.*;
 
@@ -10,10 +10,10 @@ public class Preprocessor
 {
 private final PreprOptions m_opts;
 private final SearchPathFactory m_incSearch;
-private final DummyErrorReporter m_reporter;
+private final SimpleErrorReporter m_reporter;
 private final PrintStream m_out;
 
-public Preprocessor ( PreprOptions opts, SearchPathFactory incSearch, DummyErrorReporter reporter, PrintStream out )
+public Preprocessor ( PreprOptions opts, SearchPathFactory incSearch, SimpleErrorReporter reporter, PrintStream out )
 {
   m_opts = opts;
   m_incSearch = incSearch;
