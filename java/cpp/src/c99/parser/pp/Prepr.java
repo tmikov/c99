@@ -874,7 +874,7 @@ loop:
   FileInputStream input;
   try
   {
-    input = new FileInputStream( resolvedIncludePath.path );
+    input = new FileInputStream( resolvedIncludePath.absPath );
   }
   catch (FileNotFoundException e)
   {

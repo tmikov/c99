@@ -69,8 +69,10 @@ private static boolean needWS ( Code t1, Code t2 )
 public void run (String fileName, boolean cpp, boolean toks) throws IOException
 {
   PPSymTable symTable = new PPSymTable();
+  // NOTE: use File.getAbsoluteFile() to make it possible to change the current directory
+  // by setting the system property "user.dir". File.getAbsoluteFile() obeys that property.
   Prepr<PPSymbol> pp = new Prepr<PPSymbol>(m_opts, m_reporter, m_incSearch.finish(m_opts),
-                        fileName, new FileInputStream( fileName ), symTable );
+                        fileName, new FileInputStream( new File(fileName).getAbsoluteFile() ), symTable );
 
   String lastFile = "";
   int lastLine = -1;

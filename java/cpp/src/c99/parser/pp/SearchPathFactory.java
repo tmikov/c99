@@ -5,6 +5,12 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 
+/**
+ * Search path factory.
+ *
+ * <p>NOTE: we use {@link File#getAbsoluteFile()} at key places, which uses the system property
+ * "user.dir". This allows to change the current directory by setting the property.</p>
+ */
 public class SearchPathFactory
 {
 private LinkedHashSet<File> m_defSet = new LinkedHashSet<File>();
@@ -45,17 +51,12 @@ public ISearchPath finish ( IPreprOptions opts )
 
   // Remove all non-existent include directories to speed up the lookup later
   for (Iterator<File> it = m_defSet.iterator(); it.hasNext(); )
-  {
-    final File dirPath = it.next();
-    if (!dirPath.isDirectory())
+    if (!it.next().getAbsoluteFile().isDirectory())
       it.remove();
-  }
+
   for (Iterator<File> it = m_angledSet.iterator(); it.hasNext(); )
-  {
-    final File dirPath = it.next();
-    if (!dirPath.isDirectory())
+    if (!it.next().getAbsoluteFile().isDirectory())
       it.remove();
-  }
 
   return new ISearchPath(){
     @Override
@@ -84,8 +85,8 @@ private final ISearchPath.Result _searchQuoted ( final String curFile, final Fil
   if ( (res = m_quotedCache.get( key )) == null )
   {
     File f = new File( curDir, fileName.getPath() );
-    if (!f.exists())
-      f = search( m_quotedSet, fileName.getPath() );
+    if (!f.getAbsoluteFile().isFile())
+      f = search( m_quotedSet, fileName );
 
     if (f != null)
       res = new ISearchPath.Result( f.getPath(), f.getAbsolutePath() );
@@ -109,28 +110,30 @@ private final ISearchPath.Result _searchAngled ( final File fileName )
 
     if (fileName.isAbsolute())
     {
-      if (fileName.exists())
+      if (fileName.isFile())
         f = fileName;
       else
         f = null;
     }
-    else if ( (f = search( m_angledSet, fileName.getPath() )) == null)
-      f = search( m_defSet, fileName.getPath() );
+    else if ( (f = search( m_angledSet, fileName )) == null)
+      f = search( m_defSet, fileName );
 
     if (f != null)
-      m_angledCache.put( fileName, res = new ISearchPath.Result(f.getPath(), f.getAbsolutePath()) );
+      m_angledCache.put( fileName, res = new ISearchPath.Result(f.getPath(), f.getAbsolutePath()));
   }
 
   return res;
 }
 
-private static File search ( LinkedHashSet<File> set, String fileName )
+private File search ( LinkedHashSet<File> set, File file )
 {
+  String fileName = file.getPath();
+
   for ( File dir : set )
   {
-    File file = new File(dir, fileName);
-    if (file.exists())
-      return file;
+    final File f = new File(dir, fileName);
+    if (f.getAbsoluteFile().isFile())
+      return f;
   }
   return null;
 }

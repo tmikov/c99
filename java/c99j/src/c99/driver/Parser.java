@@ -6,6 +6,7 @@ import c99.parser.pp.Prepr;
 import c99.parser.pp.SearchPathFactory;
 import c99.parser.tree.*;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.PrintWriter;
 import java.util.Arrays;
@@ -73,8 +74,10 @@ public static void main ( String[] args )
 
     DummyErrorReporter reporter = new DummyErrorReporter();
     SymTable symTable = new SymTable();
+    // NOTE: use File.getAbsoluteFile() to make it possible to change the current directory
+    // by setting the system property "user.dir". File.getAbsoluteFile() obeys that property.
     Prepr<Symbol> pp = new Prepr<Symbol>( opts, reporter, incSearch.finish( opts ),
-                          fileName, new FileInputStream( fileName ), symTable );
+                          fileName, new FileInputStream( new File(fileName).getAbsoluteFile() ), symTable );
     BisonLexer lex = new BisonLexer(reporter, symTable, pp);
     CParser parser = new CParser(
       lex,
