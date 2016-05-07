@@ -12,6 +12,8 @@ public AnyStringConst ( TypeSpec spec )
 }
 
 public abstract int length();
+/** Return the character at that index or zero if beyond the length (for ASCIIZ) */
+public abstract long at ( int index );
 public abstract int[] wideValue ();
 public abstract AnyStringConst resize ( int toLength );
 

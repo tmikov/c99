@@ -18,6 +18,11 @@ public final int length ()
   return this.value.length;
 }
 
+@Override public long at ( int index )
+{
+  return index < this.value.length ? this.value[index] : 0;
+}
+
 @Override
 public final int[] wideValue ()
 {
