@@ -144,11 +144,6 @@ import c99.parser.tree.*;
 %precedence IF
 %precedence ELSE
 
-%type<Ast> initializer
-%type<Ast> initializer-list
-%type<Ast> designation designation_opt
-%type<Ast> designator-list
-%type<Ast> designator
 %type<Ast> static_assert-declaration
 
 %type<Ast> statement
@@ -798,40 +793,47 @@ rule(<TDeclarator.Elem>,direct-abstract-declarator-elem):
   ;
 
 // (6.7.9)
-initializer:
-    assignment-expression               { $$ = FIXME(); }
-  | "{" initializer-list "}"            { $$ = FIXME(); }
-  | "{" initializer-list "," "}"        { $$ = FIXME(); }
+rule(<parsedInit.Initializer>,initializer):
+    assignment-expression[e]            { $$ = initializer(@$,$e); }
+  | "{" initializer-list[list] "}"      { $list.setRange(@$); $$ = $list; }
+  | "{" initializer-list[list] "," "}"  { $list.setRange(@$); $$ = $list; }
+  | "{" "}"                             { $$ = emptyInitializerList(@$); }
   ;
 
 // (6.7.9)
-initializer-list:
-    designation_opt initializer         { $$ = ast("initializer-list", ast("initializer-elem",$designation_opt,$initializer)); }
-  | initializer-list "," designation_opt initializer { $$ = astAppend($1, ast("initializer-elem",$designation_opt,$initializer)); }
+rule(<parsedInit.InitializerList>,initializer-list):
+    designation_opt[d] initializer[elem]
+            { $$ = initializerList(@$, null,  $d, $elem); }
+  | initializer-list[list] "," designation_opt[d] initializer[elem]
+            { $$ = initializerList(@$, $list, $d, $elem); }
   ;
 
 // (6.7.9)
-designation:
-    designator-list "="                 { $$ = ast("designation",$1); }
+rule(<parsedInit.Designator>,designation,opt):
+    designator-list[list] "="                 { $$ = $list; }
   ;
 
-designation_opt:
-    %empty { $$ = null; }
-  | designation
-  ;
-  
 // (6.7.9)
+/*
+   We use right recursion to construct the designator list more efficiently. It is likely
+   to be a very short list
+
 designator-list:
-    designator                          { $$ = ast("designator-list",$1); }
-  | designator-list designator          { $$ = astAppend($1,$2); }
+    designator
+  | designator-list designator
+  ;
+*/
+rule(<parsedInit.Designator>,designator-list):
+    designator
+  | designator designator-list[list]          { $$ = $designator.cons($list); }
   ;
 
 // (6.7.9)
-designator:
-    "[" constant-expression "]"         { $$ = FIXME(); }
-  | "." any-identifier                  { FIXME(); }
+rule(<parsedInit.Designator>,designator):
+    "[" constant-expression[e] "]"                                  { $$ = indexDesignator(@$,$e); }
+  | "." any-identifier[id]                                          { $$ = fieldDesignator(@$,$id); }
 // GNU C extension
-  | "[" constant-expression[ce1] "..." constant-expression[ce2] "]" { $$ = FIXME(); }
+  | "[" constant-expression[ce1] "..." constant-expression[ce2] "]" { $$ = rangeDesignator(@$,$ce1,$ce2); }
   ;
 
 // (6.7.10)
