@@ -42,10 +42,15 @@ public boolean isError ()
 
 private void debug ( Decl decl )
 {
+  debugDecl( "push", decl );
+}
+
+public void debugDecl ( String msg, Decl decl )
+{
   if (DeclActions.DEBUG_DECL)
   {
     MiscUtils.printIndent( m_level * 4, System.out );
-    System.out.println( "push "+ decl.toString() );
+    System.out.println( msg + " "+ decl.toString() );
   }
 }
 
