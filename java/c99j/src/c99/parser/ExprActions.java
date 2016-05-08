@@ -723,7 +723,7 @@ public final class LogicalExpression extends BinaryExpr
   }
 }
 
-private final TExpr.Expr exprError ( ISourceRange loc )
+public final TExpr.Expr exprError ( ISourceRange loc )
 {
   return new TExpr.Error( loc, s_errorQual );
 }
