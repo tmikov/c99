@@ -228,6 +228,10 @@ public static abstract class Spec
   {
     return this.kind == TypeSpec.STRUCT || this.kind == TypeSpec.UNION;
   }
+  public final boolean isAggregate ()
+  {
+    return this.kind == TypeSpec.STRUCT || this.kind == TypeSpec.UNION || this.kind == TypeSpec.ARRAY;
+  }
 
   public final TypeSpec effectiveKind ()
   {
