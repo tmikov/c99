@@ -319,7 +319,7 @@ init-declarator:
   | declarator asm-label_opt "="
             { $<Decl>$ = finishDeclarator( $<TSpecNode>0, $declarator ); }[decl]
         initializer
-            { initDeclaration( $<Decl>decl ); }
+            { initDeclaration( $<Decl>decl, $initializer ); }
   ;
 
 init-declarator-notyp:
@@ -328,7 +328,7 @@ init-declarator-notyp:
   | declarator-notyp[declarator] asm-label_opt "="
             { $<Decl>$ = finishDeclarator( $<TSpecNode>0, $declarator ); }[decl]
         initializer
-            { initDeclaration( $<Decl>decl ); }
+            { initDeclaration( $<Decl>decl, $initializer ); }
   ;
 
 rule(,asm-label,optn):

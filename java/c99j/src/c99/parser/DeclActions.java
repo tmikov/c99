@@ -1,12 +1,12 @@
 package c99.parser;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
+import java.io.PrintWriter;
+import java.util.*;
 
 import c99.*;
 import c99.Types.*;
 import c99.parser.tree.*;
+import org.jetbrains.annotations.Nullable;
 
 import static c99.parser.Code.TYPENAME;
 import static c99.parser.Trees.*;
@@ -16,6 +16,7 @@ public class DeclActions extends ExprActions
 private static final boolean DEBUG_CALC_AGG_SIZE = false;
 private static final boolean DEBUG_ENUM = false;
 public static final boolean DEBUG_DECL = false;
+private static final boolean DEBUG_INIT = true;
 
 private Scope m_topScope;
 private Scope m_translationUnitScope;
@@ -25,15 +26,33 @@ protected void init ( CompEnv compEnv, SymTable symTab )
   super.init( compEnv, symTab );
 }
 
+/**
+ * A final commit must not contain references to this
+ */
+@Deprecated
+public final Object FIXMENOW ( String msg )
+{
+  assert false;
+  return null;
+}
+
+@Deprecated
 public final Object FIXME ( String msg )
 {
   assert false;
   return null;
 }
 
+@Deprecated
 public final Object FIXME ()
 {
   assert false;
+  return null;
+}
+
+@Deprecated
+public final Object TODO ( String msg )
+{
   return null;
 }
 
@@ -1550,16 +1569,43 @@ public final void emptyDeclaration ( TSpecNode specNode )
   validateAndSetLinkage( tDecl );
 }
 
-public final void initDeclaration ( Decl decl )
+public final void initDeclaration ( Decl decl, parsedInit.Initializer init )
 {
   if (decl.isError())
     return;
 
-  if (decl.sclass == SClass.EXTERN && !isFunc(decl.type) /*always true*/)
+  if (decl.sclass == SClass.EXTERN)
   {
-    error( decl, "'%s': 'extern' in initialization", decl.symbol );
+    error( decl, "'%s': 'extern' in initialization", optName(decl.symbol) );
     decl.orError();
     return;
+  }
+  // This check is redundant since it is covered by the previous one. Still, we want to be
+  // explicit
+  if (decl.visibilityScope.kind == Scope.Kind.BLOCK && decl.linkage != Linkage.NONE)
+  {
+    error( decl, "'%s': invalid initialization", optName(decl.symbol) );
+    decl.orError();
+    return;
+  }
+
+  // Check if the variable has a complete type. It could however be an array of unknown size.
+  // Note that if it is an array, it is already validated to have a complete element type
+  if (!decl.type.spec.isArray() && !decl.type.spec.isComplete())
+  {
+    error( decl, "variable '%s' has incomplete type '%s'", optName(decl.symbol), decl.type.readableType() );
+    decl.orError();
+    return;
+  }
+
+  final TInit.Value parsedInit = parseInitializer( decl.type, init );
+
+  // Optionally complete the array type
+  if (parsedInit != null && !parsedInit.isError() && decl.type.spec.isArray() && !((ArraySpec)decl.type.spec).hasNelem())
+  {
+    decl.type = parsedInit.getQual();
+    if (DEBUG_DECL)
+      decl.storageScope.debugDecl( "complete", decl );
   }
 
   Decl prevDecl = decl.prevDecl;
@@ -1579,9 +1625,14 @@ redeclaration:
       error( decl, "'%s': invalid redefinition; already defined here: %s",
               decl.symbol.name, SourceRange.formatRange(prevDecl) );
       decl.orError();
-      break redeclaration;
+      return;
     }
   }
+
+  if (parsedInit != null && !parsedInit.isError())
+    decl.initValue = parsedInit;
+  else
+    decl.orError();
 
   if (m_topScope.kind == Scope.Kind.FILE)
   {
@@ -1595,6 +1646,540 @@ redeclaration:
     default: assert false; break;
     }
   }
+}
+
+private TInit.Value newInitObject ( ISourceRange loc, Qual type )
+{
+  final Spec spec = type.spec;
+  if (!spec.isError())
+  {
+    if (!spec.isComplete() && !(spec.isArray() && ((ArraySpec)spec).of.spec.isComplete()))
+      error( loc, "cannot initialize incomplete type '%s'", spec.readableType() );
+    else if (spec.isStructUnion() || spec.isArray() || spec.isScalar())
+      return new TInit.Value(loc, type.newUnqualified());
+    else
+      error( loc, "cannot initialize type '%s'", spec.readableType() );
+  }
+
+  TExpr.Expr err = exprError(loc);
+  final TInit.Value res = new TInit.Value(loc, err.getQual());
+  res.setExpr(err);
+  return res;
+}
+
+/** An entry the stack maintained by {@link InitValueIterator} */
+private static final class InitStackEntry
+{
+  public TInit.Value value;
+  public int nextSubObject;
+
+  void reset ()
+  {
+    value = null;
+    nextSubObject = 0;
+  }
+}
+
+/**
+ * Iterate recursively the values inside a {@link c99.parser.tree.TInit.Value} using a stack.
+ */
+private final class InitValueIterator
+{
+  private InitStackEntry[] m_stack;
+  /** number of elements in the stack */
+  private int m_count;
+  /* elements < m_limit have associated objects */
+  private int m_limit;
+
+  private InitStackEntry m_top;
+  private boolean m_error;
+
+  public InitValueIterator (TInit.Value root)
+  {
+    m_stack = new InitStackEntry[4];
+    push(root);
+  }
+
+  public boolean isError () { return m_error; }
+  public void markError () { m_error = true; }
+
+  @Nullable public TInit.Value next (ISourceRange loc)
+  {
+    int subObjIndex;
+
+    // Pop all exhausted elements. Note that in unions only the first element is initialized
+    while ((subObjIndex = m_top.nextSubObject) >= m_top.value.getSequentialInitLength())
+    {
+      pop();
+      if (m_top == null) // the stack is empty?
+        return null;
+    }
+
+    ++m_top.nextSubObject;
+
+    TInit.Value elem = subObjectAt(loc, subObjIndex);
+    if (elem == null) // error?
+      return null;
+
+    push(elem);
+
+    return elem;
+  }
+
+  /**
+   * Iterates through all destination values encoded in a designation. This is needed to support the GCC range
+   * extension.
+   */
+/*  public final class DesignationIterator implements Iterator<TInit.Value>
+  {
+    private TInit.Value m_next;
+
+    public DesignationIterator ( TInit.Value next )
+    {
+      m_next = next;
+    }
+
+    @Override public boolean hasNext ()
+    {
+      return m_next != null;
+    }
+    @Override public TInit.Value next ()
+    {
+      if (m_next == null)
+        throw new NoSuchElementException();
+      TInit.Value res = m_next;
+      m_next = null;
+      return res;
+    }
+  }*/
+
+  public TInit.Value selectDesignation (parsedInit.Designator designator)
+  {
+    popToRoot();
+
+    for(;;)
+    {
+      TInit.Value nextObject = null;
+
+      if (designator.isError())
+      {}
+      else if (designator.isFieldDesignator())
+      {
+        final parsedInit.FieldDesignator fd = designator.asFieldDesignator();
+        if (m_top.value.getQual().spec.isStructUnion())
+        {
+          final StructUnionSpec spec = (StructUnionSpec)m_top.value.getQual().spec;
+          final Member member = spec.lookupMember( fd.ident );
+          if (member != null)
+          {
+            nextObject = subObjectAt(designator, member.index);
+            m_top.nextSubObject = member.index + 1;
+          }
+          else
+            error( designator, "field '.%s' is not a member of '%s'", optName( fd.ident ), spec.readableType() );
+        }
+        else
+        {
+          error( designator, "field designator in initializer for type '%s'", m_top.value.getQual().spec.readableType() );
+        }
+      }
+      else if (designator.isIndexDesignator())
+      {
+        final parsedInit.IndexDesignator id = designator.asIndexDesignator();
+        if (m_top.value.getQual().spec.isArray())
+        {
+          final ArraySpec spec = (ArraySpec)m_top.value.getQual().spec;
+
+          if (!spec.hasNelem() || spec.getNelem() > id.index)
+          {
+            nextObject = subObjectAt(designator, id.index);
+            m_top.nextSubObject = id.index + 1;
+          }
+          else
+            error( designator, "array designator index (%d) exceeds array bounds (%d)", id.index, spec.getNelem() );
+        }
+        else
+        {
+          error( designator, "index designator in initializer for type '%s'", m_top.value.getQual().spec.readableType() );
+        }
+      }
+      else if (designator.isRangeDesignator())
+      {
+        final parsedInit.RangeDesignator id = designator.asRangeDesignator();
+        if (m_top.value.getQual().spec.isArray())
+        {
+          final ArraySpec spec = (ArraySpec)m_top.value.getQual().spec;
+
+          if (!spec.hasNelem() || spec.getNelem() > id.first && spec.getNelem() > id.last)
+          {
+            error(designator, "GCC range designators are not implemented yet"); // TODO
+  /*          InitResult initRes;
+            InitAst.Initializer saveElem = elem[0];
+
+            for ( int i = id.first;; ) // Have to code the iteration carefully to avoid overflow
+            {
+              TInit.Value lookupObj = subObjectAt(designator, i);
+              if (lookupObj == null)
+                return false;
+
+              elem[0] = saveElem;
+              if ( (initRes = initValues( lookupObj, elem, designator.getNext() )) == InitResult.ERROR)
+                return InitResult.ERROR;
+
+              // Careful to check the exit condition before incrementing, as id.last could be INT_MAX
+              if (i == id.last)
+                break;
+              ++i;
+            }
+
+            return initRes;*/
+          }
+          else
+          {
+            error( designator, "array designator index (%d) exceeds array bounds (%d)",
+                    Math.max(id.first, id.last), spec.getNelem() );
+          }
+        }
+        else
+        {
+          error( designator, "range designator in initializer for type '%s'", m_top.value.getQual().spec.readableType() );
+        }
+      }
+      else
+      {
+        assert false : "Unknown designator type " + designator.getClass().getName();
+      }
+
+      if (nextObject == null)
+      {
+        markError();
+        return null;
+      }
+
+      push(nextObject); // should we push non-aggregates?
+
+      designator = designator.getNext();
+      if (designator == null)
+        return nextObject;
+    }
+  }
+
+  /**
+   * Get a sub-object at index, creating it if necessary
+   * @return null in case of error (which has already been reported)
+   */
+  private TInit.Value subObjectAt (ISourceRange loc, int subObjIndex)
+  {
+    if (!m_top.value.isCompound())
+      m_top.value.makeCompound();
+
+    TInit.Compound c = m_top.value.getCompound();
+
+    TInit.Value elem = c.getSubObject(subObjIndex);
+    if (elem == null) // create a new sub-object if it doesn't exist
+    {
+      Qual subObjectType;
+
+      switch (m_top.value.getQual().spec.kind)
+      {
+      case ARRAY:
+        subObjectType = ((ArraySpec)m_top.value.getQual().spec).of;
+        break;
+      case STRUCT: case UNION:
+        subObjectType = ((StructUnionSpec)m_top.value.getQual().spec).getFields()[subObjIndex].type;
+        break;
+      default:
+        assert false;
+        error(loc, "invalid parent object type "+ m_top.value.getQual().readableType());
+        markError();
+        return null;
+      }
+
+      elem = newInitObject(loc, subObjectType);
+      if (elem == null)
+        markError();
+      else
+        c.setSubObject(subObjIndex, elem);
+    }
+    else
+    {
+      warning(loc, "overwriting prior initialization");
+      elem.setRange(loc);
+    }
+
+    return elem;
+  }
+
+  private void push (TInit.Value v)
+  {
+    if (m_count < m_limit) // fast path: can we reuse an already allocated object?
+    {
+      (m_top = m_stack[m_count++]).value = v;
+      return;
+    }
+
+    if (m_count == m_stack.length) // do we need to resize?
+      m_stack = Arrays.copyOf(m_stack, m_stack.length << 1);
+
+    (m_top = m_stack[m_count++] = new InitStackEntry()).value = v;
+    m_limit = m_count;
+  }
+
+  public void pop ()
+  {
+    m_stack[--m_count].reset();
+    m_top = m_count > 0 ? m_stack[m_count-1] : null;
+  }
+
+  /**
+   * Pop all elements except the root. The stack will have a depth of 1 after this.
+   */
+  private void popToRoot ()
+  {
+    assert m_count > 0;
+    if (m_count > 1) // defensive programming while optimizing the case of a single element
+    {
+      for ( int i = 1, e = m_count; i < e; ++i )
+        m_stack[i].reset();
+
+      m_count = 1;
+      m_top = m_stack[0];
+    }
+  }
+}
+
+/**
+ * Initialize a non-compound {@link c99.parser.tree.TInit.Value}.
+ *
+ * @param scalar
+ * @param elem
+ * @param warnAboutBraces whether to warn about braces around a scalar initializer. The first time
+ *                        we set it to false, as a single pair of braces around a scalar initializer is allowed,
+ *                        but in consequent recursive invocations we set it to true
+ *
+ */
+private void initSingle ( TInit.Value scalar, parsedInit.Initializer elem, boolean warnAboutBraces)
+{
+  if (elem.isExpr())
+  {
+    // Finally we get to the meat: initialize a scalar initializer with an expression
+    if (!scalar.isEmpty()) // overwriting previous value
+      scalar.setRange(elem);
+    scalar.setExpr(implicitTypecastExpr(scalar.getQual(), elem.asExpr().getExpr()));
+  }
+  else
+  {
+    parsedInit.InitializerList list = elem.asList();
+
+    if (warnAboutBraces)
+      warning(list, "too many braces around scalar initializer");
+
+    elem = list.getFirst();
+    if (elem == null)
+    {
+      error(list, "empty scalar initializer");
+      scalar.setExpr(exprError(list));
+    }
+    else if (elem.getDesignation() != null)
+    {
+      error(elem.getDesignation(), "designator in initializer for '%s'", scalar.getQual().readableType());
+      scalar.setExpr(exprError(elem));
+    }
+    else
+    {
+      initSingle(scalar, elem, true);
+
+      elem = elem.getNext();
+      if (elem != null)
+        warning(elem, "excess elements in scalar initializer");
+    }
+  }
+}
+
+/** check if we have a string initializer compatible with an array */
+private final boolean isArrayStringInit ( Spec spec, parsedInit.Initializer elem )
+{
+  if (!spec.isArray())
+    return false;
+
+  // Check for { "string" } which is also valid
+  if (elem.isList())
+  {
+    elem = elem.asList().getFirst();
+    if (elem.getNext() != null)
+      return false;
+    if (elem.getDesignation() != null)
+      return false;
+  }
+
+  if (!elem.isExpr())
+    return false;
+
+  final TExpr.Expr e = elem.asExpr().getExpr();
+  if (e.getCode() != TreeCode.STRING)
+    return false;
+  final TExpr.StringLiteral lit = (TExpr.StringLiteral)e;
+
+  final TypeSpec kind = ((ArraySpec)spec).of.spec.kind;
+  return kind.integer && kind.width == lit.getValue().spec.width;
+}
+
+private void initArrayWithString (TInit.Value obj, parsedInit.Initializer init)
+{
+  // Check for { "string" } which is also valid
+  if (init.isList())
+    init = init.asList().getFirst();
+
+  final TExpr.Expr e = init.asExpr().getExpr();
+  assert(e.getCode() == TreeCode.STRING);
+  final TExpr.StringLiteral lit = (TExpr.StringLiteral)e;
+
+  obj.makeCompound();
+  final TInit.Compound comp = obj.getCompound();
+  final Qual elemType = ((ArraySpec)lit.getQual().spec).of;
+  final AnyStringConst litValue = lit.getValue();
+  final int len = Math.min(obj.getSequentialInitLength(), litValue.length() + 1); // NOTE: the +1 is for the trailing 0
+
+  if (litValue.length() > obj.getSequentialInitLength())
+    warning(init, "initializer string for array '%s' is too long", obj.getQual().readableType());
+
+  for ( int index = 0; index < len; ++index )
+  {
+    final TInit.Value value = newInitObject(init, elemType);
+    comp.setSubObject(index, value);
+    value.setExpr(
+      new TExpr.ArithConstant(init, elemType,
+        Constant.makeLong(elemType.spec.kind, litValue.at(index))
+      )
+    );
+  }
+}
+
+private void processBracedList (TInit.Value rootObj, parsedInit.InitializerList list)
+{
+  final InitValueIterator iterator = new InitValueIterator(rootObj);
+
+  parsedInit.Initializer elem = list.getFirst();
+elemLoop:
+  while (elem != null)
+  {
+    TInit.Value curObject = elem.getDesignation() == null ?
+      iterator.next(elem) : iterator.selectDesignation(elem.getDesignation());
+
+  goDeeper:
+    for(;;) // loop calling iterator.next() and going deeper into aggregate objects
+    {
+      if (curObject == null)
+      {
+        if (!iterator.isError())
+          warning(elem, "excess elements in '%s' initializer", rootObj.getQual().readableType());
+        else
+          rootObj.markError();
+        break elemLoop;
+      }
+
+      if (curObject.getQual().spec.isScalar())
+        initSingle(curObject, elem, false);
+      else if (isArrayStringInit(curObject.getQual().spec, elem))
+      {
+        initArrayWithString(curObject, elem);
+        iterator.pop();
+      }
+      else
+      {
+        if (elem.isList()) // a braced list initialization of an aggregate
+        {
+          if (!curObject.isCompound())
+          {
+            if (curObject.getExpr() != null)
+            {
+              TODO("extract the field name by looking a the previous element in the stack");
+              warning(elem, "overwriting value which was previously initialized at '%s'",
+                m_reporter.formatRange(curObject.getExpr()));
+            }
+            curObject.makeCompound();
+          }
+          processBracedList(curObject, elem.asList());
+          iterator.pop();
+        }
+        else
+        {
+          if (curObject.getQual().spec.isStructUnion() &&
+              curObject.getQual().spec == elem.asExpr().getExpr().getQual().spec)
+          {
+            initSingle(curObject, elem, false);
+            iterator.pop();
+          }
+          else
+          {
+            // an aggregate that must be initialized by the consecutive initializers
+            // go deeper into the curObject
+            curObject = iterator.next(elem);
+            continue goDeeper; // loop again
+          }
+        }
+      }
+
+      break goDeeper;
+    }
+
+    if (curObject.isError())
+      rootObj.markError();
+
+    elem = elem.getNext();
+  }
+}
+
+/**
+ * Parse the initializer list and return a structured initializer
+ */
+private TInit.Value parseInitializer ( Qual type, parsedInit.Initializer init )
+{
+  TInit.Value obj;
+
+  obj = newInitObject( init, type );
+
+  if (type.spec.isStructUnion())
+  {
+    // the value must either be a braced list or a value with a compatible type
+    if (init.isList())
+      processBracedList(obj, init.asList());
+    else
+      initSingle(obj, init, false);
+  }
+  else if (type.spec.isArray())
+  {
+    // the value must either be a braced list, of possibly a character string (of compatible base type)
+    if (isArrayStringInit(type.spec, init))
+      initArrayWithString(obj, init);
+    else if (init.isList())
+      processBracedList(obj, init.asList());
+    else
+    {
+      error( init, "attempting to initialize '%s' with '%s'", type.spec.readableType(),
+        init.asExpr().getExpr().getQual().spec.readableType() );
+      obj.setExpr(exprError(init));
+    }
+
+    // Complete the array size if missing
+    ArraySpec as = (ArraySpec)type.spec;
+    if (!obj.isError() && !as.hasNelem())
+      obj.updateQual(obj.getQual().copy(newArraySpec( init, as.of, obj.getCompound().getLength() ) ) );
+  }
+  else if (type.spec.isScalar())
+  {
+    initSingle(obj, init, false);
+  }
+  else
+  {
+    error( init, "cannot initialize type '%s'", type.spec.readableType() );
+    obj.markError();
+  }
+
+  if (DEBUG_INIT)
+    ExprFormatter.format( 0, new PrintWriter( System.out, true ), obj );
+
+  return obj;
 }
 
 } // class

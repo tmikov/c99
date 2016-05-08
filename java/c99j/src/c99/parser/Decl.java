@@ -4,6 +4,7 @@ import c99.ISourceRange;
 import c99.MiscUtils;
 import c99.SourceRange;
 import c99.Types.*;
+import c99.parser.tree.TInit;
 
 public class Decl extends SourceRange
 {
@@ -34,10 +35,11 @@ public final Scope visibilityScope;
 public final SClass sclass;
 public final Linkage linkage;
 public final Symbol symbol;
-public final Qual type;
+public       Qual type;
 public int bitfieldWidth = -1; //< -1 means not a bit-field
 public boolean defined;
 private boolean m_error;
+public TInit.Value initValue;
 
 
 public Decl (
