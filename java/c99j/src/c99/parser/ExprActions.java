@@ -293,7 +293,7 @@ public class AdditiveUnaryExpr extends LoadingUnaryExpr
   }
 }
 
-private final boolean isValidCast ( ISourceRange loc, Qual type, TExpr.Expr operand )
+private final boolean isValidCast ( ISourceRange loc, Qual type, TExpr.Expr operand, boolean explicit )
 {
   if (type.spec.isScalar())
   {
@@ -311,6 +311,14 @@ private final boolean isValidCast ( ISourceRange loc, Qual type, TExpr.Expr oper
   }
   else if (type.spec.kind == TypeSpec.VOID)
   {}
+  else if (type.spec.isStructUnion() && operand.getQual().spec == type.spec)
+  {
+    if (explicit)
+    {
+      pedWarning(loc, "ISO C forbids casting struct/union to the same type (from '%s' to '%s')",
+        operand.getQual().readableType(), type.readableType());
+    }
+  }
   else
   {
     error( loc, "casting to invalid type '%s'. Must be void, arithmetic or pointer", type.readableType() );
@@ -343,7 +351,7 @@ public final class TypecastExpr
     assert typeName.type != null;
     Qual type = typeName.type;
 
-    if (!isValidCast( loc, type, operand ))
+    if (!isValidCast( loc, type, operand, true ))
       return null;
 
     return new TExpr.Typecast( null, type.newUnqualified(), typeName, operand );
@@ -357,7 +365,7 @@ public final TExpr.Expr implicitTypecastExpr ( Qual type, TExpr.Expr operand )
   if (operand.isError())
     return operand;
 
-  if (isValidCast( operand, type, operand ))
+  if (isValidCast( operand, type, operand, false ))
   {
     final Spec opSpec = operand.getQual().spec;
     final Spec spec = type.spec;
