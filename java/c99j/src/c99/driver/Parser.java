@@ -6,89 +6,50 @@ import c99.parser.pp.Prepr;
 import c99.parser.pp.SearchPathFactory;
 import c99.parser.tree.*;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.PrintWriter;
-import java.util.Arrays;
+import java.io.*;
 
 public class Parser
 {
-public static void main ( String[] args )
-{
-  if ("--cpp".equals( args[0] ))
-  {
-    PreprMain.main(Arrays.copyOfRange(args, 1, args.length));
-    return;
-  }
+private final CompilerOptions m_opts;
+private final SearchPathFactory m_incSearch;
+private final SimpleErrorReporter m_reporter;
+private final PrintStream m_out;
+private final int m_debugLevel;
 
+public Parser (
+  CompilerOptions opts, SearchPathFactory incSearch, SimpleErrorReporter reporter, PrintStream out,
+  int debugLevel
+)
+{
+  m_opts = opts;
+  m_incSearch = incSearch;
+  m_reporter = reporter;
+  m_out = out;
+  m_debugLevel = debugLevel;
+}
+
+public void run ( String fileName ) throws IOException
+{
+  SymTable symTable = new SymTable();
+  // NOTE: use File.getAbsoluteFile() to make it possible to change the current directory
+  // by setting the system property "user.dir". File.getAbsoluteFile() obeys that property.
+  Prepr<Symbol> pp = new Prepr<Symbol>(m_opts, m_reporter, m_incSearch.finish(m_opts),
+                        fileName, new FileInputStream( new File(fileName).getAbsoluteFile() ), symTable );
+  BisonLexer lex = new BisonLexer(m_reporter, symTable, pp);
+  final PrintStream saveOut = System.out;
+  System.setOut(m_out);
   try
   {
-    String fileName = null;
-
-    CompilerOptions opts = new CompilerOptions();
-    SearchPathFactory incSearch = new SearchPathFactory();
-    int debugLevel = 0;
-
-    for ( int i = 0; i < args.length; ++i )
-    {
-      final String arg = args[i];
-
-      if ("--nostdinc".equals( arg ))
-        opts.getPreprOptions().setNoStdInc( true );
-      if ("--debug".equals( arg ))
-        debugLevel = 1;
-      else if (arg.startsWith("-I") || arg.startsWith("-i"))
-      {
-        String tmp = arg.substring( 2 );
-        if (tmp.length() == 0)
-        {
-          System.err.println( "**fatal: missing argument for " + arg );
-          System.exit(1);
-        }
-        if (arg.startsWith("-I"))
-          incSearch.addInclude( tmp );
-        else
-          incSearch.addQuotedInclude(tmp);
-      }
-      else if (arg.startsWith("-"))
-      {
-        System.err.println( "**fatal: unknown command line option '"+arg +"'" );
-        System.exit(1);
-      }
-      else
-      {
-        if (fileName != null)
-        {
-          System.err.println( "**fatal: More than one input filename specified" );
-          System.exit(1);
-        }
-        fileName = arg;
-      }
-    }
-
-    if (fileName == null)
-    {
-      System.err.println( "**fatal: No input filename specified" );
-      System.exit(1);
-    }
-
-    SimpleErrorReporter reporter = new SimpleErrorReporter();
-    SymTable symTable = new SymTable();
-    // NOTE: use File.getAbsoluteFile() to make it possible to change the current directory
-    // by setting the system property "user.dir". File.getAbsoluteFile() obeys that property.
-    Prepr<Symbol> pp = new Prepr<Symbol>( opts, reporter, incSearch.finish( opts ),
-                          fileName, new FileInputStream( new File(fileName).getAbsoluteFile() ), symTable );
-    BisonLexer lex = new BisonLexer(reporter, symTable, pp);
     CParser parser = new CParser(
       lex,
-      new CompEnv( opts, reporter, new OurVisitor(new PrintWriter(System.out))), symTable
+      new CompEnv(m_opts, m_reporter, new OurVisitor(new PrintWriter(m_out))), symTable
     );
-    parser.setDebugLevel( debugLevel );
+    parser.setDebugLevel(m_debugLevel);
     parser.parse();
   }
-  catch (Exception e)
+  finally
   {
-    e.printStackTrace();
+    System.setOut(saveOut);
   }
 }
 
