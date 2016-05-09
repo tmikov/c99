@@ -1,0 +1,4 @@
+TInit.Value : pointer to signed char <init1.c(2)[12..17]>
+    IMPLICIT_CAST:'pointer to signed char' <init1.c(2)[12..17]>
+        IMPLICIT_CAST:'pointer to const signed char' <init1.c(2)[12..17]>
+            STRING:'array[4]const signed char'"sss" <init1.c(2)[12..17]>

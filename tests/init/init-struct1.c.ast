@@ -1,0 +1,8 @@
+TInit.Value : struct T <init-struct1.c(7)[18..29]>
+    TInit.Value : int <init-struct1.c(7)[20..21]>
+        CONSTANT:'int'=SINT(1) <init-struct1.c(7)[20..21]>
+    TInit.Value : struct S <init-struct1.c(7)[23..24]>
+        IMPLICIT_LOAD:'struct S' <init-struct1.c(7)[23..24]>
+            VARREF:'struct S''s' <init-struct1.c(7)[23..24]>
+    TInit.Value : int <init-struct1.c(7)[26..27]>
+        CONSTANT:'int'=SINT(2) <init-struct1.c(7)[26..27]>

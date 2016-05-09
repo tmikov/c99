@@ -1,0 +1,16 @@
+TInit.Value : struct S1 <init13.c(1)[27..42]>
+    TInit.Value : int <init13.c(1)[38..40]>
+        CONSTANT:'int'=SINT(10) <init13.c(1)[38..40]>
+TInit.Value : array[3]int <init13.c(3)[11..37]>
+    <null>
+    TInit.Value : int <init13.c(3)[33..35]>
+        CONSTANT:'int'=SINT(11) <init13.c(3)[33..35]>
+    TInit.Value : int <init13.c(3)[23..25]>
+        CONSTANT:'int'=SINT(20) <init13.c(3)[23..25]>
+TInit.Value : struct S3 <init13.c(8)[16..47]>
+    TInit.Value : int <init13.c(8)[27..29]>
+        CONSTANT:'int'=SINT(10) <init13.c(8)[32..34]>
+    TInit.Value : struct S2 <init13.c(8)[36..38]>
+        <null>
+        TInit.Value : int <init13.c(8)[38..40]>
+            CONSTANT:'int'=SINT(20) <init13.c(8)[43..45]>

@@ -1,0 +1,11 @@
+TInit.Value : array[3]int <init-array3.c(1)[11..22]>
+    TInit.Value : int <init-array3.c(1)[13..14]>
+        CONSTANT:'int'=SINT(1) <init-array3.c(1)[13..14]>
+    TInit.Value : int <init-array3.c(1)[16..17]>
+        CONSTANT:'int'=SINT(2) <init-array3.c(1)[16..17]>
+    TInit.Value : int <init-array3.c(1)[19..20]>
+        CONSTANT:'int'=SINT(3) <init-array3.c(1)[19..20]>
+TInit.Value : int <init-array3.c(2)[9..18]>
+    IMPLICIT_CAST:'int' <init-array3.c(2)[9..15]>
+        SIZEOF_EXPR:'unsigned'=UINT(6) <init-array3.c(2)[9..15]>
+            VARREF:'array[3]int''a' <init-array3.c(2)[16..17]>

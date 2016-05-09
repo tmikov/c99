@@ -1,0 +1,59 @@
+TInit.Value : array[2]struct C3 <init7.c(13)[17..38]>
+    TInit.Value : struct C3 <init7.c(13)[19..28]>
+        TInit.Value : int <init7.c(13)[20..21]>
+            CONSTANT:'int'=SINT(1) <init7.c(13)[20..21]>
+        TInit.Value : struct C2 <init7.c(13)[23..24]>
+            TInit.Value : int <init7.c(13)[23..24]>
+                CONSTANT:'int'=SINT(2) <init7.c(13)[23..24]>
+            TInit.Value : int <init7.c(13)[26..27]>
+                CONSTANT:'int'=SINT(3) <init7.c(13)[26..27]>
+    TInit.Value : struct C3 <init7.c(13)[30..36]>
+        TInit.Value : int <init7.c(13)[31..32]>
+            CONSTANT:'int'=SINT(4) <init7.c(13)[31..32]>
+        TInit.Value : struct C2 <init7.c(13)[34..35]>
+            TInit.Value : int <init7.c(13)[34..35]>
+                CONSTANT:'int'=SINT(6) <init7.c(13)[34..35]>
+TInit.Value : array[2]struct C3 <init7.c(14)[18..48]>
+    TInit.Value : struct C3 <init7.c(14)[20..31]>
+        TInit.Value : int <init7.c(14)[21..22]>
+            CONSTANT:'int'=SINT(1) <init7.c(14)[21..22]>
+        TInit.Value : struct C2 <init7.c(14)[24..27]>
+            TInit.Value : int <init7.c(14)[25..26]>
+                CONSTANT:'int'=SINT(2) <init7.c(14)[25..26]>
+        TInit.Value : int <init7.c(14)[29..30]>
+            CONSTANT:'int'=SINT(3) <init7.c(14)[29..30]>
+    TInit.Value : struct C3 <init7.c(14)[33..46]>
+        TInit.Value : int <init7.c(14)[34..37]>
+            CONSTANT:'int'=SINT(4) <init7.c(14)[35..36]>
+        TInit.Value : struct C2 <init7.c(14)[39..42]>
+            TInit.Value : int <init7.c(14)[40..41]>
+                CONSTANT:'int'=SINT(5) <init7.c(14)[40..41]>
+        TInit.Value : int <init7.c(14)[44..45]>
+            CONSTANT:'int'=SINT(6) <init7.c(14)[44..45]>
+TInit.Value : array[3]struct C3 <init7.c(15)[18..48]>
+    TInit.Value : struct C3 <init7.c(15)[20..21]>
+        TInit.Value : int <init7.c(15)[20..21]>
+            CONSTANT:'int'=SINT(1) <init7.c(15)[20..21]>
+        TInit.Value : struct C2 <init7.c(15)[23..24]>
+            TInit.Value : int <init7.c(15)[23..24]>
+                CONSTANT:'int'=SINT(2) <init7.c(15)[23..24]>
+            TInit.Value : int <init7.c(15)[25..26]>
+                CONSTANT:'int'=SINT(3) <init7.c(15)[25..26]>
+        TInit.Value : int <init7.c(15)[27..28]>
+            CONSTANT:'int'=SINT(4) <init7.c(15)[27..28]>
+    TInit.Value : struct C3 <init7.c(15)[30..31]>
+        TInit.Value : int <init7.c(15)[30..31]>
+            CONSTANT:'int'=SINT(3) <init7.c(15)[30..31]>
+        TInit.Value : struct C2 <init7.c(15)[33..34]>
+            TInit.Value : int <init7.c(15)[33..34]>
+                CONSTANT:'int'=SINT(4) <init7.c(15)[33..34]>
+            TInit.Value : int <init7.c(15)[36..37]>
+                CONSTANT:'int'=SINT(5) <init7.c(15)[36..37]>
+        TInit.Value : int <init7.c(15)[39..40]>
+            CONSTANT:'int'=SINT(6) <init7.c(15)[39..40]>
+    TInit.Value : struct C3 <init7.c(15)[42..43]>
+        TInit.Value : int <init7.c(15)[42..43]>
+            CONSTANT:'int'=SINT(7) <init7.c(15)[42..43]>
+        TInit.Value : struct C2 <init7.c(15)[45..46]>
+            TInit.Value : int <init7.c(15)[45..46]>
+                CONSTANT:'int'=SINT(8) <init7.c(15)[45..46]>

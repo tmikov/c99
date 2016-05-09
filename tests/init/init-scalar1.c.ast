@@ -1,0 +1,26 @@
+TInit.Value : int <init-scalar1.c(2)[9..11]>
+    CONSTANT:'int'=SINT(10) <init-scalar1.c(2)[9..11]>
+TInit.Value : int <init-scalar1.c(3)[9..15]>
+    CONSTANT:'int'=SINT(10) <init-scalar1.c(3)[11..13]>
+TInit.Value : int <init-scalar1.c(5)[9..17]>
+    CONSTANT:'int'=SINT(10) <init-scalar1.c(5)[12..14]>
+TInit.Value : int <init-scalar1.c(7)[9..19]>
+    CONSTANT:'int'=SINT(20) <init-scalar1.c(7)[13..15]>
+TInit.Value : int <init-scalar1.c(9)[9..19]>
+    CONSTANT:'int'=SINT(10) <init-scalar1.c(9)[11..13]>
+TInit.Value : int <init-scalar1.c(11)[10..19]>
+    CONSTANT:'int'=SINT(10) <init-scalar1.c(11)[12..14]>
+TInit.Value : int <init-scalar1.c(13)[12..24]>
+    CONSTANT:'int'=SINT(10) <init-scalar1.c(13)[14..16]>
+TInit.Value [error]: int <init-scalar1.c(15)[10..12]>
+    ERROR:'error' <init-scalar1.c(15)[10..12]>
+TInit.Value : struct S1 <init-scalar1.c(18)[18..27]>
+    TInit.Value : int <init-scalar1.c(18)[20..21]>
+        CONSTANT:'int'=SINT(1) <init-scalar1.c(18)[20..21]>
+    TInit.Value : int <init-scalar1.c(18)[23..26]>
+        CONSTANT:'int'=SINT(2) <init-scalar1.c(18)[24..25]>
+TInit.Value : struct S1 <init-scalar1.c(19)[18..29]>
+    TInit.Value : int <init-scalar1.c(19)[20..21]>
+        CONSTANT:'int'=SINT(1) <init-scalar1.c(19)[20..21]>
+    TInit.Value : int <init-scalar1.c(19)[23..28]>
+        CONSTANT:'int'=SINT(2) <init-scalar1.c(19)[25..26]>

@@ -1,0 +1,39 @@
+TInit.Value : struct S <init3.c(2)[15..23]>
+    TInit.Value : int <init3.c(2)[17..18]>
+        CONSTANT:'int'=SINT(1) <init3.c(2)[17..18]>
+    TInit.Value : int <init3.c(2)[20..21]>
+        CONSTANT:'int'=SINT(2) <init3.c(2)[20..21]>
+TInit.Value : struct S <init3.c(3)[15..26]>
+    TInit.Value : int <init3.c(3)[17..18]>
+        CONSTANT:'int'=SINT(1) <init3.c(3)[17..18]>
+    TInit.Value : int <init3.c(3)[20..21]>
+        CONSTANT:'int'=SINT(2) <init3.c(3)[20..21]>
+TInit.Value : struct S <init3.c(4)[15..20]>
+    TInit.Value : int <init3.c(4)[17..18]>
+        CONSTANT:'int'=SINT(1) <init3.c(4)[17..18]>
+TInit.Value : struct S <init3.c(5)[15..22]>
+    TInit.Value : int <init3.c(5)[17..20]>
+        CONSTANT:'int'=SINT(1) <init3.c(5)[18..19]>
+TInit.Value : struct S <init3.c(6)[15..24]>
+    TInit.Value : int <init3.c(6)[17..22]>
+        CONSTANT:'int'=SINT(1) <init3.c(6)[19..20]>
+TInit.Value [error]: struct T <init3.c(9)[15..16]>
+    IMPLICIT_CAST:'error' <init3.c(9)[15..16]>
+        CONSTANT:'int'=SINT(1) <init3.c(9)[15..16]>
+TInit.Value [error]: struct T <init3.c(10)[15..17]>
+    IMPLICIT_CAST:'error' <init3.c(10)[15..17]>
+        IMPLICIT_LOAD:'struct S' <init3.c(10)[15..17]>
+            VARREF:'struct S''s1' <init3.c(10)[15..17]>
+TInit.Value : struct T <init3.c(11)[15..29]>
+    TInit.Value : int <init3.c(11)[17..18]>
+        CONSTANT:'int'=SINT(1) <init3.c(11)[17..18]>
+    TInit.Value : struct S <init3.c(11)[20..21]>
+        TInit.Value : int <init3.c(11)[20..21]>
+            CONSTANT:'int'=SINT(2) <init3.c(11)[20..21]>
+        TInit.Value : int <init3.c(11)[23..24]>
+            CONSTANT:'int'=SINT(3) <init3.c(11)[23..24]>
+    TInit.Value : int <init3.c(11)[26..27]>
+        CONSTANT:'int'=SINT(4) <init3.c(11)[26..27]>
+TInit.Value : struct T <init3.c(12)[15..17]>
+    IMPLICIT_LOAD:'struct T' <init3.c(12)[15..17]>
+        VARREF:'struct T''t3' <init3.c(12)[15..17]>

@@ -1,0 +1,5 @@
+TInit.Value [error]: array[]int <init-agg1.c(2)[11..12]>
+    ERROR:'error' <init-agg1.c(2)[11..12]>
+TInit.Value [error]: struct S1 <init-agg1.c(5)[32..33]>
+    IMPLICIT_CAST:'error' <init-agg1.c(5)[32..33]>
+        CONSTANT:'int'=SINT(1) <init-agg1.c(5)[32..33]>

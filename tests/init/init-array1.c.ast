@@ -1,0 +1,51 @@
+TInit.Value : array[4]signed char <init-array1.c(2)[12..17]>
+    TInit.Value : signed char <init-array1.c(2)[12..17]>
+        CONSTANT:'const signed char'=SCHAR(97) <init-array1.c(2)[12..17]>
+    TInit.Value : signed char <init-array1.c(2)[12..17]>
+        CONSTANT:'const signed char'=SCHAR(97) <init-array1.c(2)[12..17]>
+    TInit.Value : signed char <init-array1.c(2)[12..17]>
+        CONSTANT:'const signed char'=SCHAR(97) <init-array1.c(2)[12..17]>
+    TInit.Value : signed char <init-array1.c(2)[12..17]>
+        CONSTANT:'const signed char'=SCHAR(0) <init-array1.c(2)[12..17]>
+TInit.Value : array[4]signed char <init-array1.c(3)[12..19]>
+    TInit.Value : signed char <init-array1.c(3)[13..18]>
+        CONSTANT:'const signed char'=SCHAR(97) <init-array1.c(3)[13..18]>
+    TInit.Value : signed char <init-array1.c(3)[13..18]>
+        CONSTANT:'const signed char'=SCHAR(97) <init-array1.c(3)[13..18]>
+    TInit.Value : signed char <init-array1.c(3)[13..18]>
+        CONSTANT:'const signed char'=SCHAR(97) <init-array1.c(3)[13..18]>
+    TInit.Value : signed char <init-array1.c(3)[13..18]>
+        CONSTANT:'const signed char'=SCHAR(0) <init-array1.c(3)[13..18]>
+TInit.Value : array[1]signed char <init-array1.c(5)[12..21]>
+    TInit.Value : signed char <init-array1.c(5)[13..20]>
+        IMPLICIT_CAST:'signed char' <init-array1.c(5)[14..19]>
+            IMPLICIT_CAST:'pointer to const signed char' <init-array1.c(5)[14..19]>
+                STRING:'array[4]const signed char'"aaa" <init-array1.c(5)[14..19]>
+TInit.Value : struct S2 <init-array1.c(8)[18..30]>
+    TInit.Value : int <init-array1.c(8)[20..22]>
+        CONSTANT:'int'=SINT(10) <init-array1.c(8)[20..22]>
+    TInit.Value : array[10]signed char <init-array1.c(8)[24..28]>
+        TInit.Value : signed char <init-array1.c(8)[24..28]>
+            CONSTANT:'const signed char'=SCHAR(120) <init-array1.c(8)[24..28]>
+        TInit.Value : signed char <init-array1.c(8)[24..28]>
+            CONSTANT:'const signed char'=SCHAR(120) <init-array1.c(8)[24..28]>
+        TInit.Value : signed char <init-array1.c(8)[24..28]>
+            CONSTANT:'const signed char'=SCHAR(0) <init-array1.c(8)[24..28]>
+TInit.Value : struct S2 <init-array1.c(9)[18..32]>
+    TInit.Value : int <init-array1.c(9)[20..22]>
+        CONSTANT:'int'=SINT(10) <init-array1.c(9)[20..22]>
+    TInit.Value : array[10]signed char <init-array1.c(9)[24..30]>
+        TInit.Value : signed char <init-array1.c(9)[25..29]>
+            CONSTANT:'const signed char'=SCHAR(120) <init-array1.c(9)[25..29]>
+        TInit.Value : signed char <init-array1.c(9)[25..29]>
+            CONSTANT:'const signed char'=SCHAR(120) <init-array1.c(9)[25..29]>
+        TInit.Value : signed char <init-array1.c(9)[25..29]>
+            CONSTANT:'const signed char'=SCHAR(0) <init-array1.c(9)[25..29]>
+TInit.Value : struct S2 <init-array1.c(11)[18..34]>
+    TInit.Value : int <init-array1.c(11)[20..22]>
+        CONSTANT:'int'=SINT(10) <init-array1.c(11)[20..22]>
+    TInit.Value : array[10]signed char <init-array1.c(11)[24..32]>
+        TInit.Value : signed char <init-array1.c(11)[25..31]>
+            IMPLICIT_CAST:'signed char' <init-array1.c(11)[26..30]>
+                IMPLICIT_CAST:'pointer to const signed char' <init-array1.c(11)[26..30]>
+                    STRING:'array[3]const signed char'"xx" <init-array1.c(11)[26..30]>

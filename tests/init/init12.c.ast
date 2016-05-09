@@ -1,0 +1,12 @@
+TInit.Value [error]: int <init12.c(3)[11..22]>
+    ERROR:'error' <init12.c(3)[18..20]>
+TInit.Value [error]: int <init12.c(4)[11..23]>
+    ERROR:'error' <init12.c(4)[19..21]>
+TInit.Value : array[2]signed char <init12.c(6)[12..25]>
+    <null>
+    TInit.Value : signed char <init12.c(6)[14..17]>
+        IMPLICIT_CAST:'signed char' <init12.c(6)[20..23]>
+            IMPLICIT_CAST:'pointer to const signed char' <init12.c(6)[20..23]>
+                STRING:'array[2]const signed char'"a" <init12.c(6)[20..23]>
+TInit.Value [error]: array[]signed char <init12.c(7)[12..24]>
+    <null>

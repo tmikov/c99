@@ -1,0 +1,3 @@
+TInit.Value : pointer to int <init2.c(1)[13..14]>
+    IMPLICIT_CAST:'pointer to int' <init2.c(1)[13..14]>
+        CONSTANT:'int'=SINT(0) <init2.c(1)[13..14]>

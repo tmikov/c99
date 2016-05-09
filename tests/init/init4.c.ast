@@ -1,0 +1,11 @@
+TInit.Value : struct S <init4.c(4)[19..31]>
+    TYPECAST:'struct S' <init4.c(4)[19..29]>
+        IMPLICIT_LOAD:'struct S' <init4.c(4)[29..31]>
+            VARREF:'struct S''s1' <init4.c(4)[29..31]>
+TInit.Value : struct S <init4.c(5)[19..37]>
+    TYPECAST:'struct S' <init4.c(5)[19..35]>
+        IMPLICIT_LOAD:'struct S' <init4.c(5)[35..37]>
+            VARREF:'struct S''s1' <init4.c(5)[35..37]>
+TInit.Value : struct S <init4.c(6)[19..21]>
+    IMPLICIT_LOAD:'struct S' <init4.c(6)[19..21]>
+        VARREF:'struct S''s1' <init4.c(6)[19..21]>

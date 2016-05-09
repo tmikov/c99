@@ -1,0 +1,41 @@
+TInit.Value : struct T <init6.c(5)[15..29]>
+    TInit.Value : int <init6.c(5)[17..18]>
+        CONSTANT:'int'=SINT(1) <init6.c(5)[17..18]>
+    TInit.Value : struct S <init6.c(5)[20..21]>
+        TInit.Value : int <init6.c(5)[20..21]>
+            CONSTANT:'int'=SINT(2) <init6.c(5)[20..21]>
+        TInit.Value : int <init6.c(5)[23..24]>
+            CONSTANT:'int'=SINT(3) <init6.c(5)[23..24]>
+    TInit.Value : int <init6.c(5)[26..27]>
+        CONSTANT:'int'=SINT(4) <init6.c(5)[26..27]>
+TInit.Value : struct T <init6.c(6)[15..28]>
+    TInit.Value : int <init6.c(6)[17..18]>
+        CONSTANT:'int'=SINT(1) <init6.c(6)[17..18]>
+    TInit.Value : struct S <init6.c(6)[20..23]>
+        TInit.Value : int <init6.c(6)[21..22]>
+            CONSTANT:'int'=SINT(2) <init6.c(6)[21..22]>
+    TInit.Value : int <init6.c(6)[25..26]>
+        CONSTANT:'int'=SINT(3) <init6.c(6)[25..26]>
+TInit.Value : struct S <init6.c(7)[15..25]>
+    TInit.Value : int <init6.c(7)[17..19]>
+        CONSTANT:'int'=SINT(10) <init6.c(7)[17..19]>
+    TInit.Value : int <init6.c(7)[21..23]>
+        CONSTANT:'int'=SINT(20) <init6.c(7)[21..23]>
+TInit.Value : struct T <init6.c(8)[15..27]>
+    TInit.Value : int <init6.c(8)[17..18]>
+        CONSTANT:'int'=SINT(1) <init6.c(8)[17..18]>
+    TInit.Value : struct S <init6.c(8)[20..22]>
+        IMPLICIT_LOAD:'struct S' <init6.c(8)[20..22]>
+            VARREF:'struct S''s1' <init6.c(8)[20..22]>
+    TInit.Value : int <init6.c(8)[24..25]>
+        CONSTANT:'int'=SINT(2) <init6.c(8)[24..25]>
+TInit.Value [error]: struct T <init6.c(9)[15..27]>
+    TInit.Value : int <init6.c(9)[17..18]>
+        CONSTANT:'int'=SINT(1) <init6.c(9)[17..18]>
+    TInit.Value : struct S <init6.c(9)[20..22]>
+        TInit.Value [error]: int <init6.c(9)[20..22]>
+            IMPLICIT_CAST:'error' <init6.c(9)[20..22]>
+                IMPLICIT_LOAD:'struct T' <init6.c(9)[20..22]>
+                    VARREF:'struct T''t3' <init6.c(9)[20..22]>
+        TInit.Value : int <init6.c(9)[24..25]>
+            CONSTANT:'int'=SINT(2) <init6.c(9)[24..25]>

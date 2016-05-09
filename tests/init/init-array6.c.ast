@@ -1,0 +1,8 @@
+TInit.Value : array[6]int <init-array6.c(1)[11..22]>
+    <null>
+    <null>
+    <null>
+    <null>
+    <null>
+    TInit.Value : int <init-array6.c(1)[13..16]>
+        CONSTANT:'int'=SINT(0) <init-array6.c(1)[19..20]>

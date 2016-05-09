@@ -1,0 +1,2 @@
+// WARNING
+char * s = "sss";

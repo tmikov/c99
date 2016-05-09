@@ -1,0 +1,8 @@
+TInit.Value : struct S6 <init10.c(10)[16..22]>
+    TInit.Value : struct S5 <init10.c(10)[18..20]>
+        TInit.Value : struct S4 <init10.c(10)[18..20]>
+            TInit.Value : struct S3 <init10.c(10)[18..20]>
+                TInit.Value : struct S2 <init10.c(10)[18..20]>
+                    TInit.Value : struct S1 <init10.c(10)[18..20]>
+                        TInit.Value : int <init10.c(10)[18..20]>
+                            CONSTANT:'int'=SINT(10) <init10.c(10)[18..20]>

@@ -1,0 +1,50 @@
+TInit.Value : struct T <init8.c(4)[15..29]>
+    TInit.Value : int <init8.c(4)[17..18]>
+        CONSTANT:'int'=SINT(1) <init8.c(4)[17..18]>
+    TInit.Value : struct S <init8.c(4)[20..21]>
+        TInit.Value : int <init8.c(4)[20..21]>
+            CONSTANT:'int'=SINT(2) <init8.c(4)[20..21]>
+        TInit.Value : int <init8.c(4)[23..24]>
+            CONSTANT:'int'=SINT(3) <init8.c(4)[23..24]>
+    TInit.Value : int <init8.c(4)[26..27]>
+        CONSTANT:'int'=SINT(4) <init8.c(4)[26..27]>
+TInit.Value : struct T <init8.c(5)[15..28]>
+    TInit.Value : int <init8.c(5)[17..18]>
+        CONSTANT:'int'=SINT(1) <init8.c(5)[17..18]>
+    TInit.Value : struct S <init8.c(5)[20..23]>
+        TInit.Value : int <init8.c(5)[21..22]>
+            CONSTANT:'int'=SINT(2) <init8.c(5)[21..22]>
+    TInit.Value : int <init8.c(5)[25..26]>
+        CONSTANT:'int'=SINT(3) <init8.c(5)[25..26]>
+TInit.Value : struct S <init8.c(6)[15..25]>
+    TInit.Value : int <init8.c(6)[17..19]>
+        CONSTANT:'int'=SINT(10) <init8.c(6)[17..19]>
+    TInit.Value : int <init8.c(6)[21..23]>
+        CONSTANT:'int'=SINT(20) <init8.c(6)[21..23]>
+TInit.Value : struct T <init8.c(7)[15..27]>
+    TInit.Value : int <init8.c(7)[17..18]>
+        CONSTANT:'int'=SINT(1) <init8.c(7)[17..18]>
+    TInit.Value : struct S <init8.c(7)[20..22]>
+        IMPLICIT_LOAD:'struct S' <init8.c(7)[20..22]>
+            VARREF:'struct S''s1' <init8.c(7)[20..22]>
+    TInit.Value : int <init8.c(7)[24..25]>
+        CONSTANT:'int'=SINT(2) <init8.c(7)[24..25]>
+TInit.Value [error]: struct T <init8.c(8)[15..27]>
+    TInit.Value : int <init8.c(8)[17..18]>
+        CONSTANT:'int'=SINT(1) <init8.c(8)[17..18]>
+    TInit.Value : struct S <init8.c(8)[20..22]>
+        TInit.Value [error]: int <init8.c(8)[20..22]>
+            IMPLICIT_CAST:'error' <init8.c(8)[20..22]>
+                IMPLICIT_LOAD:'struct T' <init8.c(8)[20..22]>
+                    VARREF:'struct T''t3' <init8.c(8)[20..22]>
+        TInit.Value : int <init8.c(8)[24..25]>
+            CONSTANT:'int'=SINT(2) <init8.c(8)[24..25]>
+TInit.Value : struct T <init8.c(10)[15..41]>
+    TInit.Value : int <init8.c(10)[32..34]>
+        CONSTANT:'int'=SINT(10) <init8.c(10)[37..39]>
+    TInit.Value : struct S <init8.c(10)[17..19]>
+        <null>
+        TInit.Value : int <init8.c(10)[19..21]>
+            CONSTANT:'int'=SINT(30) <init8.c(10)[24..26]>
+    TInit.Value : int <init8.c(10)[28..30]>
+        CONSTANT:'int'=SINT(40) <init8.c(10)[28..30]>

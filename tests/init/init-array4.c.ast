@@ -1,0 +1,22 @@
+TInit.Value : array[2]signed char <init-array4.c(1)[14..18]>
+    TInit.Value : signed char <init-array4.c(1)[14..18]>
+        CONSTANT:'const signed char'=SCHAR(97) <init-array4.c(1)[14..18]>
+    TInit.Value : signed char <init-array4.c(1)[14..18]>
+        CONSTANT:'const signed char'=SCHAR(98) <init-array4.c(1)[14..18]>
+TInit.Value : array[2]signed char <init-array4.c(2)[14..19]>
+    TInit.Value : signed char <init-array4.c(2)[14..19]>
+        CONSTANT:'const signed char'=SCHAR(97) <init-array4.c(2)[14..19]>
+    TInit.Value : signed char <init-array4.c(2)[14..19]>
+        CONSTANT:'const signed char'=SCHAR(98) <init-array4.c(2)[14..19]>
+TInit.Value : array[3]signed char <init-array4.c(3)[14..17]>
+    TInit.Value : signed char <init-array4.c(3)[14..17]>
+        CONSTANT:'const signed char'=SCHAR(97) <init-array4.c(3)[14..17]>
+    TInit.Value : signed char <init-array4.c(3)[14..17]>
+        CONSTANT:'const signed char'=SCHAR(0) <init-array4.c(3)[14..17]>
+TInit.Value : array[3]signed char <init-array4.c(4)[13..17]>
+    TInit.Value : signed char <init-array4.c(4)[13..17]>
+        CONSTANT:'const signed char'=SCHAR(97) <init-array4.c(4)[13..17]>
+    TInit.Value : signed char <init-array4.c(4)[13..17]>
+        CONSTANT:'const signed char'=SCHAR(98) <init-array4.c(4)[13..17]>
+    TInit.Value : signed char <init-array4.c(4)[13..17]>
+        CONSTANT:'const signed char'=SCHAR(0) <init-array4.c(4)[13..17]>

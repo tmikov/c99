@@ -1,0 +1,4 @@
+TInit.Value [error]: int <init5.c(1)[9..11]>
+    ERROR:'error' <init5.c(1)[9..11]>
+TInit.Value [error]: int <init5.c(2)[9..10]>
+    ERROR:'error' <init5.c(2)[9..10]>

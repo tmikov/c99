@@ -1,0 +1,13 @@
+TInit.Value [error]: struct S <init9.c(4)[15..17]>
+    IMPLICIT_CAST:'error' <init9.c(4)[15..17]>
+        CONSTANT:'int'=SINT(10) <init9.c(4)[15..17]>
+TInit.Value : struct S <init9.c(5)[15..21]>
+    TInit.Value : int <init9.c(5)[17..19]>
+        CONSTANT:'int'=SINT(10) <init9.c(5)[17..19]>
+TInit.Value : struct S <init9.c(6)[15..17]>
+    IMPLICIT_LOAD:'struct S' <init9.c(6)[15..17]>
+        VARREF:'struct S''s2' <init9.c(6)[15..17]>
+TInit.Value : int <init9.c(8)[10..11]>
+    CONSTANT:'int'=SINT(1) <init9.c(8)[10..11]>
+TInit.Value : int <init9.c(9)[10..15]>
+    CONSTANT:'int'=SINT(1) <init9.c(9)[12..13]>

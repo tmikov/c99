@@ -1,0 +1,9 @@
+TInit.Value [error]: struct S1 <init11.c(3)[27..38]>
+    <null>
+TInit.Value [error]: array[]int <init11.c(5)[12..23]>
+    <null>
+TInit.Value [error]: struct S1 <init11.c(7)[16..28]>
+    <null>
+TInit.Value [error]: struct S1 <init11.c(9)[16..29]>
+    TInit.Value : int <init11.c(9)[18..20]>
+        <null>
