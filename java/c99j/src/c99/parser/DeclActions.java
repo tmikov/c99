@@ -1480,7 +1480,11 @@ redeclaration:
     m_topScope, // visibility scope
     di.sclass, di.linkage, di.getIdent(), di.type, di.defined, di.error
   );
-  m_topScope.pushDecl( decl );
+
+  // Only make the declaration visible if there isn't a previous one. prevDecl is not null
+  // only if we excited the re-declaration block with an error, so we don't want to activate this one
+  if (prevDecl == null)
+    m_topScope.pushDecl( decl );
   return decl;
 }
 
