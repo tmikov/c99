@@ -1,12 +1,14 @@
 package c99.parser;
 
+import c99.CompilerOptions;
+
 public final class ParamScope extends Scope
 {
 private boolean m_ellipsis;
 
-public ParamScope ( Scope parent )
+public ParamScope ( CompilerOptions opts, Scope parent )
 {
-  super( Kind.PARAM, parent );
+  super( opts, Kind.PARAM, parent );
 }
 
 public final boolean getEllipsis ()

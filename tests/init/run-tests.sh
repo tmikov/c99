@@ -1,6 +1,6 @@
 #!/bin/bash
 
-app=../../parse.sh
+app="../../parse.sh --debugInit"
 
 for tst in *.c; do
    echo "Testing $tst"

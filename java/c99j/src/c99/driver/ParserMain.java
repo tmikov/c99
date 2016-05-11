@@ -5,6 +5,7 @@ import c99.SimpleErrorReporter;
 import c99.parser.pp.SearchPathFactory;
 
 import java.io.PrintWriter;
+import java.lang.reflect.Field;
 import java.util.Arrays;
 
 public class ParserMain
@@ -45,6 +46,19 @@ public static void main ( String[] args )
           incSearch.addInclude( tmp );
         else
           incSearch.addQuotedInclude(tmp);
+      }
+      else if (arg.startsWith("--debug"))
+      {
+        String feature = arg.substring(2);
+        try
+        {
+          CompilerOptions.class.getField(feature).setBoolean(opts, true);
+        }
+        catch (Exception e)
+        {
+          System.err.println( "**fatal: unknown debug flag '"+arg +"'" );
+          System.exit(1);
+        }
       }
       else if (arg.startsWith("-"))
       {

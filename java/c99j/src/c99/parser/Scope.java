@@ -1,5 +1,6 @@
 package c99.parser;
 
+import c99.CompilerOptions;
 import c99.MiscUtils;
 
 import java.util.Iterator;
@@ -8,6 +9,8 @@ import java.util.List;
 
 public class Scope
 {
+private final CompilerOptions m_opts;
+
 public static enum Kind { FILE, BLOCK, PARAM, AGGREGATE, ENUM }
 
 public final Kind kind;
@@ -18,8 +21,9 @@ private final LinkedList<Decl> m_tags = new LinkedList<Decl>();
 private boolean m_error;
 private int m_level;
 
-public Scope ( Kind kind, final Scope parent )
+public Scope ( CompilerOptions opts, Kind kind, final Scope parent )
 {
+  m_opts = opts;
   this.kind = kind;
   m_parent = parent;
   m_level = parent != null ? parent.m_level + 1 : 0;
@@ -47,7 +51,7 @@ private void debug ( Decl decl )
 
 public void debugDecl ( String msg, Decl decl )
 {
-  if (DeclActions.DEBUG_DECL)
+  if (m_opts.debugDecl)
   {
     MiscUtils.printIndent( m_level * 4, System.out );
     System.out.println( msg + " "+ decl.toString() );
@@ -66,7 +70,7 @@ public final void pushDecl ( Decl decl )
     decl.symbol.topDecl = decl;
   }
 
-  if (DeclActions.DEBUG_DECL)
+  if (m_opts.debugDecl)
     debug( decl );
 }
 
@@ -82,7 +86,7 @@ public final void pushTag ( Decl decl )
     decl.symbol.topTag = decl;
   }
 
-  if (DeclActions.DEBUG_DECL)
+  if (m_opts.debugDecl)
     debug( decl );
 }
 

@@ -13,11 +13,6 @@ import static c99.parser.Trees.*;
 
 public class DeclActions extends ExprActions
 {
-private static final boolean DEBUG_CALC_AGG_SIZE = false;
-private static final boolean DEBUG_ENUM = false;
-public static final boolean DEBUG_DECL = false;
-private static final boolean DEBUG_INIT = true;
-
 private Scope m_topScope;
 private Scope m_translationUnitScope;
 
@@ -78,23 +73,23 @@ private final <T extends Scope> T pushScope ( T scope )
 public final Scope pushFileScope ()
 {
   assert m_topScope == null && m_translationUnitScope == null;
-  return m_translationUnitScope = m_topScope = new Scope( Scope.Kind.FILE, m_topScope );
+  return m_translationUnitScope = m_topScope = new Scope( m_opts, Scope.Kind.FILE, m_topScope );
 }
 public final Scope pushBlockScope ()
 {
-  return m_topScope = new Scope( Scope.Kind.BLOCK, m_topScope );
+  return m_topScope = new Scope( m_opts, Scope.Kind.BLOCK, m_topScope );
 }
 public final ParamScope pushParamScope ()
 {
-  return pushScope( new ParamScope( m_topScope ) );
+  return pushScope( new ParamScope( m_opts, m_topScope ) );
 }
 public final Scope pushAggScope ()
 {
-  return pushScope( new Scope( Scope.Kind.AGGREGATE, m_topScope ) );
+  return pushScope( new Scope( m_opts, Scope.Kind.AGGREGATE, m_topScope ) );
 }
 public final EnumScope pushEnumScope ()
 {
-  return pushScope( new EnumScope( m_topScope ) );
+  return pushScope( new EnumScope( m_opts, m_topScope ) );
 }
 
 private final Scope topNonStructScope ()
@@ -298,7 +293,7 @@ public final TSpecNode declareAgg ( Code tagCode, Decl tagDecl, Scope memberScop
     enumSpec.setBaseSpec( baseSpec );
     Qual type = new Qual(enumSpec);
 
-    if (DEBUG_ENUM)
+    if (m_opts.debugEnum)
       System.out.format( "defined '%s' based on '%s'\n", type.readableType(), enumSpec.getBaseSpec().readableType() );
 
     // Declare all enum constants in the parent scope
@@ -316,7 +311,7 @@ public final TSpecNode declareAgg ( Code tagCode, Decl tagDecl, Scope memberScop
       );
 
       targetScope.pushDecl( decl );
-      if (DEBUG_ENUM)
+      if (m_opts.debugEnum)
       {
         System.out.format( " enum const '%s' = %s : %s\n", decl.symbol.name, decl.enumValue.toString(),
                 decl.enumValue.spec.str );
@@ -494,7 +489,7 @@ private final void calcAggSize ( ISourceRange loc, StructUnionSpec spec, final M
           bitsAvail = (TypeSpec.UCHAR.width - consumedBits % TypeSpec.UCHAR.width) % TypeSpec.UCHAR.width;
         }
 
-        if (DEBUG_CALC_AGG_SIZE)
+        if (m_opts.debugCalcAggSize)
         {
           System.out.format( "[%d]", field.getOffset() );
           if (field.isBitField())
@@ -532,7 +527,7 @@ private final void calcAggSize ( ISourceRange loc, StructUnionSpec spec, final M
       error( loc, "'%s' %s", spec.readableType(), e.getMessage() );
   }
   spec.setFields( fields, size, align );
-  if (DEBUG_CALC_AGG_SIZE)
+  if (m_opts.debugCalcAggSize)
   {
     System.out.format( "'%s' size %d align %d", spec.readableType(), spec.sizeOf(), spec.alignOf() );
     System.out.println();
@@ -1608,7 +1603,7 @@ public final void initDeclaration ( Decl decl, parsedInit.Initializer init )
   if (parsedInit != null && !parsedInit.isError() && decl.type.spec.isArray() && !((ArraySpec)decl.type.spec).hasNelem())
   {
     decl.type = parsedInit.getQual();
-    if (DEBUG_DECL)
+    if (m_opts.debugDecl)
       decl.storageScope.debugDecl( "complete", decl );
   }
 
@@ -2180,7 +2175,7 @@ private TInit.Value parseInitializer ( Qual type, parsedInit.Initializer init )
     obj.markError();
   }
 
-  if (DEBUG_INIT)
+  if (m_opts.debugInit)
     ExprFormatter.format( 0, new PrintWriter( System.out, true ), obj );
 
   return obj;

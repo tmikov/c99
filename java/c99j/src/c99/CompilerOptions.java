@@ -13,6 +13,11 @@ public int maxAlign = 8;
 public int defCodePointers = 0; // 0:near, 1:far, 2:huge
 public int defDataPointers = 0; // 0:near, 1:far, 2:huge
 
+public boolean debugCalcAggSize;
+public boolean debugEnum;
+public boolean debugDecl;
+public boolean debugInit;
+
 public PreprOptions getPreprOptions ()
 {
   return m_preprOptions;
