@@ -1,0 +1,5 @@
+defined 'enum E1' based on 'signed char'
+ enum const 'A' = SCHAR(11) : signed char
+ enum const 'B' = SCHAR(10) : signed char
+ enum const 'C' = SCHAR(15) : signed char
+ enum const 'D' = SCHAR(5) : signed char

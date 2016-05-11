@@ -975,7 +975,7 @@ public final BinaryExpr m_add = new AdditiveExpr( TreeCode.ADD, null ) {
   }
 };
 
-public final BinaryExpr m_sub = new BinaryExpr( TreeCode.SUB, null ) {
+public final BinaryExpr m_sub = new AdditiveExpr( TreeCode.SUB, null ) {
   @Override
   public TExpr.Expr make ( ISourceRange loc, TExpr.Expr left, TExpr.Expr right )
   {
