@@ -91,9 +91,9 @@ public final TExpr.Expr implicitLoad ( TExpr.Expr op )
     switch (spec.kind)
     {
     case ARRAY:
-      return new TExpr.Unary( op, TreeCode.IMPLICIT_CAST, new Qual(newPointerSpec( ((ArraySpec)spec).of )), op );
+      return new TExpr.Unary( op, TreeCode.ARRAY_TO_POINTER, new Qual(newPointerSpec( ((ArraySpec)spec).of )), op );
     case FUNCTION:
-      return new TExpr.Unary( op, TreeCode.IMPLICIT_CAST, new Qual(newPointerSpec(qual)), op );
+      return new TExpr.Unary( op, TreeCode.FUNC_TO_POINTER, new Qual(newPointerSpec(qual)), op );
     default:
       if (!spec.isComplete())
       {
@@ -106,7 +106,7 @@ public final TExpr.Expr implicitLoad ( TExpr.Expr op )
 
   case STRING:
     return new TExpr.Unary(
-      op, TreeCode.IMPLICIT_CAST, new Qual(newPointerSpec(((ArraySpec)op.getQual().spec).of)), op
+      op, TreeCode.ARRAY_TO_POINTER, new Qual(newPointerSpec(((ArraySpec)op.getQual().spec).of)), op
     );
 
   case INDIRECT:
@@ -1143,6 +1143,8 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
       c = Constant.makeLong( ts, m_res.isZero() ? 1 : 0 );
       break;
 
+    case ARRAY_TO_POINTER:
+    case FUNC_TO_POINTER:
     case IMPLICIT_CAST:
       return performTypecast( e );
 
