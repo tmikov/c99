@@ -203,18 +203,9 @@ public int pointerSize ( Types.Qual to )
     return m_env.opts.defDataPointers == 0 ? 2 : 4;
 }
 
-/** returns the unsgned integer type able to hold the pointer */
-public TypeSpec pointerUIntType ( Types.PointerSpec ptr )
+public TypeSpec pointerOffsetType ( Types.PointerSpec ptr )
 {
-  int ptrSize = pointerSize( ptr.of );
-  if (ptrSize <= TypeSpec.UCHAR.width)
-    return TypeSpec.UCHAR;
-  else if (ptrSize <= TypeSpec.UINT.width)
-    return TypeSpec.UINT;
-  else if (ptrSize <= TypeSpec.ULONG.width)
-    return TypeSpec.ULONG;
-  else
-    return TypeSpec.ULLONG;
+  return (ptr.of.extAttrs.flags() & QUAL_X86HUGE) != 0 ? TypeSpec.SLONG : TypeSpec.SINT;
 }
 
 public int alignment ( int size )
