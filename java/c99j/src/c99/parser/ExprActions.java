@@ -147,6 +147,29 @@ private TExpr.Expr integerPromotion ( TExpr.Expr op )
   return op;
 }
 
+/**
+ * Convert the expression to the correct type for addition to a pointer. For example if pointers are 64-bit
+ * and ints are 32-bit, the int has to be promoted to 64-bit. Conversely, if pointers are 32-bit, but the offset
+ * is 64-bit, it has to be narrowed down to 32-bit.
+ */
+private TExpr.Expr pointerOffsetConversion ( Qual pointerType, TExpr.Expr op )
+{
+  // Promote the expression to the pointer offset type
+  TypeSpec offsetSpec = m_plat.pointerOffsetType((PointerSpec)pointerType.spec);
+  TypeSpec exprSpec = op.getQual().spec.effectiveKind();
+  Qual resultType;
+
+  if (offsetSpec.width >= exprSpec.width) // promote?
+    resultType = stdQual(TypeRules.usualArithmeticConversions(offsetSpec, op.getQual().spec.effectiveKind()));
+  else // narrow down
+    resultType = stdQual(offsetSpec);
+
+  if (resultType.spec.kind != op.getQual().spec.kind)
+    op = new TExpr.Unary( op, TreeCode.IMPLICIT_CAST, resultType, op );
+
+  return op;
+}
+
 private final boolean isVoidPtr ( Qual qual )
 {
   return qual.spec.kind == TypeSpec.POINTER && ((PointerSpec)qual.spec).of.spec.kind == TypeSpec.VOID;
@@ -608,7 +631,7 @@ public class AdditiveExpr extends MultiplicativeExpr
         error( loc, "Arithmetic on a pointer to incomplete type '%s'", ptr.of.readableType() );
         return null;
       }
-      right = integerPromotion( right );
+      right = pointerOffsetConversion(left.getQual(), integerPromotion( right ));
       return new TExpr.Binary( null, code, left.getQual(), left, right );
     }
     else
@@ -967,7 +990,7 @@ public final BinaryExpr m_add = new AdditiveExpr( TreeCode.ADD, null ) {
         error( loc, "Arithmetic on a pointer to incomplete type '%s'", ptr.of.readableType() );
         return null;
       }
-      left = integerPromotion( left );
+      left = pointerOffsetConversion(right.getQual(), integerPromotion( left ));
       return new TExpr.Binary( null, code, right.getQual(), left, right );
     }
     else
