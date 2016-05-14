@@ -1,5 +1,7 @@
 package c99;
 
+import org.jetbrains.annotations.NotNull;
+
 public class Constant
 {
 private Constant () {}
@@ -424,7 +426,7 @@ public static final class RealC extends ArithC
   }
 }
 
-public static ArithC newConstant ( TypeSpec spec )
+public static @NotNull ArithC newConstant ( TypeSpec spec )
 {
   switch (spec)
   {
@@ -448,7 +450,7 @@ public static ArithC newConstant ( TypeSpec spec )
 
   default:
     assert false : "Invalid constant spec " + spec;
-    return null;
+    throw new RuntimeException("Invalid constant spec " + spec);
   }
 }
 
