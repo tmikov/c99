@@ -85,8 +85,12 @@ public final TExpr.Expr implicitLoad ( TExpr.Expr op )
   switch (op.getCode())
   {
   case VARREF:
+  case INDIRECT:
+  case SUBSCRIPT:
+  case DOT_MEMBER:
+  case PTR_MEMBER:
   {
-    Qual qual = ((TExpr.VarRef)op).getDecl().type;
+    Qual qual = op.getQual();
     Spec spec = qual.spec;
     switch (spec.kind)
     {
@@ -108,17 +112,6 @@ public final TExpr.Expr implicitLoad ( TExpr.Expr op )
     return new TExpr.Unary(
       op, TreeCode.ARRAY_TO_POINTER, new Qual(newPointerSpec(((ArraySpec)op.getQual().spec).of)), op
     );
-
-  case INDIRECT:
-  case SUBSCRIPT:
-  case DOT_MEMBER:
-  case PTR_MEMBER:
-    if (!op.getQual().spec.isComplete())
-    {
-      error( op, "Incomplete type '%s'", op.getQual().readableType() );
-      return new TExpr.Unary( op, TreeCode.IMPLICIT_CAST, s_errorQual, op );
-    }
-    return new TExpr.Unary( op, TreeCode.IMPLICIT_LOAD, op.getQual().newUnqualified(), op );
 
   default:
     if (!op.getQual().spec.isComplete())
