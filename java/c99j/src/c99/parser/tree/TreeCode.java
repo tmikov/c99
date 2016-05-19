@@ -62,6 +62,12 @@ ASSIGN_BITWISE_XOR("^="),
 ASSIGN_BITWISE_OR("|="),
 COMMA(","),
 TERNARY("?:"),
+/**
+ * A folded suitable expression for initialization of a static duration location. This is a little bit
+ * of a hack - we don't use it generally, it only exists in the initializers of static duration locations
+ * for that one purpose.
+ */
+STATIC_INIT("<static-init>")
 ;
 
 public final String str;

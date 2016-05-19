@@ -1,0 +1,10 @@
+TInit.Value : pointer to int <array1.c(2)[11..19]>
+    ADDRESS:'pointer to int' <array1.c(2)[11..12]>
+        SUBSCRIPT:'int' <array1.c(2)[16..19]>
+            ARRAY_TO_POINTER:'pointer to int' <array1.c(2)[13..16]>
+                SUBSCRIPT:'array[2]int' <array1.c(2)[13..16]>
+                    ARRAY_TO_POINTER:'pointer to array[2]int' <array1.c(2)[12..13]>
+                        VARREF:'array[3]array[2]int''a' <array1.c(2)[12..13]>
+                    CONSTANT:'int'=SINT(1) <array1.c(2)[14..15]>
+            CONSTANT:'int'=SINT(2) <array1.c(2)[17..18]>
+InitExpr(pointer to int, 'a' + UINT(8))@array1.c(2)[11..19]

@@ -1,0 +1,40 @@
+TInit.Value : pointer to int <initexpr1.c(2)[12..18]>
+    ADD:'pointer to int' <initexpr1.c(2)[15..16]>
+        ARRAY_TO_POINTER:'pointer to int' <initexpr1.c(2)[12..14]>
+            VARREF:'array[5]int''a1' <initexpr1.c(2)[12..14]>
+        CONSTANT:'int'=SINT(3) <initexpr1.c(2)[17..18]>
+InitExpr(pointer to int, 'a1' + UINT(6))@initexpr1.c(2)[12..18]
+TInit.Value : pointer to int <initexpr1.c(3)[12..18]>
+    SUB:'pointer to int' <initexpr1.c(3)[15..16]>
+        ARRAY_TO_POINTER:'pointer to int' <initexpr1.c(3)[12..14]>
+            VARREF:'array[5]int''a1' <initexpr1.c(3)[12..14]>
+        CONSTANT:'int'=SINT(1) <initexpr1.c(3)[17..18]>
+InitExpr(pointer to int, 'a1' + UINT(65534))@initexpr1.c(3)[12..18]
+TInit.Value : pointer to int <initexpr1.c(4)[12..22]>
+    ADD:'pointer to int' <initexpr1.c(4)[19..20]>
+        ADDRESS:'pointer to int' <initexpr1.c(4)[12..13]>
+            SUBSCRIPT:'int' <initexpr1.c(4)[15..18]>
+                ARRAY_TO_POINTER:'pointer to int' <initexpr1.c(4)[13..15]>
+                    VARREF:'array[5]int''a1' <initexpr1.c(4)[13..15]>
+                CONSTANT:'int'=SINT(3) <initexpr1.c(4)[16..17]>
+        CONSTANT:'int'=SINT(1) <initexpr1.c(4)[21..22]>
+InitExpr(pointer to int, 'a1' + UINT(8))@initexpr1.c(4)[12..22]
+TInit.Value : pointer to int <initexpr1.c(5)[12..22]>
+    SUB:'pointer to int' <initexpr1.c(5)[19..20]>
+        ADDRESS:'pointer to int' <initexpr1.c(5)[12..13]>
+            SUBSCRIPT:'int' <initexpr1.c(5)[15..18]>
+                ARRAY_TO_POINTER:'pointer to int' <initexpr1.c(5)[13..15]>
+                    VARREF:'array[5]int''a1' <initexpr1.c(5)[13..15]>
+                CONSTANT:'int'=SINT(5) <initexpr1.c(5)[16..17]>
+        CONSTANT:'int'=SINT(1) <initexpr1.c(5)[21..22]>
+InitExpr(pointer to int, 'a1' + UINT(8))@initexpr1.c(5)[12..22]
+TInit.Value : pointer to int <initexpr1.c(8)[12..21]>
+    ADDRESS:'pointer to int' <initexpr1.c(8)[12..13]>
+        SUBSCRIPT:'int' <initexpr1.c(8)[18..21]>
+            ARRAY_TO_POINTER:'pointer to int' <initexpr1.c(8)[15..18]>
+                SUBSCRIPT:'array[4]int' <initexpr1.c(8)[15..18]>
+                    ARRAY_TO_POINTER:'pointer to array[4]int' <initexpr1.c(8)[13..15]>
+                        VARREF:'array[3]array[4]int''a2' <initexpr1.c(8)[13..15]>
+                    CONSTANT:'int'=SINT(1) <initexpr1.c(8)[16..17]>
+            CONSTANT:'int'=SINT(2) <initexpr1.c(8)[19..20]>
+InitExpr(pointer to int, 'a2' + UINT(12))@initexpr1.c(8)[12..21]

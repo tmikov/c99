@@ -41,7 +41,6 @@ public boolean defined;
 private boolean m_error;
 public TInit.Value initValue;
 
-
 public Decl (
   ISourceRange rng, Kind kind, Scope storageScope, Scope visibilityScope, SClass sclass, Linkage linkage, Symbol symbol,
   Qual type, boolean defined, boolean error

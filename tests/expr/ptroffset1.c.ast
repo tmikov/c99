@@ -1,0 +1,41 @@
+TInit.Value : pointer to int <ptroffset1.c(7)[20..27]>
+    ADD:'pointer to int' <ptroffset1.c(7)[24..25]>
+        IMPLICIT_LOAD:'pointer to int' <ptroffset1.c(7)[20..23]>
+            VARREF:'pointer to int''hp1' <ptroffset1.c(7)[20..23]>
+        IMPLICIT_CAST:'long' <ptroffset1.c(7)[26..27]>
+            IMPLICIT_CAST:'int' <ptroffset1.c(7)[26..27]>
+                IMPLICIT_LOAD:'signed char' <ptroffset1.c(7)[26..27]>
+                    VARREF:'signed char''c' <ptroffset1.c(7)[26..27]>
+TInit.Value : pointer to int <ptroffset1.c(8)[20..27]>
+    ADD:'pointer to int' <ptroffset1.c(8)[24..25]>
+        IMPLICIT_LOAD:'pointer to int' <ptroffset1.c(8)[20..23]>
+            VARREF:'pointer to int''hp1' <ptroffset1.c(8)[20..23]>
+        IMPLICIT_LOAD:'long' <ptroffset1.c(8)[26..27]>
+            VARREF:'long''l' <ptroffset1.c(8)[26..27]>
+TInit.Value : pointer to int <ptroffset1.c(9)[20..27]>
+    ADD:'pointer to int' <ptroffset1.c(9)[24..25]>
+        IMPLICIT_LOAD:'pointer to int' <ptroffset1.c(9)[20..23]>
+            VARREF:'pointer to int''hp1' <ptroffset1.c(9)[20..23]>
+        IMPLICIT_CAST:'long' <ptroffset1.c(9)[26..27]>
+            IMPLICIT_LOAD:'unsigned' <ptroffset1.c(9)[26..27]>
+                VARREF:'unsigned''u' <ptroffset1.c(9)[26..27]>
+TInit.Value : pointer to int <ptroffset1.c(12)[12..18]>
+    ADD:'pointer to int' <ptroffset1.c(12)[15..16]>
+        IMPLICIT_LOAD:'pointer to int' <ptroffset1.c(12)[12..14]>
+            VARREF:'pointer to int''p4' <ptroffset1.c(12)[12..14]>
+        IMPLICIT_CAST:'int' <ptroffset1.c(12)[17..18]>
+            IMPLICIT_LOAD:'signed char' <ptroffset1.c(12)[17..18]>
+                VARREF:'signed char''c' <ptroffset1.c(12)[17..18]>
+TInit.Value : pointer to int <ptroffset1.c(13)[12..18]>
+    ADD:'pointer to int' <ptroffset1.c(13)[15..16]>
+        IMPLICIT_LOAD:'pointer to int' <ptroffset1.c(13)[12..14]>
+            VARREF:'pointer to int''p4' <ptroffset1.c(13)[12..14]>
+        IMPLICIT_CAST:'int' <ptroffset1.c(13)[17..18]>
+            IMPLICIT_LOAD:'long' <ptroffset1.c(13)[17..18]>
+                VARREF:'long''l' <ptroffset1.c(13)[17..18]>
+TInit.Value : pointer to int <ptroffset1.c(14)[12..18]>
+    ADD:'pointer to int' <ptroffset1.c(14)[15..16]>
+        IMPLICIT_LOAD:'pointer to int' <ptroffset1.c(14)[12..14]>
+            VARREF:'pointer to int''p4' <ptroffset1.c(14)[12..14]>
+        IMPLICIT_LOAD:'unsigned' <ptroffset1.c(14)[17..18]>
+            VARREF:'unsigned''u' <ptroffset1.c(14)[17..18]>

@@ -6,6 +6,7 @@ import java.util.*;
 import c99.*;
 import c99.Types.*;
 import c99.parser.tree.*;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static c99.parser.Code.TYPENAME;
@@ -1597,12 +1598,12 @@ public final void initDeclaration ( Decl decl, parsedInit.Initializer init )
     return;
   }
 
-  final TInit.Value parsedInit = parseInitializer( decl.type, init );
+  final TInit.Value initValue = parseInitializer( decl.type, init );
 
   // Optionally complete the array type
-  if (parsedInit != null && !parsedInit.isError() && decl.type.spec.isArray() && !((ArraySpec)decl.type.spec).hasNelem())
+  if (initValue != null && !initValue.isError() && decl.type.spec.isArray() && !((ArraySpec)decl.type.spec).hasNelem())
   {
-    decl.type = parsedInit.getQual();
+    decl.type = initValue.getQual();
     if (m_opts.debugDecl)
       decl.storageScope.debugDecl( "complete", decl );
   }
@@ -1628,8 +1629,8 @@ redeclaration:
     }
   }
 
-  if (parsedInit != null && !parsedInit.isError())
-    decl.initValue = parsedInit;
+  if (initValue != null && !initValue.isError())
+    decl.initValue = initValue;
   else
     decl.orError();
 
@@ -1645,9 +1646,18 @@ redeclaration:
     default: assert false; break;
     }
   }
+
+  FIXMENOW("only for static storage duration");
+  FIXMENOW("what about arrays");
+  final TExpr.StaticInit initExpr = classifyInitExpression(init, init.asExpr().getExpr());
+  if (initExpr != null)
+  {
+    if (m_opts.debugInit)
+      ExprFormatter.format(0, m_debugWriter, initExpr);
+  }
 }
 
-private TInit.Value newInitObject ( ISourceRange loc, Qual type )
+private @NotNull TInit.Value newInitObject ( ISourceRange loc, Qual type )
 {
   final Spec spec = type.spec;
   if (!spec.isError())
@@ -2132,7 +2142,7 @@ elemLoop:
 /**
  * Parse the initializer list and return a structured initializer
  */
-private TInit.Value parseInitializer ( Qual type, parsedInit.Initializer init )
+private @NotNull TInit.Value parseInitializer ( Qual type, parsedInit.Initializer init )
 {
   TInit.Value obj;
 

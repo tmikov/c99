@@ -3,6 +3,8 @@ package c99.parser;
 import c99.*;
 import c99.Types.*;
 import c99.parser.tree.*;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class ExprActions extends TreeActions
 {
@@ -1033,9 +1035,19 @@ public final LogicalExpression m_logOr = new LogicalExpression( TreeCode.LOG_OR 
 
 private final class IntConstEvaluator implements TExpr.ExprVisitor
 {
+  private final boolean m_reportErrors;
   private TExpr.Expr m_errorNode;
   private Constant.ArithC m_res;
   private Qual m_resType;
+
+  public IntConstEvaluator ( boolean reportErrors )
+  {
+    m_reportErrors = reportErrors;
+  }
+  public IntConstEvaluator ()
+  {
+    this(true);
+  }
 
   private final boolean retError ( TExpr.Expr e )
   {
@@ -1293,7 +1305,8 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
     case DIV:
       if (rc.spec.integer && rc.isZero())
       {
-        warning( e, "division by zero" );
+        if (m_reportErrors)
+          warning( e, "division by zero" );
         return retError( e );
       }
       c.div( lc, rc );
@@ -1301,7 +1314,8 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
     case REMAINDER:
       if (rc.isZero())
       {
-        error( e, "division by zero" );
+        if (m_reportErrors)
+          warning( e, "division by zero" );
         return retError( e );
       }
       ((Constant.IntC)c).rem( (Constant.IntC)lc, (Constant.IntC)rc );
@@ -1320,7 +1334,8 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
         assert e.getLeft().getQual().spec.kind == TypeSpec.POINTER;
         if (!performPointerSub( c, e.getLeft(), lc, e.getRight(), rc ))
         {
-          warning( e, "division by zero in pointer subtraction" );
+          if (m_reportErrors)
+            warning( e, "division by zero in pointer subtraction" );
           return retError( e );
         }
       }
@@ -1376,6 +1391,11 @@ private final class IntConstEvaluator implements TExpr.ExprVisitor
     }
     return retResult( c, e.getQual() );
   }
+
+  @Override public boolean visitStaticInit ( TExpr.StaticInit e )
+  {
+    return retError(e);
+  }
 }
 
 private final TExpr.ArithConstant errorVal ( ISourceRange loc )
@@ -1401,6 +1421,163 @@ public final TExpr.ArithConstant constantExpression ( ISourceRange loc, TExpr.Ex
     return errorVal( loc );
   }
   return new TExpr.ArithConstant( loc, ev.getResType(), ev.getRes() );
+}
+
+private static @Nullable Constant.IntC scaleOptionalOffset ( @NotNull Qual ptrType, @Nullable Constant.IntC offset )
+{
+  if (offset == null)
+    return null;
+
+  assert ptrType.spec.isPointer();
+  Spec ptrTo = ((PointerSpec)ptrType.spec).of.spec;
+  assert ptrTo.isComplete();
+
+  // TODO: I would like to make all of this explicit in the expression tree
+  TypeSpec commonType = TypeRules.usualArithmeticConversions( TypeSpec.SIZE_T, offset.spec );
+
+  final Constant.IntC scale = Constant.makeLong(commonType, ptrTo.sizeOf());
+  final Constant.IntC convertedOffset;
+
+  if (commonType == offset.spec)
+    convertedOffset = offset;
+  else
+  {
+    convertedOffset = Constant.newIntConstant(commonType);
+    convertedOffset.castFrom(offset);
+  }
+
+  convertedOffset.mul(convertedOffset, scale);
+  return convertedOffset;
+}
+
+/**
+ * A helper function to add/subtract two constants of the same type when either of them can be missing
+ */
+private static @NotNull Constant.ArithC addOptionalOffsets (
+  TreeCode code, @Nullable Constant.ArithC a, @Nullable Constant.ArithC b
+)
+{
+  if (b == null)
+    return a;
+  if (a == null)
+  {
+    if (code == TreeCode.ADD)
+      return b;
+    else
+    {
+      Constant.ArithC res = Constant.newConstant(b.spec);
+      res.neg(b);
+      return res;
+    }
+  }
+
+  assert a.spec == b.spec;
+  Constant.ArithC res = Constant.newConstant(a.spec);
+  if (code == TreeCode.ADD)
+    res.add(a, b);
+  else
+    res.sub(a, b);
+
+  return res;
+}
+
+/**
+ *
+ * @param code
+ * @param addition
+ * @param exprType it is needed when {@code addition} is in fact a subscript operation, so its result type
+ *                 is not a pointer.
+ * @return
+ */
+private @Nullable TExpr.StaticInit matchAdd ( TreeCode code, TExpr.Binary addition, Qual exprType )
+{
+  TExpr.StaticInit l = matchAddressPlusOffset(addition.getLeft());
+  if (l == null)
+    return null;
+  TExpr.StaticInit r = matchAddressPlusOffset(addition.getRight());
+  if (r == null)
+    return null;
+
+  // var + const
+  // var - const
+  // const + var
+
+  if (l.getAddress() != null && r.getAddress() == null)
+  {
+    return new TExpr.StaticInit(addition, exprType, l.getAddress(),
+      (Constant.IntC)addOptionalOffsets(
+        code, l.getOffset(), scaleOptionalOffset(addition.getLeft().getQual(), r.getOffset())
+      )
+    );
+  }
+  else if (l.getAddress() == null && code == TreeCode.ADD && r.getAddress() != null)
+  {
+    return new TExpr.StaticInit(addition, exprType, r.getAddress(),
+      (Constant.IntC)addOptionalOffsets(
+        code, scaleOptionalOffset(addition.getRight().getQual(), l.getOffset()), r.getOffset()
+      )
+    );
+  }
+  else
+    return null;
+}
+
+/**
+ * Recursively recognize a pattern of the form "ofs + ofs + ofs + addr + ofs + ofs + ofs"
+ */
+private @Nullable TExpr.StaticInit matchAddressPlusOffset ( TExpr.Expr e )
+{
+  {
+    IntConstEvaluator ev = new IntConstEvaluator(false);
+    if (e.visit(ev))
+    {
+      if (ev.getRes().spec.integer)
+        return new TExpr.StaticInit(e, ev.getResType(), null, (Constant.IntC)ev.getRes());
+      else
+        return null;
+    }
+  }
+
+  switch (e.getCode())
+  {
+  case ADDRESS:
+  case ARRAY_TO_POINTER:
+    TExpr.Unary addrExpr = (TExpr.Unary)e;
+    switch (addrExpr.getOperand().getCode())
+    {
+    case SUBSCRIPT:
+      return matchAdd(TreeCode.ADD, (TExpr.Binary)addrExpr.getOperand(), addrExpr.getQual());
+    case VARREF:
+    case STRING:
+      return new TExpr.StaticInit(e, e.getQual(), addrExpr.getOperand(), null);
+    }
+    return null;
+
+  case ADD:
+  case SUB:
+    return matchAdd(e.getCode(), (TExpr.Binary)e, e.getQual());
+
+  default:
+    return null;
+  }
+}
+
+public @Nullable TExpr.StaticInit classifyInitExpression ( ISourceRange loc, TExpr.Expr e )
+{
+  TExpr.StaticInit res;
+  //TODO: general expression folding
+  //TODO: recognize more forms like strings, &*, typecasts, etc
+
+  e = implicitLoad( e );
+  if (e.isError())
+    res = new TExpr.StaticInit(e, e.getQual(), null, null);
+  else
+    res = matchAddressPlusOffset(e);
+
+  if (res != null)
+    res.setRange(loc);
+
+  return res;
 }
 
 }

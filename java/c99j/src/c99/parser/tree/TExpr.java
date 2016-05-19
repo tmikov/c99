@@ -1,10 +1,7 @@
 package c99.parser.tree;
 
-import c99.AnyStringConst;
-import c99.ISourceRange;
-import c99.SourceRange;
+import c99.*;
 import c99.Types.*;
-import c99.Utils;
 import c99.parser.Decl;
 import c99.parser.pp.Misc;
 
@@ -373,6 +370,50 @@ public static class Binary extends Expr
   }
 }
 
+/**
+ * An init expression for an object with static storage duration. Since it must be initialized at link time,
+ * its only allowable form is "address of an object plus offset". We only use this in the initializers of
+ * static storage duration locations, it is not a generic expression node.
+ */
+public static class StaticInit extends Expr
+{
+  private final TExpr.Expr m_address;
+  private final c99.Constant.IntC m_offset;
+
+  public StaticInit ( ISourceRange rng, Qual qual, Expr address, c99.Constant.IntC offset )
+  {
+    super(rng, TreeCode.STATIC_INIT, qual);
+    m_address = address;
+    m_offset = offset;
+  }
+
+  @Override public boolean visit ( ExprVisitor v )
+  {
+    return v.visitStaticInit(this);
+  }
+  @Override public int getNumChildren ()
+  {
+    return 0;
+  }
+  @Override public Expr getChild ( int i )
+  {
+    return invalidChild(i);
+  }
+  @Override public String formatDetails ()
+  {
+    return (m_address != null ? m_address.formatDetails() : "null") + " + " + m_offset;
+  }
+
+  public final Expr getAddress ()
+  {
+    return m_address;
+  }
+  public final c99.Constant.IntC getOffset ()
+  {
+    return m_offset;
+  }
+}
+
 public static interface ExprVisitor
 {
   public boolean visitError ( Error e );
@@ -387,6 +428,7 @@ public static interface ExprVisitor
   public boolean visitUnary ( Unary e );
   public boolean visitTypecast ( Typecast e );
   public boolean visitBinary ( Binary e );
+  public boolean visitStaticInit ( StaticInit e );
 }
 
 public static boolean visitAllPre ( TExpr.Expr ex, final ExprVisitor v )
