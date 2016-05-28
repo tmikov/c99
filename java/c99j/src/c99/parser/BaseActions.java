@@ -3,8 +3,12 @@ package c99.parser;
 import c99.*;
 import c99.Types.*;
 
+import java.io.PrintWriter;
+
 public class BaseActions
 {
+protected final PrintWriter m_debugWriter = new PrintWriter(System.out, true);
+
 protected CompEnv m_compEnv;
 protected SymTable m_symTab;
 protected Platform m_plat;
