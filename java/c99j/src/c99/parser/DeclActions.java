@@ -2176,7 +2176,7 @@ private TInit.Value parseInitializer ( Qual type, parsedInit.Initializer init )
   }
 
   if (m_opts.debugInit)
-    ExprFormatter.format( 0, new PrintWriter( System.out, true ), obj );
+    ExprFormatter.format( 0, m_debugWriter, obj );
 
   return obj;
 }
