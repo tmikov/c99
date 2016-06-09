@@ -1647,14 +1647,54 @@ redeclaration:
     }
   }
 
-  FIXMENOW("only for static storage duration");
-  FIXMENOW("what about arrays");
-  final TExpr.StaticInit initExpr = classifyInitExpression(init, init.asExpr().getExpr());
-  if (initExpr != null)
+  // Fold and validate the static storage duration expressions
+  if (!decl.isError() && decl.isStaticStorageDuration())
   {
-    if (m_opts.debugInit)
-      ExprFormatter.format(0, m_debugWriter, initExpr);
+??    TInit.Value staticInit = validateStaticInitExpression(decl.initValue);
+??    decl.orError(staticInit != null && staticInit.isError());
   }
+}
+
+private TInit.Value validateStaticInitExpression (TInit.Value initValue)
+{
+  if (initValue == null) // an empty init value is valid
+    return null;
+  if (initValue.isError())
+    return initValue;
+
+  TInit.Value res = new TInit.Value(initValue, initValue.getQual());
+
+  if (initValue.getQual().spec.isAggregate())
+  {
+    if (!initValue.isCompound())
+    {
+      error(initValue, "initializer is not a constant");
+      res.markError();
+    }
+    else
+    {
+      TInit.Compound inputCompound = initValue.getCompound();
+      TInit.Compound resCompound = res.makeCompound(inputCompound.getLength());
+
+      for ( int i = 0, e = inputCompound.getLength(); i < e; ++i )
+        resCompound.setSubObject(i, validateStaticInitExpression(inputCompound.getSubObject(i)));
+    }
+  }
+  else
+  {
+    assert initValue.isSingle();
+
+    TExpr.StaticInit initExpr = classifyInitExpression(initValue, initValue.getExpr());
+    if (initExpr == null)
+    {
+      error(initValue, "initializer is not a constant");
+      res.markError();
+    }
+    else
+      res.setExpr(initExpr);
+  }
+
+  return res;
 }
 
 private @NotNull TInit.Value newInitObject ( ISourceRange loc, Qual type )

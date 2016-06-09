@@ -28,6 +28,15 @@ public static class Value extends SourceRange
   {
     super(loc);
     this.m_qual = qual;
+    if (qual.spec.isError())
+      markError();
+  }
+
+  public Value ( @NotNull TExpr.Expr expr )
+  {
+    super(expr);
+    this.m_qual = expr.getQual();
+    setExpr(expr);
   }
 
 /*  public Value ( Types.Qual qual )
@@ -86,15 +95,20 @@ public static class Value extends SourceRange
     return (Compound)m_data;
   }
 
-  public Compound makeCompound ()
+  public Compound makeCompound (int length)
   {
     assert !isCompound();
 
     // NOTE: If it is an aggregate, we optimize the capacity by pre-allocating the known number of sub-objects
-    final Compound c = new Compound(this, getSequentialInitLength());
+    final Compound c = new Compound(this, length);
     m_data = c;
     m_flags |= IS_COMPOUND;
     return c;
+  }
+
+  public Compound makeCompound ()
+  {
+    return makeCompound(getSequentialInitLength());
   }
 
   /**
@@ -136,7 +150,7 @@ public static final class Compound
   /**
    * Get an element. Elements outside of the array range are returned as {@code null}
    */
-  public Value getSubObject ( int index )
+  public @Nullable Value getSubObject ( int index )
   {
     return index < m_length ? m_subObjects[index] : null;
   }
@@ -144,9 +158,9 @@ public static final class Compound
   /**
    * Set an element, resizing the array if necessary
    */
-  public void setSubObject ( int index, Value value )
+  public void setSubObject ( int index, @Nullable Value value )
   {
-    if (value.isError())
+    if (value != null && value.isError())
       m_parent.markError();
 
     if (index < m_length)

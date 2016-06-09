@@ -1548,6 +1548,9 @@ private @Nullable TExpr.StaticInit matchAddressPlusOffset ( TExpr.Expr e )
     case SUBSCRIPT:
       return matchAdd(TreeCode.ADD, (TExpr.Binary)addrExpr.getOperand(), addrExpr.getQual());
     case VARREF:
+      if (!((TExpr.VarRef)addrExpr.getOperand()).getDecl().isStaticStorageDuration())
+        return null;
+      // fall
     case STRING:
       return new TExpr.StaticInit(e, e.getQual(), addrExpr.getOperand(), null);
     }
@@ -1562,6 +1565,10 @@ private @Nullable TExpr.StaticInit matchAddressPlusOffset ( TExpr.Expr e )
   }
 }
 
+/**
+ * Returns null if the expression is not a constant init expression. Otherwise returns a {@link c99.parser.tree.TExpr.StaticInit}
+ * which could however be marked as error.
+ */
 public @Nullable TExpr.StaticInit classifyInitExpression ( ISourceRange loc, TExpr.Expr e )
 {
   TExpr.StaticInit res;

@@ -91,6 +91,13 @@ public final boolean isError ()
   return this.m_error || (this.type != null && this.type.spec.isError());
 }
 
+public final boolean isStaticStorageDuration ()
+{
+  return
+    this.sclass == SClass.EXTERN || this.sclass == SClass.STATIC ||
+    this.sclass == SClass.NONE && this.storageScope.kind == Scope.Kind.FILE;
+}
+
 @Override
 public String toString ()
 {
